@@ -1,5 +1,5 @@
 {
-    "extraPaths": ["src/python"],
+    "extraPaths": ["tracker/src"],
     "venvPath": "/home/benjaminbuergi/miniconda3/envs",
     "venv": "gliderlog"
 }

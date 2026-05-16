@@ -7,7 +7,7 @@ from ddb import DeviceDatabase
 from state_tracker import AircraftStateTracker
 
 
-def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+def _radius_from_airport(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     r = 6371.0
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
     d_phi = math.radians(lat2 - lat1)
@@ -29,8 +29,8 @@ class FlightTracker:
         airport: Airport,
         ddb: DeviceDatabase,
         detection_radius_km: float = 5.0,
-        airborne_alt_m: float = 100.0,
-        ground_alt_m: float = 70.0,
+        airborne_alt_m: float = 20.0,
+        ground_alt_m: float = 5.0,
         confirm_beacons: int = 3,
     ):
         self._airport = airport
@@ -53,7 +53,7 @@ class FlightTracker:
         if latitude is None or longitude is None:
             return None
 
-        if _haversine_km(latitude, longitude, self._airport.lat, self._airport.lon) > self._detection_radius_km:
+        if _radius_from_airport(latitude, longitude, self._airport.lat, self._airport.lon) > self._detection_radius_km:
             return None
 
         aircraft_id = beacon.get("name", "")

@@ -1,7 +1,9 @@
 import os
 import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "python"))
+CSV_PATH = os.environ.get("CSV_PATH", "lszb_movements.csv")
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 from models import Airport
 from ddb import DeviceDatabase
@@ -12,7 +14,6 @@ from ogn.parser import parse, AprsParseError
 
 LSZB = Airport(icao="LSZB", name="Bern Belp", lat=46.9144, lon=7.4990, elevation_m=510.0)
 FILTER_RADIUS_KM = 15
-CSV_FILENAME = "lszb_movements.csv"
 
 
 def format_event(event):
@@ -35,7 +36,7 @@ def main():
     print(f"Loaded {count} registrations.")
 
     tracker = FlightTracker(airport=LSZB, ddb=ddb)
-    logger = CSVLogger(CSV_FILENAME)
+    logger = CSVLogger(CSV_PATH)
 
     def process_beacon(raw_message):
         try:
@@ -50,7 +51,7 @@ def main():
     aprs_filter = f"r/{LSZB.lat}/{LSZB.lon}/{FILTER_RADIUS_KM}"
     client = AprsClient(aprs_user="N0CALL", aprs_filter=aprs_filter)
     client.connect()
-    print(f"Connected. Logging {LSZB.icao} traffic to {CSV_FILENAME} (Ctrl+C to stop)")
+    print(f"Connected. Logging {LSZB.icao} traffic to {CSV_PATH} (Ctrl+C to stop)")
 
     try:
         client.run(callback=process_beacon, autoreconnect=True)

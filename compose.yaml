@@ -1,0 +1,8 @@
+services:
+  flight-tracker:
+    build: ./tracker
+    restart: unless-stopped
+    volumes:
+      - ./data:/data
+    environment:
+      - CSV_PATH=/data/lszb_movements.csv
