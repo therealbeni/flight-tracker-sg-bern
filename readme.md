@@ -71,4 +71,3 @@ examples/
 ## Dependencies
 
 - [ogn-client](https://github.com/glidernet/python-ogn-client) — APRS client for OGN
-- [ogn-parser](https://github.com/glidernet/ogn-parser) — APRS beacon parser
