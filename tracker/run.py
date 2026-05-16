@@ -51,7 +51,7 @@ def main():
     aprs_filter = f"r/{LSZB.lat}/{LSZB.lon}/{FILTER_RADIUS_KM}"
     client = AprsClient(aprs_user="N0CALL", aprs_filter=aprs_filter)
     client.connect()
-    print(f"Connected. Logging {LSZB.icao} traffic to {CSV_PATH} (Ctrl+C to stop)")
+    print(f"Connected. Logging {LSZB.icao} traffic to {CSV_PATH} (daily rotation, Ctrl+C to stop)")
 
     try:
         client.run(callback=process_beacon, autoreconnect=True)
