@@ -17,12 +17,7 @@ def _radius_from_airport(lat1: float, lon1: float, lat2: float, lon2: float) -> 
 
 
 class FlightTracker:
-    """Detects takeoffs and landings near an airport and computes flight duration.
-
-    An aircraft that takes off from the airport is tracked in memory. When it
-    lands at the same airport later in the same session, the flight duration is
-    computed and included in the landing event.
-    """
+    """Detects takeoffs and landings near an airport."""
 
     def __init__(
         self,
@@ -42,7 +37,6 @@ class FlightTracker:
             ground_alt_m=ground_alt_m,
             confirm_beacons=confirm_beacons,
         )
-        self._departures: dict[str, datetime] = {}
 
     def process_beacon(self, beacon: dict) -> Optional[FlightEvent]:
         if beacon.get("aprs_type") != "position":
@@ -71,16 +65,6 @@ class FlightTracker:
             else AIRCRAFT_TYPE_NAMES.get(beacon.get("aircraft_type"), "Unknown")
         )
 
-        departure_time = None
-        flight_duration_min = None
-
-        if event == "TAKEOFF":
-            self._departures[aircraft_id] = timestamp
-        elif event == "LANDING" and aircraft_id in self._departures:
-            dep = self._departures.pop(aircraft_id)
-            departure_time = dep
-            flight_duration_min = round((timestamp - dep).total_seconds() / 60, 1)
-
         ground_speed = beacon.get("ground_speed")
         altitude = beacon.get("altitude")
 
@@ -97,6 +81,6 @@ class FlightTracker:
             ground_speed_kmh=round(ground_speed, 1) if ground_speed is not None else None,
             climb_rate_ms=round(beacon.get("climb_rate", 0), 2),
             receiver=beacon.get("receiver_name", ""),
-            departure_time=departure_time,
-            flight_duration_min=flight_duration_min,
+            departure_time=None,
+            flight_duration_min=None,
         )
