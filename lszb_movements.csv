@@ -1,2 +1,0 @@
-timestamp,event,aircraft_id,callsign,address,aircraft_type,latitude,longitude,altitude_m,ground_speed_kmh,climb_rate_ms,receiver,departure_time,flight_duration_min
-2026-05-16T14:41:23+00:00,TAKEOFF,ICA4B08C3,HB-DIH,4B08C3,Mooney,46.917,7.49455,628.2,135.2,5.13,LSZBGLD,,

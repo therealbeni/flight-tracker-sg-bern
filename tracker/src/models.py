@@ -1,6 +1,10 @@
 from dataclasses import dataclass
-from datetime import datetime
-from typing import Optional
+from enum import Enum
+
+
+class FlightState(Enum):
+    GROUND = 0
+    FLYING = 1
 
 
 AIRCRAFT_TYPE_NAMES = {
@@ -24,6 +28,12 @@ AIRCRAFT_TYPE_NAMES = {
 
 
 @dataclass
+class AircraftInfo:
+    registration: str
+    model: str
+    
+
+@dataclass
 class Airport:
     icao: str
     name: str
@@ -33,24 +43,11 @@ class Airport:
 
 
 @dataclass
-class AircraftInfo:
-    registration: str
-    model: str
+class FlightPhaseRules:
+    # Speeds in km/h (adjust based on your OGN data unit)
+    takeoff_speed_min: float = 60.0  
+    # Altitude Above Ground Level (AGL) in meters
+    takeoff_agl_min: float = 20.0    
 
-
-@dataclass
-class FlightEvent:
-    timestamp: datetime
-    event: str  # "TAKEOFF" or "LANDING"
-    aircraft_id: str
-    callsign: str
-    address: str
-    aircraft_type: str
-    latitude: float
-    longitude: float
-    altitude_m: Optional[float]
-    ground_speed_kmh: Optional[float]
-    climb_rate_ms: float
-    receiver: str
-    departure_time: Optional[datetime] = None
-    flight_duration_min: Optional[float] = None
+    landing_speed_max: float = 40.0
+    landing_agl_max: float = 10.0
