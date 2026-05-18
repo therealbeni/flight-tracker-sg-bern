@@ -14,7 +14,8 @@ from flight_tracker import GlobalFlightTracker, AirportLogger
 
 LSZB = Airport(icao="LSZB", name="Bern Belp", lat=46.9144, lon=7.4990, elevation_m=510.0)
 AIRPORTS_CSV = os.path.join(os.path.dirname(__file__), "src", "airports.csv")
-OUTPUT_DIR = "."
+csv_path = os.environ.get("CSV_PATH")
+OUTPUT_DIR = os.path.dirname(csv_path) if csv_path else "."
 TIMEOUT_CHECK_INTERVAL_S = 30
 
 ddb = DeviceDatabase()
