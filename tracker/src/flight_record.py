@@ -38,7 +38,7 @@ class FlightRecord:
         self.vertical_speed = vertical_speed
         self.last_updated = time
 
-    def takeoff(self, airport:Airport):
+    def takeoff(self, airport: Optional[Airport]):
         if self.is_locked:
             raise ValueError("Cannot takeoff a locked flight record. Create a new instance.")
             

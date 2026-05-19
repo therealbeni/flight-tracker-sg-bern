@@ -77,10 +77,12 @@ class GlobalFlightTracker:
                 best = airport
         return best
 
-    def _classify(self, altitude_msl: float, speed: float, airport: Airport) -> bool:
-        agl = altitude_msl - airport.elevation_m
-        rules = self._phase_rules
-        return speed >= rules.takeoff_speed_min and agl >= rules.takeoff_agl_min
+    def _classify(self, altitude_msl: float, speed: float, airport: Optional[Airport]) -> bool:
+        if speed < self._phase_rules.takeoff_speed_min:
+            return False
+        if airport is None:
+            return True  # fast, not near any airport: assume airborne
+        return (altitude_msl - airport.elevation_m) >= self._phase_rules.takeoff_agl_min
 
     def process_beacon(self, beacon: dict) -> Optional[tuple[str, FlightRecord]]:
         if beacon.get("aprs_type") != "position":
@@ -94,11 +96,14 @@ class GlobalFlightTracker:
         if latitude is None or longitude is None or altitude is None or speed is None:
             return None
 
+        plane_id = beacon.get("name", "")
         nearest = self._nearest_airport(latitude, longitude)
-        if nearest is None:
+
+        existing = self._active_flights.get(plane_id)
+        if nearest is None and existing is None:
+            # New plane not near any airport: nothing to track yet
             return None
 
-        plane_id = beacon.get("name", "")
         timestamp = beacon.get("timestamp") or datetime.now(timezone.utc)
         vertical_speed = beacon.get("climb_rate", 0.0)
 
@@ -110,12 +115,10 @@ class GlobalFlightTracker:
             else AIRCRAFT_TYPE_NAMES.get(beacon.get("aircraft_type") or 0, "Unknown")
         )
 
-        classification = self._classify(altitude, speed, nearest)
+        is_flying = self._classify(altitude, speed, nearest)
 
-        # Get or create the single FlightRecord for this plane
-        existing = self._active_flights.get(plane_id)
         if existing is None:
-            initial_state = FlightState.FLYING if classification else FlightState.GROUND
+            initial_state = FlightState.FLYING if is_flying else FlightState.GROUND
             record = FlightRecord(
                 plane_id=plane_id,
                 plane_type=plane_type,
@@ -124,9 +127,8 @@ class GlobalFlightTracker:
                 time=timestamp,
             )
             self._active_flights[plane_id] = record
-            # Seed pending to match initial state, count = 0 so no immediate event
             self._pending[plane_id] = _PendingState(
-                pending_flying=(initial_state == FlightState.FLYING),
+                pending_flying=is_flying,
                 pending_count=0,
                 last_seen=timestamp,
             )
@@ -136,15 +138,14 @@ class GlobalFlightTracker:
         pending = self._pending[plane_id]
         pending.last_seen = timestamp
 
-        if classification == pending.pending_flying:
+        if is_flying == pending.pending_flying:
             pending.pending_count += 1
         else:
-            pending.pending_flying = classification
+            pending.pending_flying = is_flying
             pending.pending_count = 1
 
         currently_flying = record.flight_state == FlightState.FLYING
 
-        # Not enough confirmation or no actual state change
         if pending.pending_count < self._confirm_beacons or pending.pending_flying == currently_flying:
             record.update(latitude, longitude, altitude, speed, vertical_speed, timestamp)
             if currently_flying:
@@ -158,6 +159,10 @@ class GlobalFlightTracker:
             record.takeoff(nearest)
             return ("TAKEOFF", record)
         else:
+            # Only land if near an airport — avoids false landings from slowing mid-flight
+            if nearest is None:
+                record.update(latitude, longitude, altitude, speed, vertical_speed, timestamp)
+                return ("UPDATE", record)
             record.land(nearest)
             del self._active_flights[plane_id]
             self._pending.pop(plane_id, None)
