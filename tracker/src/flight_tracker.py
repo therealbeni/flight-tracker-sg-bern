@@ -77,14 +77,10 @@ class GlobalFlightTracker:
                 best = airport
         return best
 
-    def _classify(self, altitude_msl: float, speed: float, airport: Airport) -> Optional[bool]:
+    def _classify(self, altitude_msl: float, speed: float, airport: Airport) -> bool:
         agl = altitude_msl - airport.elevation_m
         rules = self._phase_rules
-        if speed >= rules.takeoff_speed_min and agl >= rules.takeoff_agl_min:
-            return True  # flying
-        if speed <= rules.landing_speed_max and agl <= rules.landing_agl_max:
-            return False  # ground
-        return None  # hysteresis
+        return speed >= rules.takeoff_speed_min and agl >= rules.takeoff_agl_min
 
     def process_beacon(self, beacon: dict) -> Optional[tuple[str, FlightRecord]]:
         if beacon.get("aprs_type") != "position":
@@ -137,11 +133,6 @@ class GlobalFlightTracker:
         else:
             record = existing
 
-        if classification is None:
-            record.update(latitude, longitude, altitude, speed, vertical_speed, timestamp)
-            self._pending[plane_id].last_seen = timestamp
-            return None
-
         pending = self._pending[plane_id]
         pending.last_seen = timestamp
 
@@ -156,6 +147,8 @@ class GlobalFlightTracker:
         # Not enough confirmation or no actual state change
         if pending.pending_count < self._confirm_beacons or pending.pending_flying == currently_flying:
             record.update(latitude, longitude, altitude, speed, vertical_speed, timestamp)
+            if currently_flying:
+                return ("UPDATE", record)
             return None
 
         # Confirmed state transition
@@ -233,6 +226,10 @@ class AirportLogger:
         landing_icao = flight_record.landing_airport.icao if flight_record.landing_airport else ""
 
         if takeoff_icao != self.airport.icao and landing_icao != self.airport.icao:
+            return
+
+        # Timeout landings have no detected airport; don't overwrite the takeoff row
+        if flight_record.landing_time and not landing_icao:
             return
 
         self._rotate()

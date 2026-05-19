@@ -44,10 +44,5 @@ class Airport:
 
 @dataclass
 class FlightPhaseRules:
-    # Speeds in km/h (adjust based on your OGN data unit)
-    takeoff_speed_min: float = 60.0  
-    # Altitude Above Ground Level (AGL) in meters
-    takeoff_agl_min: float = 20.0    
-
-    landing_speed_max: float = 40.0
-    landing_agl_max: float = 10.0
+    takeoff_speed_min: float = 60.0  # km/h
+    takeoff_agl_min: float = 20.0    # meters AGL
