@@ -213,7 +213,8 @@ class AirportLogger:
         if path.exists():
             with path.open(newline="", encoding="utf-8") as f:
                 for row in csv.DictReader(f):
-                    self._rows[row["record_id"]] = row
+                    if row.get("record_id"):
+                        self._rows[row["record_id"]] = row
 
     def _flush(self) -> None:
         with self._daily_path().open("w", newline="", encoding="utf-8") as f:
@@ -226,10 +227,6 @@ class AirportLogger:
         landing_icao = flight_record.landing_airport.icao if flight_record.landing_airport else ""
 
         if takeoff_icao != self.airport.icao and landing_icao != self.airport.icao:
-            return
-
-        # Timeout landings have no detected airport; don't overwrite the takeoff row
-        if flight_record.landing_time and not landing_icao:
             return
 
         self._rotate()

@@ -16,7 +16,7 @@ AIRPORTS = [
     Airport(icao="LSZB", name="Bern Belp", lat=46.9144, lon=7.4990, elevation_m=510.0),
     Airport(icao="LSTZ", name="Zweisimmen", lat=46.551713, lon=7.381012, elevation_m=935.0),
 ]
-APRS_FILTER_RADIUS_KM = 15
+APRS_FILTER_RADIUS_KM = 2000
 
 AIRPORTS_CSV = os.path.join(os.path.dirname(__file__), "src", "airports.csv")
 csv_path = os.environ.get("CSV_PATH")
