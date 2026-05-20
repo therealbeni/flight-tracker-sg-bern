@@ -11,6 +11,6 @@ CSV files are written to `./data/` on the host. The container restarts automatic
 ## Running directly
 
 ```bash
-pip install ogn-client ogn-parser
-CSV_PATH=lszb_movements.csv python tracker/run.py
+pip install ogn-client ogn-parser srtm.py matplotlib
+CSV_PATH=./data python tracker/run.py
 ```

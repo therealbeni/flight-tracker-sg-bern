@@ -8,17 +8,9 @@
 :show-inheritance:
 ```
 
-## state_tracker
+## flight_record
 
-```{automodule} state_tracker
-:members:
-:undoc-members:
-:show-inheritance:
-```
-
-## csv_logger
-
-```{automodule} csv_logger
+```{automodule} flight_record
 :members:
 :undoc-members:
 :show-inheritance:
