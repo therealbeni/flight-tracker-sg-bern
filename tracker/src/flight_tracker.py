@@ -6,9 +6,10 @@ from pathlib import Path
 from typing import Optional, Union
 import srtm
 
-from models import AIRCRAFT_TYPE_NAMES, Airport, FlightPhaseRules, FlightState
+from models import AIRCRAFT_TYPE_NAMES, AircraftFleet, Airport, FlightPhaseRules, FlightState
 from flight_record import FlightRecord
 from ddb import DeviceDatabase
+from abc import ABC, abstractmethod
 
 
 def _haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -156,7 +157,16 @@ CSV_FIELDNAMES = [
 ]
 
 
-class AirportLogger:
+class FilteredLogger(ABC):
+    """Abstract base class for a filtered logger"""
+
+    @abstractmethod
+    def log(self, flight_record: FlightRecord) -> None: ...
+
+    @abstractmethod
+    def close(self) -> None: ...
+
+class AirportLogger(FilteredLogger):
     """Logs all traffic related to a specific airport as icao_movements_date.csv.
 
     Each row represents one flight. The row is written on takeoff and overwritten
@@ -206,6 +216,76 @@ class AirportLogger:
         duration_min = round(duration.total_seconds() / 60, 1) if duration is not None else ""
 
         # Using unique UUID record_id prevents overwriting separate flight legs!
+        self._rows[flight_record.record_id] = {
+            "record_id": flight_record.record_id,
+            "plane_id": flight_record.plane_id,
+            "callsign": flight_record.callsign,
+            "plane_type": flight_record.plane_type,
+            "latitude": flight_record.latitude if flight_record.latitude is not None else "",
+            "longitude": flight_record.longitude if flight_record.longitude is not None else "",
+            "altitude_m": flight_record.height if flight_record.height is not None else "",
+            "speed_kmh": flight_record.speed if flight_record.speed is not None else "",
+            "takeoff_airport": takeoff_icao,
+            "landing_airport": landing_icao,
+            "takeoff_time": flight_record.takeoff_time.isoformat() if flight_record.takeoff_time else "",
+            "landing_time": flight_record.landing_time.isoformat() if flight_record.landing_time else "",
+            "flight_duration_min": duration_min,
+        }
+        self._flush()
+
+    def close(self) -> None:
+        pass
+
+
+class ClubLogger(FilteredLogger):
+    """Logs all flights by planes in a specific club fleet, regardless of airport.
+
+    Each row represents one flight. The row is written on takeoff and overwritten
+    on landing so landing data is filled in on the same record.
+    Output filename: {club_name}_movements_{date}.csv
+    """
+
+    def __init__(self, club_name: str, fleet: AircraftFleet, output_dir: Union[str, Path] = "."):
+        self._club_name = club_name
+        self._registrations: frozenset[str] = frozenset(fleet.values())
+        self._output_dir = Path(output_dir)
+        self._current_date: Optional[date] = None
+        self._rows: dict[str, dict] = {}
+        self._rotate()
+
+    def _daily_path(self) -> Path:
+        return self._output_dir / f"{self._club_name}_movements_{date.today()}.csv"
+
+    def _rotate(self) -> None:
+        today = date.today()
+        if self._current_date == today:
+            return
+        self._current_date = today
+        self._rows = {}
+        path = self._daily_path()
+        if path.exists():
+            with path.open(newline="", encoding="utf-8") as f:
+                for row in csv.DictReader(f):
+                    if row.get("record_id"):
+                        self._rows[row["record_id"]] = row
+
+    def _flush(self) -> None:
+        with self._daily_path().open("w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=CSV_FIELDNAMES)
+            writer.writeheader()
+            writer.writerows(self._rows.values())
+
+    def log(self, flight_record: FlightRecord) -> None:
+        if flight_record.callsign not in self._registrations:
+            return
+
+        self._rotate()
+
+        takeoff_icao = flight_record.takeoff_airport.icao if flight_record.takeoff_airport else None
+        landing_icao = flight_record.landing_airport.icao if flight_record.landing_airport else None
+        duration = flight_record.flight_duration
+        duration_min = round(duration.total_seconds() / 60, 1) if duration is not None else ""
+
         self._rows[flight_record.record_id] = {
             "record_id": flight_record.record_id,
             "plane_id": flight_record.plane_id,

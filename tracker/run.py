@@ -7,9 +7,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 from ogn.client import AprsClient
 from ogn.parser import parse, AprsParseError
 
-from models import Airport, FlightPhaseRules
+from models import Airport, FlightPhaseRules, SG_BERN_FLEET
 from ddb import DeviceDatabase
-from flight_tracker import GlobalFlightTracker, AirportLogger
+from flight_tracker import GlobalFlightTracker, AirportLogger, ClubLogger, FilteredLogger
 
 AIRPORTS = [
     Airport(icao="LSZB", name="Bern Belp", lat=46.9144, lon=7.4990, elevation_m=510.0),
@@ -30,8 +30,8 @@ tracker = GlobalFlightTracker(
     phase_rules=FlightPhaseRules(),
     detection_radius_km=5.0,
 )
-loggers = [AirportLogger(airport=airport, output_dir=OUTPUT_DIR) for airport in AIRPORTS]
-
+loggers: list[FilteredLogger] = [AirportLogger(airport=airport, output_dir=OUTPUT_DIR) for airport in AIRPORTS]
+loggers.append(ClubLogger("sg-bern", SG_BERN_FLEET, OUTPUT_DIR))
 def process_beacon(raw_message):
     try:
         beacon = parse(raw_message)

@@ -46,3 +46,20 @@ class Airport:
 class FlightPhaseRules:
     takeoff_speed_min: float = 60.0  # km/h
     takeoff_agl_min: float = 10.0    # meters AGL
+
+
+AircraftFleet = dict[str, str]  # OGN device_id -> registration
+
+SG_BERN_FLEET = {
+    '3D0EB4': 'D-EDUY',
+    '4B473F': 'HB-664',
+    '4B4B8D': 'HB-1766',
+    '4B4BBA': 'HB-1811',
+    '4B4DF0': 'HB-2377',
+    '4B50E2': 'HB-3131',
+    '4B5177': 'HB-3280',
+    '4B51C9': 'HB-3362',
+    '4B51FA': 'HB-3411',
+    '4B521E': 'HB-3447',
+    '4B5224': 'HB-3453',
+}
