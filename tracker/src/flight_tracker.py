@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from typing import Optional, Union
+import srtm
 
 from models import AIRCRAFT_TYPE_NAMES, Airport, FlightPhaseRules, FlightState
 from flight_record import FlightRecord
@@ -39,6 +40,8 @@ class GlobalFlightTracker:
         self._airports: list[Airport] = self._load_airports(Path(airports_csv))
         self._active_flights: dict[str, FlightRecord] = {}
 
+        self.elevation_data = srtm.get_data()
+
     def _load_airports(self, path: Path) -> list[Airport]:
         airports = []
         with path.open(newline="", encoding="utf-8") as f:
@@ -66,9 +69,16 @@ class GlobalFlightTracker:
                 best = airport
         return best
 
-    def _classify(self, speed: float) -> FlightState:
-        #TODO Later on add better classification with agl height
-        if speed < self._phase_rules.takeoff_speed_min:
+    def _classify(self, speed: float, altitude_msl, lat, lon) -> FlightState:
+        # compute agl for current point to avoid errors with thermaling or helicopters
+        try:
+            terrain = self.elevation_data.get_elevation(lat, lon)
+        except TypeError as err:
+            print("Elevation data failed due to {err}")
+            return FlightState.GROUND # Default return 
+        
+        agl = altitude_msl - terrain
+        if speed < self._phase_rules.takeoff_speed_min and agl < self._phase_rules.takeoff_agl_min:
             return FlightState.GROUND
         else:
             return FlightState.FLYING
@@ -95,7 +105,7 @@ class GlobalFlightTracker:
             else AIRCRAFT_TYPE_NAMES.get(beacon.get("aircraft_type") or 0, "Unknown")
         )
         vertical_speed = beacon.get("climb_rate", "")
-        flight_state = self._classify(speed)
+        flight_state = self._classify(speed, altitude, latitude, longitude)
         timestamp = beacon.get("timestamp")
 
         if plane_id not in self._active_flights:

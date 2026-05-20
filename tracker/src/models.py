@@ -45,4 +45,4 @@ class Airport:
 @dataclass
 class FlightPhaseRules:
     takeoff_speed_min: float = 60.0  # km/h
-    takeoff_agl_min: float = 20.0    # meters AGL
+    takeoff_agl_min: float = 10.0    # meters AGL

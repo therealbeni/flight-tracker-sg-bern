@@ -1,2 +1,4 @@
 ogn-client
 ogn-parser
+matplotlib
+srtm.py
