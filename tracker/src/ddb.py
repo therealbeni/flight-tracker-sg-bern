@@ -39,7 +39,7 @@ class DeviceDatabase:
                     self._entries[address] = AircraftInfo(registration=registration, model=model)
 
             return len(self._entries)
-        except Exception as exc:
+        except (OSError, ValueError, KeyError, csv.Error) as exc:
             print(f"Warning: could not load OGN device database: {exc}", file=sys.stderr)
             return 0
 

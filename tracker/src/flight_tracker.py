@@ -1,7 +1,7 @@
 import csv
 import math
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta, timezone
+from datetime import date
 from pathlib import Path
 from typing import Optional, Union
 
@@ -19,12 +19,6 @@ def _haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return 2 * r * math.asin(math.sqrt(a))
 
 
-@dataclass
-class _PendingState:
-    pending_flying: bool
-    pending_count: int
-    last_seen: Optional[datetime] = None
-
 
 class GlobalFlightTracker:
     """Takes in OGN Data and creates a flight_record for each plane and keeps it in memory.
@@ -37,18 +31,13 @@ class GlobalFlightTracker:
         ddb: DeviceDatabase,
         phase_rules: Optional[FlightPhaseRules] = None,
         detection_radius_km: float = 5.0,
-        confirm_beacons: int = 2,
-        timeout_min: float = 3.0,
     ):
         self._ddb = ddb
         self._phase_rules = phase_rules or FlightPhaseRules()
         self._detection_radius_km = detection_radius_km
-        self._confirm_beacons = confirm_beacons
-        self._timeout_delta = timedelta(minutes=timeout_min)
 
         self._airports: list[Airport] = self._load_airports(Path(airports_csv))
         self._active_flights: dict[str, FlightRecord] = {}
-        self._pending: dict[str, _PendingState] = {}
 
     def _load_airports(self, path: Path) -> list[Airport]:
         airports = []
@@ -77,36 +66,27 @@ class GlobalFlightTracker:
                 best = airport
         return best
 
-    def _classify(self, altitude_msl: float, speed: float, airport: Optional[Airport]) -> bool:
+    def _classify(self, speed: float) -> FlightState:
+        #TODO Later on add better classification with agl height
         if speed < self._phase_rules.takeoff_speed_min:
-            return False
-        if airport is None:
-            return True  # fast, not near any airport: assume airborne
-        return (altitude_msl - airport.elevation_m) >= self._phase_rules.takeoff_agl_min
+            return FlightState.GROUND
+        else:
+            return FlightState.FLYING
 
-    def process_beacon(self, beacon: dict) -> Optional[tuple[str, FlightRecord]]:
+    def process_beacon(self, beacon: dict) -> Optional[FlightRecord]:
         if beacon.get("aprs_type") != "position":
             return None
-
+        
         latitude = beacon.get("latitude")
         longitude = beacon.get("longitude")
         altitude = beacon.get("altitude")
         speed = beacon.get("ground_speed")
-
+        
         if latitude is None or longitude is None or altitude is None or speed is None:
-            return None
-
+            return None # Invalid data
+        
+        # prepare data
         plane_id = beacon.get("name", "")
-        nearest = self._nearest_airport(latitude, longitude)
-
-        existing = self._active_flights.get(plane_id)
-        if nearest is None and existing is None:
-            # New plane not near any airport: nothing to track yet
-            return None
-
-        timestamp = beacon.get("timestamp") or datetime.now(timezone.utc)
-        vertical_speed = beacon.get("climb_rate", 0.0)
-
         address = beacon.get("address", "")
         ddb_entry = self._ddb.lookup(address)
         callsign = ddb_entry.registration if ddb_entry else ""
@@ -114,73 +94,50 @@ class GlobalFlightTracker:
             ddb_entry.model if ddb_entry and ddb_entry.model
             else AIRCRAFT_TYPE_NAMES.get(beacon.get("aircraft_type") or 0, "Unknown")
         )
+        vertical_speed = beacon.get("climb_rate", "")
+        flight_state = self._classify(speed)
+        timestamp = beacon.get("timestamp")
 
-        is_flying = self._classify(altitude, speed, nearest)
+        if plane_id not in self._active_flights:
+            # plane is new, no active flight exists
+            new_flight = FlightRecord(
+                plane_id,
+                plane_type,
+                callsign,
+                flight_state,
+                timestamp)
+            new_flight.update(latitude, longitude, altitude, speed, vertical_speed, timestamp)
+            self._active_flights[plane_id] = new_flight
+            return new_flight
 
-        if existing is None:
-            initial_state = FlightState.FLYING if is_flying else FlightState.GROUND
-            record = FlightRecord(
-                plane_id=plane_id,
-                plane_type=plane_type,
-                callsign=callsign,
-                flight_state=initial_state,
-                time=timestamp,
-            )
-            self._active_flights[plane_id] = record
-            self._pending[plane_id] = _PendingState(
-                pending_flying=is_flying,
-                pending_count=0,
-                last_seen=timestamp,
-            )
         else:
-            record = existing
+            # update entry
+            flight = self._active_flights[plane_id]
+            flight.update(latitude,
+                          longitude,
+                          altitude,
+                          speed,
+                          vertical_speed,
+                          timestamp)
+            old_flight_state = flight.flight_state
 
-        pending = self._pending[plane_id]
-        pending.last_seen = timestamp
-
-        if is_flying == pending.pending_flying:
-            pending.pending_count += 1
-        else:
-            pending.pending_flying = is_flying
-            pending.pending_count = 1
-
-        currently_flying = record.flight_state == FlightState.FLYING
-
-        if pending.pending_count < self._confirm_beacons or pending.pending_flying == currently_flying:
-            record.update(latitude, longitude, altitude, speed, vertical_speed, timestamp)
-            if currently_flying:
-                return ("UPDATE", record)
-            return None
-
-        # Confirmed state transition
-        record.update(latitude, longitude, altitude, speed, vertical_speed, timestamp)
-
-        if pending.pending_flying:
-            record.takeoff(nearest)
-            return ("TAKEOFF", record)
-        else:
-            # Only land if near an airport — avoids false landings from slowing mid-flight
-            if nearest is None:
-                record.update(latitude, longitude, altitude, speed, vertical_speed, timestamp)
-                return ("UPDATE", record)
-            record.land(nearest)
-            del self._active_flights[plane_id]
-            self._pending.pop(plane_id, None)
-            return ("LANDING", record)
-
-    def check_timeouts(self, current_time: datetime) -> list[tuple[str, FlightRecord]]:
-        results = []
-        timed_out = [
-            plane_id for plane_id, record in self._active_flights.items()
-            if (current_time - record.last_updated) > self._timeout_delta
-        ]
-        for plane_id in timed_out:
-            record = self._active_flights.pop(plane_id)
-            self._pending.pop(plane_id, None)
-            if record.flight_state == FlightState.FLYING:
-                record.land(airport=None)
-                results.append(("LANDING", record))
-        return results
+            if old_flight_state == flight_state:
+                # no change
+                return flight
+            
+            elif old_flight_state == FlightState.GROUND and flight_state == FlightState.FLYING:
+                # Takeoff
+                # get nearest airport
+                airport = self._nearest_airport(latitude, longitude)
+                flight.takeoff(airport)
+                return flight
+            
+            elif old_flight_state == FlightState.FLYING and flight_state == FlightState.GROUND:
+                # Land
+                airport = self._nearest_airport(latitude, longitude)
+                flight.land(airport)
+                self._active_flights.pop(plane_id)
+                return flight
 
 
 CSV_FIELDNAMES = [
@@ -228,9 +185,10 @@ class AirportLogger:
             writer.writerows(self._rows.values())
 
     def log(self, flight_record: FlightRecord) -> None:
-        takeoff_icao = flight_record.takeoff_airport.icao if flight_record.takeoff_airport else ""
-        landing_icao = flight_record.landing_airport.icao if flight_record.landing_airport else ""
+        takeoff_icao = flight_record.takeoff_airport.icao if flight_record.takeoff_airport else None
+        landing_icao = flight_record.landing_airport.icao if flight_record.landing_airport else None
 
+        # Check if this flight is relevant to this specific airport logger
         if takeoff_icao != self.airport.icao and landing_icao != self.airport.icao:
             return
 
@@ -239,6 +197,7 @@ class AirportLogger:
         duration = flight_record.flight_duration
         duration_min = round(duration.total_seconds() / 60, 1) if duration is not None else ""
 
+        # Using unique UUID record_id prevents overwriting separate flight legs!
         self._rows[flight_record.record_id] = {
             "record_id": flight_record.record_id,
             "plane_id": flight_record.plane_id,
