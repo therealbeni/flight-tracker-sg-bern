@@ -70,13 +70,11 @@ class GlobalFlightTracker:
         return best
 
     def _classify(self, speed: float, altitude_msl, lat, lon) -> FlightState:
-        # compute agl for current point to avoid errors with thermaling or helicopters
-        try:
-            terrain = self.elevation_data.get_elevation(lat, lon)
-        except TypeError as err:
-            print("Elevation data failed due to {err}")
-            return FlightState.GROUND # Default return 
-        
+        terrain = self.elevation_data.get_elevation(lat, lon)
+        if terrain is None:
+            # Fallback for failed terrain query
+            return FlightState.FLYING if speed >= self._phase_rules.takeoff_speed_min else FlightState.GROUND
+
         agl = altitude_msl - terrain
         if speed < self._phase_rules.takeoff_speed_min and agl < self._phase_rules.takeoff_agl_min:
             return FlightState.GROUND
