@@ -210,6 +210,10 @@ class AirportLogger(FilteredLogger):
         if takeoff_icao != self.airport.icao and landing_icao != self.airport.icao:
             return
 
+        # Flight hasnt started yet. Dont add record
+        if flight_record.takeoff_time == None and flight_record.landing_time == None:
+            return
+
         self._rotate()
 
         duration = flight_record.flight_duration
@@ -277,6 +281,10 @@ class ClubLogger(FilteredLogger):
 
     def log(self, flight_record: FlightRecord) -> None:
         if flight_record.callsign not in self._registrations:
+            return
+
+        # Flight hasnt started yet. Dont add record
+        if flight_record.takeoff_time == None and flight_record.landing_time == None:
             return
 
         self._rotate()
