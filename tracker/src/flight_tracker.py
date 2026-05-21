@@ -122,6 +122,8 @@ class GlobalFlightTracker:
         else:
             # update entry
             flight = self._active_flights[plane_id]
+            if timestamp is not None and flight.last_updated is not None and timestamp < flight.last_updated:
+                return flight  # out-of-order beacon, skip
             flight.update(latitude,
                           longitude,
                           altitude,
@@ -173,9 +175,10 @@ class AirportLogger(FilteredLogger):
     on landing so landing data is filled in on the same record.
     """
 
-    def __init__(self, airport: Airport, output_dir: Union[str, Path] = "."):
+    def __init__(self, airport: Airport, output_dir: Union[str, Path] = ".", min_flight_duration_min: float = 1.0):
         self.airport = airport
         self._output_dir = Path(output_dir)
+        self._min_flight_duration_min = min_flight_duration_min
         self._current_date: Optional[date] = None
         self._rows: dict[str, dict] = {}
         self._rotate()
@@ -219,6 +222,13 @@ class AirportLogger(FilteredLogger):
         duration = flight_record.flight_duration
         duration_min = round(duration.total_seconds() / 60, 1) if duration is not None else ""
 
+        # Drop completed flights that are too short to be real
+        if flight_record.landing_time is not None and duration is not None:
+            if duration.total_seconds() / 60 < self._min_flight_duration_min:
+                self._rows.pop(flight_record.record_id, None)
+                self._flush()
+                return
+
         # Using unique UUID record_id prevents overwriting separate flight legs!
         self._rows[flight_record.record_id] = {
             "record_id": flight_record.record_id,
@@ -249,10 +259,11 @@ class ClubLogger(FilteredLogger):
     Output filename: {club_name}_movements_{date}.csv
     """
 
-    def __init__(self, club_name: str, fleet: AircraftFleet, output_dir: Union[str, Path] = "."):
+    def __init__(self, club_name: str, fleet: AircraftFleet, output_dir: Union[str, Path] = ".", min_flight_duration_min: float = 1.0):
         self._club_name = club_name
         self._registrations: frozenset[str] = frozenset(fleet.values())
         self._output_dir = Path(output_dir)
+        self._min_flight_duration_min = min_flight_duration_min
         self._current_date: Optional[date] = None
         self._rows: dict[str, dict] = {}
         self._rotate()
@@ -293,6 +304,13 @@ class ClubLogger(FilteredLogger):
         landing_icao = flight_record.landing_airport.icao if flight_record.landing_airport else None
         duration = flight_record.flight_duration
         duration_min = round(duration.total_seconds() / 60, 1) if duration is not None else ""
+
+        # Drop completed flights that are too short to be real
+        if flight_record.landing_time is not None and duration is not None:
+            if duration.total_seconds() / 60 < self._min_flight_duration_min:
+                self._rows.pop(flight_record.record_id, None)
+                self._flush()
+                return
 
         self._rows[flight_record.record_id] = {
             "record_id": flight_record.record_id,
