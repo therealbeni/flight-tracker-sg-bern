@@ -4,3 +4,5 @@
 .vscode/
 data/
 *.csv
+docs/_build/
+app/alembic/versions/__pycache__/

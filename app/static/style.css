@@ -1,0 +1,467 @@
+/* Design tokens - colors lifted from sgbern.ch's own palette (deep slate blue mark,
+   sky-blue accent) so this feels like part of the same club, not a generic tool. */
+:root {
+    /* This is a light-only design; without this, some mobile browsers'
+       auto-dark-mode heuristics invert the whole page when the OS is in dark
+       mode, scrambling the intentional brand palette. */
+    color-scheme: light;
+
+    --brand-900: #1b3446;
+    --brand-700: #2b5672;
+    --brand-600: #35668a;
+    --brand-500: #4b6a9a;
+    --brand-100: #e8f0f7;
+
+    --sky: #4eb7f5;
+    --sky-100: #eaf7ff;
+
+    --ink: #23272e;
+    --ink-muted: #6b7280;
+    --ink-faint: #9aa3ae;
+
+    --bg: #f4f6f9;
+    --surface: #ffffff;
+    --border: #e2e8f0;
+
+    --danger: #d1373f;
+    --danger-100: #fdecec;
+    --success: #1f8a5f;
+    --success-100: #e8f6ef;
+    --warning: #b8760a;
+    --warning-100: #fdf3e1;
+
+    --radius-lg: 18px;
+    --radius-md: 12px;
+    --radius-sm: 8px;
+    --shadow-card: 0 1px 2px rgba(20, 30, 45, 0.04), 0 4px 16px rgba(20, 30, 45, 0.06);
+    --shadow-nav: 0 -2px 12px rgba(20, 30, 45, 0.08);
+    --tap: 48px;
+
+    --nav-height: 64px;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.45;
+}
+
+body.has-tabbar {
+    padding-bottom: calc(var(--nav-height) + var(--safe-bottom) + 12px);
+}
+
+h1, h2, h3 { line-height: 1.25; letter-spacing: -0.01em; }
+h1 { font-size: 1.5rem; margin: 0 0 0.25rem; }
+h2 { font-size: 1.125rem; margin: 1.5rem 0 0.75rem; color: var(--ink); }
+
+a { color: var(--brand-700); }
+
+/* ---------- Top bar ---------- */
+
+.topbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.85rem 1.1rem;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+}
+
+.topbar .brand {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--brand-900);
+    font-weight: 700;
+    font-size: 1.05rem;
+    text-decoration: none;
+    letter-spacing: -0.01em;
+}
+
+.topbar .brand .mark {
+    width: 28px;
+    height: 28px;
+    flex: none;
+}
+
+/* Desktop-only inline nav living in the top bar; mobile uses the bottom tab bar. */
+.topbar nav {
+    display: none;
+}
+
+.topbar .icon-btn {
+    display: none;
+}
+
+.topbar form.logout-form { display: none; }
+
+/* ---------- Bottom tab bar (primary nav on mobile - the main use case) ---------- */
+
+.tabbar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    display: flex;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    box-shadow: var(--shadow-nav);
+    padding-bottom: var(--safe-bottom);
+}
+
+.tabbar a, .tabbar button {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 8px 2px 6px;
+    min-height: var(--nav-height);
+    color: var(--ink-faint);
+    text-decoration: none;
+    font-size: 0.68rem;
+    font-weight: 600;
+    background: none;
+    border: none;
+    font-family: inherit;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.tabbar svg { width: 22px; height: 22px; }
+
+.tabbar a.active {
+    color: var(--brand-700);
+}
+
+.tabbar a.primary-action {
+    color: var(--surface);
+}
+
+.tabbar a.primary-action .icon-wrap {
+    background: var(--brand-700);
+    color: #fff;
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: -20px;
+    box-shadow: 0 4px 10px rgba(43, 86, 114, 0.35);
+}
+
+.tabbar a.primary-action.active .icon-wrap { background: var(--brand-900); }
+.tabbar a.primary-action span.label { color: var(--ink-faint); }
+.tabbar a.primary-action.active span.label { color: var(--brand-700); }
+
+/* ---------- Layout ---------- */
+
+.content {
+    padding: 1rem 1rem 1.5rem;
+    max-width: 720px;
+    margin: 0 auto;
+}
+
+/* ---------- Cards & lists ---------- */
+
+.card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+    padding: 1.1rem;
+    margin-bottom: 1rem;
+}
+
+.card.narrow { max-width: 420px; margin: 1.5rem auto; }
+
+.hero {
+    background: linear-gradient(135deg, var(--brand-700), var(--brand-900));
+    color: #fff;
+    border-radius: var(--radius-lg);
+    padding: 1.3rem 1.25rem;
+    margin-bottom: 1rem;
+    box-shadow: var(--shadow-card);
+}
+
+.hero .greeting { font-size: 1.3rem; font-weight: 700; margin: 0 0 0.15rem; }
+.hero .subline { color: rgba(255,255,255,0.8); font-size: 0.9rem; margin: 0; }
+
+.stat-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.6rem;
+    margin-top: 1rem;
+}
+
+.stat {
+    background: rgba(255,255,255,0.12);
+    border-radius: var(--radius-md);
+    padding: 0.6rem 0.5rem;
+    text-align: center;
+}
+
+.stat .num { display: block; font-size: 1.25rem; font-weight: 700; }
+.stat .label { display: block; font-size: 0.68rem; color: rgba(255,255,255,0.75); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px; }
+
+.section-title {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+}
+
+.section-title h2 { margin-top: 0; }
+.section-title a { font-size: 0.85rem; font-weight: 600; text-decoration: none; }
+
+/* Record list: replaces dense tables with tappable cards - much friendlier on a phone. */
+.record-list { display: flex; flex-direction: column; gap: 0.6rem; }
+
+.record {
+    display: block;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 0.8rem 0.9rem;
+    text-decoration: none;
+    color: inherit;
+}
+
+.record-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.record-title { font-weight: 700; color: var(--brand-900); }
+.record-meta { color: var(--ink-muted); font-size: 0.85rem; margin-top: 2px; }
+
+.record-times {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--ink);
+}
+
+.record-times .arrow { color: var(--ink-faint); }
+.record-empty { text-align: center; color: var(--ink-muted); padding: 2rem 1rem; }
+
+/* Plain data table - kept for admin screens, mainly used on wider/desktop viewports. */
+.data-table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: var(--radius-md); overflow: hidden; }
+.data-table th, .data-table td { text-align: left; padding: 0.6rem 0.7rem; border-bottom: 1px solid var(--border); font-size: 0.92rem; }
+.data-table th { color: var(--ink-muted); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; }
+.data-table tr:last-child td { border-bottom: none; }
+
+@media (max-width: 640px) {
+    .data-table { display: block; overflow-x: auto; white-space: nowrap; }
+}
+
+/* ---------- Forms ---------- */
+
+label {
+    display: block;
+    margin-bottom: 0.9rem;
+    font-size: 0.85rem;
+    color: var(--ink-muted);
+    font-weight: 600;
+}
+
+input, select {
+    display: block;
+    width: 100%;
+    margin-top: 0.35rem;
+    padding: 0.7rem 0.8rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--ink);
+    font-size: 1rem;
+    font-family: inherit;
+    min-height: var(--tap);
+}
+
+input:focus, select:focus {
+    outline: none;
+    border-color: var(--brand-500);
+    box-shadow: 0 0 0 3px var(--brand-100);
+}
+
+/* ---------- Buttons ---------- */
+
+button, .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.75rem 1.1rem;
+    min-height: var(--tap);
+    border-radius: var(--radius-sm);
+    border: none;
+    background: var(--brand-700);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.95rem;
+    font-family: inherit;
+    cursor: pointer;
+    text-decoration: none;
+    width: 100%;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 120ms ease, transform 60ms ease;
+}
+
+button:active, .btn:active { transform: scale(0.98); }
+button:hover, .btn:hover { background: var(--brand-900); }
+
+button.secondary, .btn.secondary {
+    background: var(--brand-100);
+    color: var(--brand-900);
+}
+button.secondary:hover, .btn.secondary:hover { background: #dbe7f1; }
+
+button.danger { background: var(--danger); }
+button.danger:hover { background: #a92a30; }
+
+button.compact, .btn.compact { width: auto; min-height: 40px; padding: 0.5rem 0.9rem; font-size: 0.85rem; }
+
+.inline-form { display: inline; width: auto; }
+.inline-form button { width: auto; }
+
+form > button[type="submit"] { margin-top: 0.4rem; }
+
+.action-row { display: flex; gap: 0.6rem; margin-top: 0.6rem; }
+.action-row > * { flex: 1; }
+
+.subnav { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.subnav .btn { width: auto; }
+
+/* ---------- Badges ---------- */
+
+.badge {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.badge-approved { background: var(--success-100); color: var(--success); }
+.badge-pending { background: var(--warning-100); color: var(--warning); }
+.badge-rejected { background: var(--danger-100); color: var(--danger); }
+.badge-sky { background: var(--sky-100); color: var(--brand-700); }
+
+.error {
+    background: var(--danger-100);
+    color: var(--danger);
+    padding: 0.6rem 0.8rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.hint { color: var(--ink-muted); font-size: 0.85rem; }
+
+/* ---------- Glider claim list (home screen quick action) ---------- */
+
+.glider-pick-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.glider-pick-list form { margin: 0; }
+
+.glider-pick {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.75rem 0.9rem;
+    background: var(--brand-100);
+    border: none;
+    border-radius: var(--radius-md);
+    text-align: left;
+    font-family: inherit;
+    cursor: pointer;
+    min-height: var(--tap);
+}
+
+.glider-pick:hover { background: #dbe7f1; }
+
+.glider-pick .reg { display: block; font-weight: 700; color: var(--brand-900); }
+.glider-pick .model { color: var(--ink-muted); font-size: 0.82rem; }
+.glider-pick .claimed-by { color: var(--brand-700); font-size: 0.78rem; font-weight: 600; }
+.glider-pick .claim-cta { color: var(--brand-700); font-weight: 700; font-size: 0.85rem; }
+
+/* ---------- Auth pages ---------- */
+
+.auth-wrap {
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+}
+
+.auth-card {
+    width: 100%;
+    max-width: 380px;
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+    padding: 1.75rem 1.5rem;
+}
+
+.auth-card .mark { width: 44px; height: 44px; display: block; margin: 0 auto 0.75rem; }
+.auth-card h1 { text-align: center; margin-bottom: 0.3rem; }
+.auth-card .hint { text-align: center; margin-bottom: 1.25rem; }
+.auth-card .below-form { text-align: center; margin-top: 1rem; font-size: 0.9rem; }
+
+/* ---------- Desktop / wide screens ---------- */
+
+@media (min-width: 768px) {
+    body { padding-bottom: 2rem; }
+    .tabbar { display: none; }
+
+    .topbar nav {
+        display: flex;
+        align-items: center;
+        gap: 1.4rem;
+    }
+
+    .topbar nav a {
+        color: var(--ink-muted);
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.92rem;
+    }
+    .topbar nav a.active, .topbar nav a:hover { color: var(--brand-700); }
+
+    .topbar form.logout-form {
+        display: block;
+        margin-left: 0.5rem;
+    }
+    .topbar form.logout-form button {
+        width: auto;
+        min-height: 36px;
+        padding: 0.4rem 0.9rem;
+        font-size: 0.85rem;
+        background: var(--brand-100);
+        color: var(--brand-900);
+    }
+
+    .content { max-width: 960px; padding: 1.5rem 2rem 2.5rem; }
+    .stat-row { grid-template-columns: repeat(4, 1fr); max-width: 480px; }
+}

@@ -10,6 +10,8 @@ from ogn.parser import parse, AprsParseError
 from models import Airport, FlightPhaseRules, SG_BERN_FLEET
 from ddb import DeviceDatabase
 from flight_tracker import GlobalFlightTracker, AirportLogger, ClubLogger, FilteredLogger
+from db_sink import DbSink
+from shared.database import SessionLocal
 
 AIRPORTS = [
     Airport(icao="LSZB", name="Bern Belp", lat=46.9144, lon=7.4990, elevation_m=510.0),
@@ -32,6 +34,7 @@ tracker = GlobalFlightTracker(
 )
 loggers: list[FilteredLogger] = [AirportLogger(airport=airport, output_dir=OUTPUT_DIR) for airport in AIRPORTS]
 loggers.append(ClubLogger("sg-bern", SG_BERN_FLEET, OUTPUT_DIR))
+loggers.append(DbSink(SessionLocal))
 def process_beacon(raw_message):
     try:
         beacon = parse(raw_message)

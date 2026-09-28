@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Claim a glider{% endblock %}
+{% block content %}
+<h1>Claim a glider</h1>
+<p class="hint">Scan the QR code on the glider, or pick it here before you launch.</p>
+
+<div class="glider-pick-list">
+    {% for row in rows %}
+    <form method="post" action="/claim/{{ row.glider.claim_token }}">
+        <button type="submit" class="glider-pick">
+            <span>
+                <span class="reg">{{ row.glider.registration }}</span>
+                {% if row.glider.model %}<span class="model">{{ row.glider.model }}</span>{% endif %}
+            </span>
+            {% if row.active_claim %}
+            <span class="claimed-by">claimed by {{ row.active_claim.pilot.full_name.split(" ")[0] }}</span>
+            {% else %}
+            <span class="claim-cta">Claim &rarr;</span>
+            {% endif %}
+        </button>
+    </form>
+    {% else %}
+    <p class="record-empty">No active gliders yet - ask an admin to add one.</p>
+    {% endfor %}
+</div>
+{% endblock %}

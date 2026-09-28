@@ -2,3 +2,5 @@ ogn-client
 ogn-parser
 matplotlib
 srtm.py
+sqlalchemy>=2.0
+psycopg[binary]

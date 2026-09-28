@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Claimed{% endblock %}
+{% block content %}
+<div class="card narrow" style="text-align:center;">
+    <span class="badge badge-approved" style="margin-bottom:0.75rem;">Claimed</span>
+    <h1>{{ glider.registration }} is yours</h1>
+    <p class="hint">Your next takeoff in this glider will be logged to your account automatically. Have a good flight!</p>
+    <a href="/dashboard" class="btn secondary">Back to today's board</a>
+</div>
+{% endblock %}

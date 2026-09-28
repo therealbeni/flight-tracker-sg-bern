@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="color-scheme" content="light">
+    <title>{% block title %}Flight Tracker{% endblock %} - SG Bern</title>
+
+    <link rel="manifest" href="/static/manifest.json?v={{ asset_version }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon-32.png?v={{ asset_version }}">
+    <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png?v={{ asset_version }}">
+    <meta name="theme-color" content="#2b5672">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Flight Tracker">
+
+    <link rel="stylesheet" href="/static/style.css?v={{ asset_version }}">
+</head>
+<body class="{{ 'has-tabbar' if request.session.get('pilot_id') }}">
+    {% import "_icons.html" as icons %}
+
+    <header class="topbar">
+        <a class="brand" href="/dashboard">{{ icons.logo() }} SG Bern</a>
+        {% if request.session.get("pilot_id") %}
+        <nav>
+            <a href="/dashboard" class="{{ 'active' if request.url.path == '/dashboard' }}">Home</a>
+            <a href="/claim" class="{{ 'active' if request.url.path.startswith('/claim') }}">Claim</a>
+            <a href="/logbook" class="{{ 'active' if request.url.path == '/logbook' }}">Logbook</a>
+            {% if request.session.get("is_admin") %}
+            <a href="/admin/pilots" class="{{ 'active' if request.url.path.startswith('/admin') }}">Admin</a>
+            {% endif %}
+        </nav>
+        <form action="/logout" method="post" class="logout-form">
+            <button type="submit" class="secondary compact">{{ icons.icon("logout") }} Log out</button>
+        </form>
+        {% endif %}
+    </header>
+
+    <main class="content">
+        {% block content %}{% endblock %}
+    </main>
+
+    {% if request.session.get("pilot_id") %}
+    <nav class="tabbar">
+        <a href="/dashboard" class="{{ 'active' if request.url.path == '/dashboard' }}">
+            {{ icons.icon("home") }}<span class="label">Home</span>
+        </a>
+        <a href="/claim" class="primary-action {{ 'active' if request.url.path.startswith('/claim') }}">
+            <span class="icon-wrap">{{ icons.icon("qr") }}</span><span class="label">Claim</span>
+        </a>
+        <a href="/logbook" class="{{ 'active' if request.url.path == '/logbook' }}">
+            {{ icons.icon("book") }}<span class="label">Logbook</span>
+        </a>
+        {% if request.session.get("is_admin") %}
+        <a href="/admin/pilots" class="{{ 'active' if request.url.path.startswith('/admin') }}">
+            {{ icons.icon("shield") }}<span class="label">Admin</span>
+        </a>
+        {% endif %}
+    </nav>
+    {% endif %}
+</body>
+</html>

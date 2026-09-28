@@ -1,12 +1,14 @@
 FROM python:3.13-slim
 
 WORKDIR /app
-COPY requirements.txt .
+
+COPY tracker/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY src/ src/
-COPY run.py .
+COPY shared/ shared/
+COPY tracker/src/ src/
+COPY tracker/run.py .
 
-ENV PYTHONPATH=/app/src
+ENV PYTHONPATH=/app/src:/app
 
 CMD ["python", "run.py"]

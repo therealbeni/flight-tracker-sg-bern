@@ -1,0 +1,20 @@
+# Public entry point: https://flight.clanker.ch
+#
+# TLS is terminated by Cloudflare at the edge (see /home/benja/website/cloudflared),
+# so this listener is plain HTTP. It is not published on any host port - the only
+# thing that can reach it is the `cloudflared` container, over the shared
+# `website_webnet` network.
+
+http://flight.clanker.ch {
+	# style.css is cache-busted with a ?v= query param tied to app start time (see
+	# app/templating.py), so it's safe to tell Cloudflare/browsers to cache it hard -
+	# a new deploy gets a new URL, so there's no staleness risk. Other /static/*
+	# files (icons, manifest) aren't versioned, so they're left at the default
+	# cache behaviour rather than risking the same staleness this rule avoids.
+	@versioned_css path /static/style.css
+	header @versioned_css Cache-Control "public, max-age=31536000, immutable"
+
+	reverse_proxy app:8000 {
+		header_up X-Forwarded-Proto https
+	}
+}

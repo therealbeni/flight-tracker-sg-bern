@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% import "_icons.html" as icons %}
+{% block title %}Sign up{% endblock %}
+{% block content %}
+<div class="auth-wrap">
+    <div class="auth-card">
+        {{ icons.logo() }}
+        <h1>Create your account</h1>
+        <p class="hint">An admin will need to approve you before you can log in.</p>
+        {% if error %}<p class="error">{{ error }}</p>{% endif %}
+        <form method="post" action="/signup">
+            <label>Full name<input type="text" name="full_name" required autofocus autocomplete="name"></label>
+            <label>Email<input type="email" name="email" required autocomplete="username"></label>
+            <label>Password<input type="password" name="password" minlength="8" required autocomplete="new-password"></label>
+            <button type="submit">Sign up</button>
+        </form>
+        <p class="below-form">Already have an account? <a href="/login">Log in</a></p>
+    </div>
+</div>
+{% endblock %}

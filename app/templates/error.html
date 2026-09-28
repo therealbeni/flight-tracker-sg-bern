@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% import "_icons.html" as icons %}
+{% block title %}Error {{ status_code }}{% endblock %}
+{% block content %}
+<div class="auth-wrap">
+    <div class="auth-card" style="text-align:center;">
+        {{ icons.logo() }}
+        <h1>{{ status_code }}</h1>
+        <p class="hint">{{ detail }}</p>
+        <a href="/dashboard" class="btn secondary">Back home</a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Home{% endblock %}
+{% block content %}
+
+<div class="hero">
+    <p class="greeting">Hi {{ pilot.full_name.split(" ")[0] }}</p>
+    <p class="subline">{{ flights|length }} flight{{ "s" if flights|length != 1 else "" }} logged today at SG Bern</p>
+    <div class="stat-row">
+        <div class="stat"><span class="num">{{ flights|length }}</span><span class="label">Today</span></div>
+        <div class="stat"><span class="num">{{ in_flight_count }}</span><span class="label">In the air</span></div>
+        <div class="stat"><span class="num">{{ my_flight_count }}</span><span class="label">Your flights</span></div>
+    </div>
+</div>
+
+{% if my_active_claim %}
+<div class="card" style="border-color: var(--brand-500);">
+    <span class="badge badge-sky">Claimed</span>
+    <p style="margin: 0.5rem 0 0;">You have <strong>{{ my_active_claim.glider.registration }}</strong> claimed - your next takeoff in it will be logged to you automatically.</p>
+</div>
+{% else %}
+<div class="card">
+    <p style="margin: 0 0 0.75rem;">Flying today? Claim your glider before you launch.</p>
+    <a href="/claim" class="btn">Claim a glider</a>
+</div>
+{% endif %}
+
+<div class="section-title">
+    <h2>Today's board</h2>
+</div>
+<div class="record-list">
+    {% for f in flights %}
+    <a class="record" href="/flights/{{ f.id }}">
+        <div class="record-top">
+            <span class="record-title">{{ f.glider.registration if f.glider else "?" }}</span>
+            {% if f.is_possible_outlanding %}
+                <span class="badge badge-pending">outlanding?</span>
+            {% elif not f.landing_time %}
+                <span class="badge badge-sky">in flight</span>
+            {% elif f.verified_by_pilot %}
+                <span class="badge badge-approved">verified</span>
+            {% else %}
+                <span class="badge badge-pending">unverified</span>
+            {% endif %}
+        </div>
+        <div class="record-meta">{{ f.pilot.full_name if f.pilot else "Unclaimed" }}</div>
+        <div class="record-times">
+            <span>{{ f.takeoff_airfield_icao or "?" }} {{ f.takeoff_time.strftime("%H:%M") if f.takeoff_time else "" }}</span>
+            <span class="arrow">&rarr;</span>
+            <span>{% if f.landing_time %}{{ f.landing_airfield_icao or "?" }} {{ f.landing_time.strftime("%H:%M") }}{% else %}-{% endif %}</span>
+            {% if f.duration_min %}<span class="hint">&middot; {{ f.duration_min }} min</span>{% endif %}
+        </div>
+    </a>
+    {% else %}
+    <p class="record-empty">No flights logged yet today.</p>
+    {% endfor %}
+</div>
+{% endblock %}

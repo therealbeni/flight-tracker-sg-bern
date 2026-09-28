@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Flight #{{ flight.id }}{% endblock %}
+{% block content %}
+<h1>{{ flight.glider.registration if flight.glider else "Unknown glider" }} - {{ flight.takeoff_time.strftime("%Y-%m-%d %H:%M") if flight.takeoff_time else "" }}</h1>
+
+<div class="card">
+    {% if error %}<p class="error">{{ error }}</p>{% endif %}
+    {% if flight.finalized_at %}<p class="badge badge-approved">Finalized</p>{% endif %}
+    {% if flight.is_possible_outlanding %}
+    <p class="badge badge-pending">
+        Possible outlanding
+        {% if flight.landing_latitude is not none and flight.landing_longitude is not none %}
+        at {{ "%.4f"|format(flight.landing_latitude) }}, {{ "%.4f"|format(flight.landing_longitude) }}
+        {% endif %}
+        - pick the real landing field below if known.
+    </p>
+    {% endif %}
+
+    {% if not can_edit %}
+    <p class="hint">
+        {% if flight.finalized_at %}This day has been finalized - ask an admin to unlock it to make changes.
+        {% else %}This flight belongs to another pilot, so you can't edit it.{% endif %}
+    </p>
+    {% endif %}
+
+    <form method="post" action="/flights/{{ flight.id }}">
+        <label>Pilot
+            <select name="pilot_id" {% if not can_edit %}disabled{% endif %}>
+                <option value="">-- unassigned --</option>
+                {% for p in pilots %}
+                <option value="{{ p.id }}" {% if flight.pilot_id == p.id %}selected{% endif %}
+                    {% if not pilot.is_admin and flight.pilot_id and flight.pilot_id != pilot.id %}disabled{% endif %}>
+                    {{ p.full_name }}
+                </option>
+                {% endfor %}
+            </select>
+        </label>
+
+        <label>Takeoff airfield (ICAO)
+            <input type="text" name="takeoff_airfield_icao" maxlength="4" value="{{ flight.takeoff_airfield_icao or '' }}" {% if not can_edit %}disabled{% endif %}>
+        </label>
+
+        <label>Landing airfield (ICAO, leave blank for an outlanding)
+            <input type="text" name="landing_airfield_icao" maxlength="4" value="{{ flight.landing_airfield_icao or '' }}" {% if not can_edit %}disabled{% endif %}>
+        </label>
+
+        <label>Notes
+            <input type="text" name="notes" value="{{ flight.notes or '' }}" {% if not can_edit %}disabled{% endif %}>
+        </label>
+
+        {% if can_edit %}<button type="submit">Save & verify</button>{% endif %}
+    </form>
+
+    {% if can_edit and not flight.verified_by_pilot %}
+    <form method="post" action="/flights/{{ flight.id }}/verify" style="margin-top: 0.5rem;">
+        <button type="submit" class="secondary">Verify as-is (no changes needed)</button>
+    </form>
+    {% endif %}
+</div>
+
+<table class="data-table">
+    <tr><th>Takeoff time</th><td>{{ flight.takeoff_time.strftime("%H:%M:%S") if flight.takeoff_time else "" }}</td></tr>
+    <tr><th>Landing time</th><td>{{ flight.landing_time.strftime("%H:%M:%S") if flight.landing_time else "in flight" }}</td></tr>
+    <tr><th>Duration</th><td>{{ flight.duration_min or "" }} min</td></tr>
+    <tr><th>Source</th><td>{{ flight.source.value }}</td></tr>
+    <tr><th>Verified</th><td>{{ "yes" if flight.verified_by_pilot else "no" }}</td></tr>
+</table>
+
+{% if history %}
+<h2>Change history</h2>
+<table class="data-table">
+    <thead><tr><th>When</th><th>Field</th><th>From</th><th>To</th></tr></thead>
+    <tbody>
+    {% for h in history %}
+        <tr>
+            <td>{{ h.changed_at.strftime("%Y-%m-%d %H:%M") }}</td>
+            <td>{{ h.field_name }}</td>
+            <td>{{ h.old_value or "" }}</td>
+            <td>{{ h.new_value or "" }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% endblock %}

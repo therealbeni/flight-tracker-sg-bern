@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Logbook{% endblock %}
+{% block content %}
+
+<div class="hero">
+    <p class="greeting">{{ pilot.full_name }}</p>
+    <p class="subline">Personal logbook</p>
+    <div class="stat-row">
+        <div class="stat"><span class="num">{{ total_flights }}</span><span class="label">Flights</span></div>
+        <div class="stat"><span class="num">{{ total_hours }}</span><span class="label">Hours</span></div>
+    </div>
+</div>
+
+<div class="record-list">
+    {% for f in flights %}
+    <a class="record" href="/flights/{{ f.id }}">
+        <div class="record-top">
+            <span class="record-title">{{ f.glider.registration if f.glider else "?" }}</span>
+            <span class="hint">{{ f.takeoff_time.strftime("%Y-%m-%d") if f.takeoff_time else "" }}</span>
+        </div>
+        <div class="record-times">
+            <span>{{ f.takeoff_airfield_icao or "?" }} {{ f.takeoff_time.strftime("%H:%M") if f.takeoff_time else "" }}</span>
+            <span class="arrow">&rarr;</span>
+            <span>
+                {% if f.is_possible_outlanding %}<span class="badge badge-pending">outlanding?</span>
+                {% elif f.landing_time %}{{ f.landing_airfield_icao or "?" }} {{ f.landing_time.strftime("%H:%M") }}
+                {% else %}in flight{% endif %}
+            </span>
+            {% if f.duration_min %}<span class="hint">&middot; {{ f.duration_min }} min</span>{% endif %}
+        </div>
+    </a>
+    {% else %}
+    <p class="record-empty">No flights logged yet.</p>
+    {% endfor %}
+</div>
+{% endblock %}

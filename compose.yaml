@@ -1,8 +1,69 @@
 services:
   flight-tracker:
-    build: ./tracker
+    build:
+      context: .
+      dockerfile: tracker/Dockerfile
     restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
     volumes:
       - ./data:/data
     environment:
       - CSV_PATH=/data/lszb_movements.csv
+      - DATABASE_URL=postgresql+psycopg://flighttracker:${POSTGRES_PASSWORD:-flighttracker}@db:5432/flighttracker
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=flighttracker
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-flighttracker}
+      - POSTGRES_DB=flighttracker
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flighttracker"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: app/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql+psycopg://flighttracker:${POSTGRES_PASSWORD:-flighttracker}@db:5432/flighttracker
+      # If unset, the app generates a random secret at startup (see app/config.py) -
+      # sessions then reset on every restart. Set a real value in .env for production:
+      # python3 -c "import secrets; print(secrets.token_hex(32))"
+      - SESSION_SECRET=${SESSION_SECRET:-}
+      - BASE_URL=${BASE_URL:-http://localhost:8000}
+
+  caddy:
+    image: caddy:2
+    container_name: flight-tracker-caddy
+    restart: unless-stopped
+    depends_on:
+      - app
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - default
+      - website_webnet
+
+volumes:
+  db-data:
+  caddy-data:
+  caddy-config:
+
+networks:
+  default: {}
+  website_webnet:
+    external: true
