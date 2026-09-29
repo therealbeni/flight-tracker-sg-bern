@@ -27,7 +27,7 @@ def test_claiming_a_glider_creates_a_claim_for_the_logged_in_pilot(client, db_se
 
     claim_resp = client.post(f"/claim/{glider.claim_token}")
     assert claim_resp.status_code == 200
-    assert "hb-1811 is yours" in claim_resp.text.lower()
+    assert "hb-1811 ist eingecheckt" in claim_resp.text.lower()
 
     claims = db_session.query(GliderClaim).filter_by(glider_id=glider.id).all()
     assert len(claims) == 1

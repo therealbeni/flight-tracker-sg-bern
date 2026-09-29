@@ -1,40 +1,40 @@
 {% extends "base.html" %}
-{% block title %}Gliders{% endblock %}
+{% block title %}Flugzeuge{% endblock %}
 {% block content %}
 {% include "admin/_nav.html" %}
-<h1>Gliders</h1>
+<h1>Flugzeuge</h1>
 
 <form method="post" action="/admin/gliders" class="card narrow">
-    <h2>Add glider</h2>
-    <label>Registration<input type="text" name="registration" placeholder="HB-1811" required></label>
-    <label>Model<input type="text" name="model" placeholder="ASK-21"></label>
-    <label>OGN device ID<input type="text" name="ogn_device_id" placeholder="4B4BBA"></label>
-    <button type="submit">Add</button>
+    <h2>Flugzeug hinzufügen</h2>
+    <label>Kennzeichen<input type="text" name="registration" placeholder="HB-1811" required></label>
+    <label>Typ<input type="text" name="model" placeholder="ASK 21"></label>
+    <label>FLARM-/OGN-ID (6 Zeichen)<input type="text" name="ogn_device_id" placeholder="4B4BBA" maxlength="6"></label>
+    <button type="submit">Hinzufügen</button>
 </form>
 
 <table class="data-table">
-    <thead><tr><th>Registration</th><th>Model</th><th>OGN ID</th><th>Active</th><th>QR code</th><th>Actions</th></tr></thead>
+    <thead><tr><th>Kennzeichen</th><th>Typ</th><th>OGN-ID</th><th>Aktiv</th><th>QR-Code</th><th>Aktion</th></tr></thead>
     <tbody>
     {% for g in gliders %}
         <tr>
             <td>{{ g.registration }}</td>
             <td>{{ g.model or "" }}</td>
             <td>{{ g.ogn_device_id or "" }}</td>
-            <td>{{ "Yes" if g.active else "No" }}</td>
+            <td>{{ "ja" if g.active else "nein" }}</td>
             <td>
-                <img src="/admin/gliders/{{ g.id }}/qr.png" alt="QR code for {{ g.registration }}" width="120" height="120" style="display:block;">
+                <img src="/admin/gliders/{{ g.id }}/qr.png" alt="QR-Code für {{ g.registration }}" width="120" height="120" style="display:block;">
                 <div class="hint" style="white-space: normal; max-width: 120px; overflow-wrap: break-word;">
-                    <a href="/claim/{{ g.claim_token }}">Claim link</a>
+                    <a href="/claim/{{ g.claim_token }}">Check-in-Link</a>
                 </div>
             </td>
             <td>
                 <form method="post" action="/admin/gliders/{{ g.id }}/toggle-active" class="inline-form">
-                    <button type="submit">{{ "Deactivate" if g.active else "Activate" }}</button>
+                    <button type="submit" class="secondary">{{ "Deaktivieren" if g.active else "Aktivieren" }}</button>
                 </form>
             </td>
         </tr>
     {% else %}
-        <tr><td colspan="6">No gliders yet.</td></tr>
+        <tr><td colspan="6">Noch keine Flugzeuge.</td></tr>
     {% endfor %}
     </tbody>
 </table>

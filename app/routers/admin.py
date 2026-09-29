@@ -1,6 +1,6 @@
 import io
 import uuid
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 
 import qrcode
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -12,6 +12,7 @@ from config import settings
 from database import get_db
 from deps import require_admin
 from models import Airfield, Flight, Glider, Pilot, PilotStatus
+from timeutil import local_day_bounds, to_local
 
 from templating import templates
 
@@ -73,7 +74,7 @@ def create_glider(
 def glider_qr_code(glider_id: int, db: Session = Depends(get_db)):
     glider = db.get(Glider, glider_id)
     if glider is None:
-        raise HTTPException(status_code=404, detail="Unknown glider")
+        raise HTTPException(status_code=404, detail="Dieses Flugzeug gibt es nicht.")
     claim_url = f"{settings.base_url}/claim/{glider.claim_token}"
     img = qrcode.make(claim_url)
     buf = io.BytesIO()
@@ -121,11 +122,6 @@ def create_airfield(
     return RedirectResponse("/admin/airfields", status_code=303)
 
 
-def _day_bounds(day: date) -> tuple[datetime, datetime]:
-    start = datetime(day.year, day.month, day.day, tzinfo=timezone.utc)
-    return start, start + timedelta(days=1)
-
-
 @router.get("/finalize")
 def finalize_overview(request: Request, db: Session = Depends(get_db)):
     flights = db.scalars(
@@ -134,7 +130,7 @@ def finalize_overview(request: Request, db: Session = Depends(get_db)):
 
     by_date: dict[date, list[Flight]] = {}
     for f in flights:
-        by_date.setdefault(f.takeoff_time.date(), []).append(f)
+        by_date.setdefault(to_local(f.takeoff_time).date(), []).append(f)
 
     days = [
         {
@@ -151,7 +147,7 @@ def finalize_overview(request: Request, db: Session = Depends(get_db)):
 
 @router.post("/finalize/{day}")
 def finalize_day(day: date, db: Session = Depends(get_db)):
-    start, end = _day_bounds(day)
+    start, end = local_day_bounds(day)
     flights = db.scalars(
         select(Flight)
         .where(Flight.takeoff_time >= start, Flight.takeoff_time < end, Flight.landing_time.isnot(None))
@@ -165,7 +161,7 @@ def finalize_day(day: date, db: Session = Depends(get_db)):
 
 @router.post("/finalize/{day}/unlock")
 def unlock_day(day: date, db: Session = Depends(get_db)):
-    start, end = _day_bounds(day)
+    start, end = local_day_bounds(day)
     flights = db.scalars(
         select(Flight).where(Flight.takeoff_time >= start, Flight.takeoff_time < end)
     ).all()

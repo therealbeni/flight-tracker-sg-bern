@@ -34,11 +34,11 @@ def signup_submit(
     existing = db.scalar(select(Pilot).where(Pilot.email == email))
     if existing:
         return templates.TemplateResponse(
-            request, "auth/signup.html", {"error": "An account with this email already exists."}
+            request, "auth/signup.html", {"error": "Mit dieser E-Mail-Adresse gibt es schon ein Konto."}
         )
     if len(password) < 8:
         return templates.TemplateResponse(
-            request, "auth/signup.html", {"error": "Password must be at least 8 characters."}
+            request, "auth/signup.html", {"error": "Das Passwort muss mindestens 8 Zeichen lang sein."}
         )
 
     # First-ever account becomes an approved admin so someone can approve everyone else.
@@ -77,13 +77,13 @@ def login_submit(
     pilot = db.scalar(select(Pilot).where(Pilot.email == email))
     if pilot is None or not verify_password(password, pilot.password_hash):
         return templates.TemplateResponse(
-            request, "auth/login.html", {"error": "Invalid email or password."}
+            request, "auth/login.html", {"error": "E-Mail oder Passwort falsch."}
         )
     if pilot.status == PilotStatus.PENDING:
         return templates.TemplateResponse(request, "auth/pending.html", {})
     if pilot.status == PilotStatus.REJECTED:
         return templates.TemplateResponse(
-            request, "auth/login.html", {"error": "This account has been deactivated. Contact the club board."}
+            request, "auth/login.html", {"error": "Dieses Konto ist deaktiviert. Bitte melde dich beim Vorstand."}
         )
 
     request.session["pilot_id"] = pilot.id
@@ -116,12 +116,12 @@ def forgot_password_submit(request: Request, email: str = Form(...), db: Session
         reset_link = f"{settings.base_url}/reset-password/{raw_token}"
         sender.send(
             to=pilot.email,
-            subject="Flight Tracker SG Bern - password reset",
+            subject="SG Bern Flugbetrieb - Passwort zurücksetzen",
             body=(
-                f"Hi {pilot.full_name},\n\n"
-                f"Click the link below to set a new password. It expires in "
-                f"{settings.reset_token_ttl_minutes} minutes.\n\n{reset_link}\n\n"
-                "If you didn't request this, you can ignore this email."
+                f"Hallo {pilot.full_name}\n\n"
+                f"Mit diesem Link kannst du ein neues Passwort setzen. Er ist "
+                f"{settings.reset_token_ttl_minutes} Minuten gültig.\n\n{reset_link}\n\n"
+                "Falls du das nicht angefordert hast, kannst du diese E-Mail ignorieren."
             ),
         )
     return templates.TemplateResponse(request, "auth/forgot_password.html", {"sent": True})
@@ -155,11 +155,11 @@ def reset_password_submit(
         return templates.TemplateResponse(
             request,
             "auth/reset_password.html",
-            {"token": token, "error": "This reset link is invalid or has expired. Request a new one."},
+            {"token": token, "error": "Dieser Link ist ungültig oder abgelaufen. Fordere einen neuen an."},
         )
     if len(password) < 8:
         return templates.TemplateResponse(
-            request, "auth/reset_password.html", {"token": token, "error": "Password must be at least 8 characters."}
+            request, "auth/reset_password.html", {"token": token, "error": "Das Passwort muss mindestens 8 Zeichen lang sein."}
         )
 
     pilot = db.get(Pilot, reset_token.pilot_id)

@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% block title %}Claim a glider{% endblock %}
+{% block title %}Einchecken{% endblock %}
 {% block content %}
-<h1>Claim a glider</h1>
-<p class="hint">Scan the QR code on the glider, or pick it here before you launch.</p>
+<h1>Einchecken</h1>
+<p class="hint">Scanne den QR-Code am Flugzeug, oder wähle es hier aus - vor dem Start.</p>
 
 <div class="glider-pick-list">
     {% for row in rows %}
@@ -13,14 +13,14 @@
                 {% if row.glider.model %}<span class="model">{{ row.glider.model }}</span>{% endif %}
             </span>
             {% if row.active_claim %}
-            <span class="claimed-by">claimed by {{ row.active_claim.pilot.full_name.split(" ")[0] }}</span>
+            <span class="claimed-by">{{ row.active_claim.pilot.full_name.split(" ")[0] }} eingecheckt</span>
             {% else %}
-            <span class="claim-cta">Claim &rarr;</span>
+            <span class="claim-cta">Einchecken &rarr;</span>
             {% endif %}
         </button>
     </form>
     {% else %}
-    <p class="record-empty">No active gliders yet - ask an admin to add one.</p>
+    <p class="record-empty">Noch keine Flugzeuge erfasst - ein Admin kann sie unter Verwaltung hinzufügen.</p>
     {% endfor %}
 </div>
 {% endblock %}

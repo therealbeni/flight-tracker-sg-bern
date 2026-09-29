@@ -15,7 +15,7 @@ router = APIRouter()
 def _get_flight_or_404(db: Session, flight_id: int) -> Flight:
     flight = db.get(Flight, flight_id)
     if flight is None:
-        raise HTTPException(status_code=404, detail="Unknown flight")
+        raise HTTPException(status_code=404, detail="Diesen Flug gibt es nicht.")
     return flight
 
 
@@ -80,12 +80,12 @@ def flight_update(
 ):
     flight = _get_flight_or_404(db, flight_id)
     if not _can_edit(flight, pilot):
-        raise HTTPException(status_code=403, detail="This flight can no longer be edited")
+        raise HTTPException(status_code=403, detail="Dieser Flug kann nicht mehr geändert werden.")
 
     new_pilot_id = int(pilot_id) if pilot_id else None
     # A non-admin can only assign the flight to themselves, not to anyone else.
     if not pilot.is_admin and new_pilot_id is not None and new_pilot_id != pilot.id:
-        raise HTTPException(status_code=403, detail="You can only assign a flight to yourself")
+        raise HTTPException(status_code=403, detail="Du kannst einen Flug nur dir selbst zuweisen.")
 
     new_takeoff_icao = takeoff_airfield_icao.strip().upper() or None
     new_landing_icao = landing_airfield_icao.strip().upper() or None
@@ -110,7 +110,7 @@ def flight_update(
                     "history": history,
                     "can_edit": True,
                     "pilot": pilot,
-                    "error": f"'{icao}' isn't a known airfield yet - ask an admin to add it under Admin > Airfields first.",
+                    "error": f"Den Flugplatz «{icao}» kennen wir noch nicht. Ein Admin kann ihn unter Verwaltung > Flugplätze erfassen.",
                 },
                 status_code=400,
             )
@@ -144,7 +144,7 @@ def flight_verify(
 ):
     flight = _get_flight_or_404(db, flight_id)
     if not _can_edit(flight, pilot):
-        raise HTTPException(status_code=403, detail="This flight can no longer be edited")
+        raise HTTPException(status_code=403, detail="Dieser Flug kann nicht mehr geändert werden.")
     flight.verified_by_pilot = True
     db.commit()
     redirect_to = request.headers.get("referer") or "/dashboard"

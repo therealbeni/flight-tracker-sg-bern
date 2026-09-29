@@ -1,7 +1,7 @@
 {
-  "name": "SG Bern Flight Tracker",
-  "short_name": "Flight Tracker",
-  "description": "Claim a glider, track today's flights, and view your logbook.",
+  "name": "SG Bern Flugbetrieb",
+  "short_name": "SG Bern",
+  "description": "Vor dem Flug einchecken, Flüge von heute sehen, eigenes Flugbuch.",
   "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#f5f7fa",

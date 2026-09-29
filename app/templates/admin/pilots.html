@@ -1,32 +1,32 @@
 {% extends "base.html" %}
-{% block title %}Pilot approvals{% endblock %}
+{% block title %}Piloten{% endblock %}
 {% block content %}
 {% include "admin/_nav.html" %}
-<h1>Pilots</h1>
+<h1>Piloten</h1>
 <table class="data-table">
-    <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
+    <thead><tr><th>Name</th><th>E-Mail</th><th>Rolle</th><th>Status</th><th>Aktionen</th></tr></thead>
     <tbody>
     {% for p in pilots %}
         <tr>
             <td>{{ p.full_name }}</td>
             <td>{{ p.email }}</td>
-            <td>{{ p.role.value }}</td>
-            <td><span class="badge badge-{{ p.status.value }}">{{ p.status.value }}</span></td>
+            <td>{{ {"pilot": "Pilot", "admin": "Admin"}.get(p.role.value, p.role.value) }}</td>
+            <td><span class="badge badge-{{ p.status.value }}">{{ {"pending": "ausstehend", "approved": "freigeschaltet", "rejected": "abgelehnt"}[p.status.value] }}</span></td>
             <td>
                 {% if p.status.value != "approved" %}
                 <form method="post" action="/admin/pilots/{{ p.id }}/approve" class="inline-form">
-                    <button type="submit">Approve</button>
+                    <button type="submit">Freischalten</button>
                 </form>
                 {% endif %}
                 {% if p.status.value != "rejected" %}
                 <form method="post" action="/admin/pilots/{{ p.id }}/reject" class="inline-form">
-                    <button type="submit" class="danger">Reject</button>
+                    <button type="submit" class="danger">Ablehnen</button>
                 </form>
                 {% endif %}
             </td>
         </tr>
     {% else %}
-        <tr><td colspan="5">No pilots yet.</td></tr>
+        <tr><td colspan="5">Noch keine Piloten.</td></tr>
     {% endfor %}
     </tbody>
 </table>

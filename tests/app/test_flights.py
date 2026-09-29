@@ -82,7 +82,7 @@ def test_pilot_cannot_edit_someone_elses_flight(client, db_session):
 
     detail = client.get(f"/flights/{flight.id}")
     assert detail.status_code == 200
-    assert "can't edit it" in detail.text.lower()
+    assert "gehört einem anderen piloten" in detail.text.lower()
 
     resp = client.post(
         f"/flights/{flight.id}",
@@ -128,7 +128,7 @@ def test_admin_finalize_locks_editing_and_unlock_reopens_it(client, db_session):
     day = flight.takeoff_time.date().isoformat()
 
     overview = client.get("/admin/finalize")
-    assert str(flight.takeoff_time.date()) in overview.text
+    assert flight.takeoff_time.strftime("%d.%m.%Y") in overview.text
 
     client.post(f"/admin/finalize/{day}", follow_redirects=False)
     db_session.refresh(flight)
@@ -167,7 +167,7 @@ def test_unknown_airfield_code_is_rejected_with_a_friendly_error(client, db_sess
         data={"pilot_id": "", "takeoff_airfield_icao": "ZZZZ", "landing_airfield_icao": "", "notes": ""},
     )
     assert resp.status_code == 400
-    assert "known airfield yet" in resp.text
+    assert "kennen wir noch nicht" in resp.text
 
     db_session.refresh(flight)
     assert flight.takeoff_airfield_icao is None  # rejected, not silently saved

@@ -1,21 +1,22 @@
 {% extends "base.html" %}
-{% block title %}Airfields{% endblock %}
+{% block title %}Flugplätze{% endblock %}
 {% block content %}
 {% include "admin/_nav.html" %}
-<h1>Airfields</h1>
+<h1>Flugplätze</h1>
+<p class="hint">Flugplätze, auf denen ein Vereinsflugzeug landet, erfasst der Tracker automatisch. Hier kannst du weitere hinzufügen oder korrigieren.</p>
 
 <form method="post" action="/admin/airfields" class="card narrow">
-    <h2>Add / update airfield</h2>
-    <label>ICAO<input type="text" name="icao" maxlength="4" placeholder="LSZB" required></label>
+    <h2>Flugplatz erfassen / ändern</h2>
+    <label>ICAO-Code<input type="text" name="icao" maxlength="16" placeholder="LSZB" required></label>
     <label>Name<input type="text" name="name" placeholder="Bern Belp" required></label>
-    <label>Latitude<input type="number" step="any" name="latitude" required></label>
-    <label>Longitude<input type="number" step="any" name="longitude" required></label>
-    <label>Elevation (m)<input type="number" step="any" name="elevation_m" value="0"></label>
-    <button type="submit">Save</button>
+    <label>Breitengrad<input type="number" step="any" name="latitude" required></label>
+    <label>Längengrad<input type="number" step="any" name="longitude" required></label>
+    <label>Höhe (m ü. M.)<input type="number" step="any" name="elevation_m" value="0"></label>
+    <button type="submit">Speichern</button>
 </form>
 
 <table class="data-table">
-    <thead><tr><th>ICAO</th><th>Name</th><th>Lat</th><th>Lon</th><th>Elevation (m)</th></tr></thead>
+    <thead><tr><th>ICAO</th><th>Name</th><th>Breite</th><th>Länge</th><th>Höhe (m)</th></tr></thead>
     <tbody>
     {% for a in airfields %}
         <tr>
@@ -23,10 +24,10 @@
             <td>{{ a.name }}</td>
             <td>{{ a.latitude }}</td>
             <td>{{ a.longitude }}</td>
-            <td>{{ a.elevation_m }}</td>
+            <td>{{ a.elevation_m|round|int }}</td>
         </tr>
     {% else %}
-        <tr><td colspan="5">No airfields yet.</td></tr>
+        <tr><td colspan="5">Noch keine Flugplätze.</td></tr>
     {% endfor %}
     </tbody>
 </table>

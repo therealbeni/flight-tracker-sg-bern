@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 {% import "_icons.html" as icons %}
-{% block title %}Awaiting approval{% endblock %}
+{% block title %}Freischaltung ausstehend{% endblock %}
 {% block content %}
 <div class="auth-wrap">
     <div class="auth-card" style="text-align:center;">
         {{ icons.logo() }}
-        <span class="badge badge-pending">Pending</span>
-        <h1 style="margin-top:0.5rem;">Almost there</h1>
-        <p class="hint">Your account has been created but needs approval from a club admin before you can log in. You'll be able to log in as soon as that happens.</p>
-        <a href="/login" class="btn secondary">Back to login</a>
+        <span class="badge badge-pending">Ausstehend</span>
+        <h1 style="margin-top:0.5rem;">Fast geschafft</h1>
+        <p class="hint">Dein Konto ist erstellt, muss aber noch von einem Vorstandsmitglied freigeschaltet werden. Danach kannst du dich anmelden.</p>
+        <a href="/login" class="btn secondary">Zurück zur Anmeldung</a>
     </div>
 </div>
 {% endblock %}

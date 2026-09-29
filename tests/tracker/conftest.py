@@ -1,12 +1,5 @@
-"""Runs in a separate pytest process from tests/test_auth.py and tests/test_claim.py.
-
-tracker/src/models.py and app/models.py are both importable as the bare name
-`models` - each is fine on its own (that's how the two Docker containers run in
-production, each with only one of them on PYTHONPATH), but mixing both on
-sys.path in the same interpreter makes whichever loads first shadow the other.
-So this conftest puts only tracker/src (+ the repo root, for the `shared`
-package) on sys.path, and never touches app/.
-"""
+"""Tracker tests: tracker/src (the tracker's modules) and the repo root (for the
+`shared` package) on sys.path, and a throwaway SQLite database per test."""
 
 import os
 import sys

@@ -1,18 +1,18 @@
 {% extends "base.html" %}
-{% block title %}Claim {{ glider.registration }}{% endblock %}
+{% block title %}{{ glider.registration }} einchecken{% endblock %}
 {% block content %}
 <div class="card narrow" style="text-align:center;">
-    <span class="badge badge-sky" style="margin-bottom:0.75rem;">Glider</span>
+    <span class="badge badge-sky" style="margin-bottom:0.75rem;">Flugzeug</span>
     <h1 style="font-size:2rem;">{{ glider.registration }}</h1>
     {% if glider.model %}<p class="hint" style="margin-top:-0.5rem;">{{ glider.model }}</p>{% endif %}
 
     {% if active_claim %}
-        <p class="hint">Currently claimed by <strong>{{ active_claim.pilot.full_name }}</strong> at {{ active_claim.claimed_at.strftime("%H:%M") }} UTC.</p>
+        <p class="hint">Eingecheckt ist <strong>{{ active_claim.pilot.full_name }}</strong> (seit {{ active_claim.claimed_at|hhmm }} Uhr).</p>
     {% endif %}
 
     <form method="post" action="/claim/{{ token }}">
-        <button type="submit">Claim this glider for the next launch</button>
+        <button type="submit">Einchecken für den nächsten Start</button>
     </form>
-    {% if active_claim %}<p class="hint">Claiming again hands it to you instead.</p>{% endif %}
+    {% if active_claim %}<p class="hint">Wenn du eincheckst, wird der nächste Start dir zugeordnet statt {{ active_claim.pilot.full_name.split(" ")[0] }}.</p>{% endif %}
 </div>
 {% endblock %}

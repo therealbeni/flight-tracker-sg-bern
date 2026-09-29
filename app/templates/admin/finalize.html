@@ -1,34 +1,34 @@
 {% extends "base.html" %}
-{% block title %}Finalize days{% endblock %}
+{% block title %}Tage abschliessen{% endblock %}
 {% block content %}
 {% include "admin/_nav.html" %}
-<h1>Finalize days</h1>
-<p class="hint">Finalizing locks a day's completed flights so pilots can no longer edit them - do this once everyone has verified their flights for the day. Vereinsflieger sync (once set up) will only push finalized flights.</p>
+<h1>Tage abschliessen</h1>
+<p class="hint">Ein abgeschlossener Tag ist gesperrt: gelandete Flüge können nicht mehr geändert werden. Schliesse einen Tag ab, sobald alle ihre Flüge bestätigt haben. Die Übertragung nach Vereinsflieger (sobald eingerichtet) nimmt nur abgeschlossene Flüge.</p>
 
 <table class="data-table">
-    <thead><tr><th>Date</th><th>Flights</th><th>Landed</th><th>Verified</th><th>Status</th><th>Actions</th></tr></thead>
+    <thead><tr><th>Datum</th><th>Flüge</th><th>Gelandet</th><th>Bestätigt</th><th>Status</th><th>Aktion</th></tr></thead>
     <tbody>
     {% for d in days %}
         <tr>
-            <td>{{ d.date }}</td>
+            <td>{{ d.date|wochentag }}, {{ d.date|datum }}</td>
             <td>{{ d.total }}</td>
             <td>{{ d.landed }}</td>
             <td>{{ d.verified }} / {{ d.total }}</td>
-            <td>{% if d.finalized %}<span class="badge badge-approved">finalized</span>{% else %}<span class="badge badge-pending">open</span>{% endif %}</td>
+            <td>{% if d.finalized %}<span class="badge badge-approved">abgeschlossen</span>{% else %}<span class="badge badge-pending">offen</span>{% endif %}</td>
             <td>
                 {% if not d.finalized %}
                 <form method="post" action="/admin/finalize/{{ d.date }}" class="inline-form">
-                    <button type="submit">Finalize</button>
+                    <button type="submit">Abschliessen</button>
                 </form>
                 {% else %}
                 <form method="post" action="/admin/finalize/{{ d.date }}/unlock" class="inline-form">
-                    <button type="submit">Unlock</button>
+                    <button type="submit" class="secondary">Wieder öffnen</button>
                 </form>
                 {% endif %}
             </td>
         </tr>
     {% else %}
-        <tr><td colspan="6">No flights yet.</td></tr>
+        <tr><td colspan="6">Noch keine Flüge.</td></tr>
     {% endfor %}
     </tbody>
 </table>

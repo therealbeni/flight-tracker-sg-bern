@@ -35,7 +35,7 @@ def claim_picker(request: Request, db: Session = Depends(get_db), pilot: Pilot =
 def claim_form(request: Request, token: str, db: Session = Depends(get_db), pilot: Pilot = Depends(require_approved)):
     glider = db.scalar(select(Glider).where(Glider.claim_token == token))
     if glider is None or not glider.active:
-        raise HTTPException(status_code=404, detail="Unknown or inactive glider QR code")
+        raise HTTPException(status_code=404, detail="Diesen QR-Code kennen wir nicht, oder das Flugzeug ist nicht aktiv.")
 
     active_claim = _active_claim(db, glider.id)
     return templates.TemplateResponse(
@@ -51,7 +51,7 @@ def claim_submit(
 ):
     glider = db.scalar(select(Glider).where(Glider.claim_token == token))
     if glider is None or not glider.active:
-        raise HTTPException(status_code=404, detail="Unknown or inactive glider QR code")
+        raise HTTPException(status_code=404, detail="Diesen QR-Code kennen wir nicht, oder das Flugzeug ist nicht aktiv.")
 
     now = datetime.now(timezone.utc)
     # Superseding an existing unconsumed claim (e.g. a change of plan) rather than

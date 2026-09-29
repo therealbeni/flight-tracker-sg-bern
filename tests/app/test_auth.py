@@ -26,10 +26,10 @@ def test_second_signup_is_pending_and_cannot_log_in(client):
 
     resp = signup(client, "Bob Pilot", "bob@example.com")
     assert resp.status_code == 200
-    assert "almost there" in resp.text.lower()
+    assert "fast geschafft" in resp.text.lower()
 
     login = client.post("/login", data={"email": "bob@example.com", "password": "password123"})
-    assert "almost there" in login.text.lower()
+    assert "fast geschafft" in login.text.lower()
 
     # Confirm no session was created for the pending pilot.
     dashboard = client.get("/dashboard", follow_redirects=False)
@@ -68,7 +68,7 @@ def test_wrong_password_shows_error(client):
     client.post("/logout")
 
     resp = client.post("/login", data={"email": "alice@example.com", "password": "wrong-password"})
-    assert "invalid email or password" in resp.text.lower()
+    assert "e-mail oder passwort falsch" in resp.text.lower()
 
 
 def test_password_reset_flow(client, fake_email):
@@ -87,7 +87,7 @@ def test_password_reset_flow(client, fake_email):
     assert reset.headers["location"] == "/login"
 
     old_login = client.post("/login", data={"email": "alice@example.com", "password": "password123"})
-    assert "invalid" in old_login.text.lower()
+    assert "falsch" in old_login.text.lower()
 
     new_login = client.post(
         "/login", data={"email": "alice@example.com", "password": "newpassword123"}, follow_redirects=False
@@ -96,10 +96,10 @@ def test_password_reset_flow(client, fake_email):
 
     # The token can't be reused.
     reuse = client.post(f"/reset-password/{token}", data={"password": "anotherpassword123"})
-    assert "invalid or has expired" in reuse.text.lower()
+    assert "ungültig oder abgelaufen" in reuse.text.lower()
 
 
 def test_forgot_password_does_not_reveal_whether_account_exists(client, fake_email):
     resp_unknown = client.post("/forgot-password", data={"email": "nobody@example.com"})
-    assert "if that email is registered" in resp_unknown.text.lower()
+    assert "falls diese e-mail-adresse registriert ist" in resp_unknown.text.lower()
     assert len(fake_email.messages) == 0

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from deps import require_approved
 from models import Flight, GliderClaim, Pilot
+from timeutil import local_day_bounds, today_local
 
 from templating import templates
 
@@ -16,9 +17,12 @@ router = APIRouter()
 @router.get("/dashboard")
 def dashboard(request: Request, db: Session = Depends(get_db), pilot: Pilot = Depends(require_approved)):
     now = datetime.now(timezone.utc)
-    today = now.date()
-    flights = db.scalars(select(Flight).order_by(Flight.takeoff_time.desc())).all()
-    todays_flights = [f for f in flights if f.takeoff_time and f.takeoff_time.date() == today]
+    start, end = local_day_bounds(today_local())
+    todays_flights = db.scalars(
+        select(Flight)
+        .where(Flight.takeoff_time >= start, Flight.takeoff_time < end)
+        .order_by(Flight.takeoff_time.desc())
+    ).all()
 
     my_active_claim = db.scalar(
         select(GliderClaim)
@@ -32,6 +36,7 @@ def dashboard(request: Request, db: Session = Depends(get_db), pilot: Pilot = De
         "dashboard/today.html",
         {
             "pilot": pilot,
+            "today": today_local(),
             "flights": todays_flights,
             "in_flight_count": sum(1 for f in todays_flights if f.landing_time is None),
             "my_flight_count": sum(1 for f in todays_flights if f.pilot_id == pilot.id),

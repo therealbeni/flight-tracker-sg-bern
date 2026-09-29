@@ -20,11 +20,11 @@ def require_login(pilot: Pilot | None = Depends(get_current_pilot)) -> Pilot:
 
 def require_approved(pilot: Pilot = Depends(require_login)) -> Pilot:
     if pilot.status != PilotStatus.APPROVED:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account not yet approved")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Dein Konto ist noch nicht freigeschaltet.")
     return pilot
 
 
 def require_admin(pilot: Pilot = Depends(require_approved)) -> Pilot:
     if not pilot.is_admin:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Dafür braucht es Admin-Rechte.")
     return pilot
