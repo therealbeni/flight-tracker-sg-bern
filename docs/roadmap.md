@@ -72,6 +72,46 @@ dashboard, personal logbooks, and Vereinsflieger sync. That's the scope of this 
   for anyone including admins, until explicitly unlocked) - this lock is what Phase 3
   will gate Vereinsflieger sync on.
 
+## Club ops v2 (2026-09-29) - make it ready to present to the club
+
+Findings from reviewing the Sonnet-built code, and the features requested by Benja.
+Order = implementation order; each step is tested and deployed to staging on its own.
+
+**Done - tracker overhaul.** New takeoff/landing detector (hysteresis, confirmation,
+signal loss, restarts, duplicates), fleet from the database, airfields added
+automatically, raw beacon recording + replay. See [How it works](how-it-works.md).
+
+1. **Local time + German UI.** All times were shown in UTC and "today" was the UTC day.
+   Everything is shown in Swiss local time now, and the whole UI is German (Swiss
+   spelling, "ss"). No translation framework - the club speaks German, one language
+   keeps the templates simple.
+2. **Claims done right.**
+   - *Freigeben* (un-claim): a pilot can release a claim made by mistake.
+   - *Für den ganzen Tag* claims: not used up by the first takeoff, valid until the end
+     of the day or until released/checked out. Default for tow planes and motor gliders
+     (D-EDUY tow pilot claims once in the morning; HB-2377 flies several legs).
+   - Aircraft kinds (glider / motor glider / tow plane) on the `gliders` table.
+   - Tow flights linked to the glider flight they towed (same airfield, takeoffs within
+     a minute): the glider flight gets launch method "F-Schlepp", tow plane, tow pilot
+     and tow time - what Vereinsflieger wants.
+3. **Test login.** Admins can view the app as any pilot ("Als Pilot ansehen", with a
+   banner to switch back), and a non-admin test account exists on staging.
+4. **QR scanner in the app.** The claim tab opens the phone camera and scans the QR code
+   on the glider (jsQR, bundled - no external service). The list stays as fallback.
+5. **Flugbuch (club PC checkout).** A day view modelled on Vereinsflieger's
+   Flugdatenerfassung: one row per flight with the same columns (Kennzeichen, Pilot,
+   Begleiter, Startart, Start-/Landeort, Start-/Landezeit, Flugzeit, Landungen, Schlepp,
+   Bemerkung), editable, "Flug hinzufügen" for flights the tracker can't see, and a
+   per-pilot *Abmelden* (check out): confirm your flights of the day and end your day
+   claims. Runs on the club PC under a "Startstelle" account (may edit all open flights
+   of the day). Times become editable (manual flights, estimated times).
+6. **Misuse + usability.** CSRF protection, login rate limiting, input validation (no
+   500s on bad input), authorization tests for every route; a Playwright walk-through of
+   every flow on a phone-sized screen (tap targets, wording, no dead ends).
+
+Not possible without the club: sending emails (password reset currently only prints to
+the log - needs an SMTP account), Vereinsflieger sync (needs an API key).
+
 ## Phase 3 — Vereinsflieger sync
 
 - Requires: club board obtains a Vereinsflieger API AppKey (blocking, external to us).
