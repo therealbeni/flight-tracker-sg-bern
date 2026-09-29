@@ -3,7 +3,8 @@ import sys
 import tempfile
 from pathlib import Path
 
-APP_DIR = Path(__file__).resolve().parent.parent / "app"
+APP_DIR = Path(__file__).resolve().parent.parent.parent / "app"
+sys.path.insert(0, str(APP_DIR.parent))  # repo root, for the `shared` package
 sys.path.insert(0, str(APP_DIR))
 
 _tmp_db = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
