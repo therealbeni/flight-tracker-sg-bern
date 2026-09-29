@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "claim/_my_claims.html" import my_claims as my_claims_list %}
 {% block title %}Heute{% endblock %}
 {% block content %}
 
@@ -12,11 +13,8 @@
     </div>
 </div>
 
-{% if my_active_claim %}
-<div class="card" style="border-color: var(--brand-500);">
-    <span class="badge badge-sky">Eingecheckt</span>
-    <p style="margin: 0.5rem 0 0;">Du bist auf <strong>{{ my_active_claim.glider.registration }}</strong> eingecheckt. Dein nächster Start damit wird automatisch dir zugeordnet.</p>
-</div>
+{% if my_claims %}
+{{ my_claims_list(my_claims) }}
 {% else %}
 <div class="card">
     <p style="margin: 0 0 0.75rem;">Fliegst du heute? Checke vor dem Start auf dein Flugzeug ein.</p>
@@ -42,7 +40,10 @@
                 <span class="badge badge-pending">offen</span>
             {% endif %}
         </div>
-        <div class="record-meta">{{ f.pilot.full_name if f.pilot else "Pilot unbekannt" }}</div>
+        <div class="record-meta">
+            {{ f.pilot.full_name if f.pilot else "Pilot unbekannt" }}
+            {% if f.tow_flight %}&middot; Schlepp {{ f.tow_flight.glider.registration }}{% endif %}
+        </div>
         <div class="record-times">
             <span>{{ f.takeoff_airfield_icao or "?" }} {{ f.takeoff_time|hhmm }}</span>
             <span class="arrow">&rarr;</span>

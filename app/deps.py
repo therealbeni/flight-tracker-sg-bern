@@ -28,3 +28,11 @@ def require_admin(pilot: Pilot = Depends(require_approved)) -> Pilot:
     if not pilot.is_admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Dafür braucht es Admin-Rechte.")
     return pilot
+
+
+def back_url(request: Request, default: str) -> str:
+    """The page a form was submitted from, if it's one of ours - so a button
+    can return the pilot to where they were. Never redirects off-site."""
+    referer = request.headers.get("referer") or ""
+    base = str(request.base_url)
+    return "/" + referer[len(base):] if referer.startswith(base) else default

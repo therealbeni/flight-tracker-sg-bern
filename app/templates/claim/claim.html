@@ -2,17 +2,28 @@
 {% block title %}{{ glider.registration }} einchecken{% endblock %}
 {% block content %}
 <div class="card narrow" style="text-align:center;">
-    <span class="badge badge-sky" style="margin-bottom:0.75rem;">Flugzeug</span>
+    <span class="badge badge-sky" style="margin-bottom:0.75rem;">{{ glider.kind.label }}</span>
     <h1 style="font-size:2rem;">{{ glider.registration }}</h1>
     {% if glider.model %}<p class="hint" style="margin-top:-0.5rem;">{{ glider.model }}</p>{% endif %}
 
-    {% if active_claim %}
-        <p class="hint">Eingecheckt ist <strong>{{ active_claim.pilot.full_name }}</strong> (seit {{ active_claim.claimed_at|hhmm }} Uhr).</p>
-    {% endif %}
+    {% for c in claims %}
+        <p class="hint">
+            {% if c.pilot_id == pilot.id %}Du bist schon eingecheckt{% else %}Eingecheckt: <strong>{{ c.pilot.full_name }}</strong>{% endif %}
+            ({{ "ganzer Tag" if c.whole_day else "nächster Start" }}, seit {{ c.claimed_at|hhmm }} Uhr)
+        </p>
+    {% endfor %}
 
-    <form method="post" action="/claim/{{ token }}">
-        <button type="submit">Einchecken für den nächsten Start</button>
+    {% set day_first = glider.kind.flies_all_day %}
+    <form method="post" action="/claim/{{ token }}" class="stack">
+        {% if day_first %}
+        <button type="submit" name="mode" value="day">Für den ganzen Tag einchecken</button>
+        <button type="submit" name="mode" value="next" class="secondary">Nur für den nächsten Start</button>
+        {% else %}
+        <button type="submit" name="mode" value="next">Für den nächsten Start einchecken</button>
+        <button type="submit" name="mode" value="day" class="secondary">Für den ganzen Tag</button>
+        {% endif %}
     </form>
-    {% if active_claim %}<p class="hint">Wenn du eincheckst, wird der nächste Start dir zugeordnet statt {{ active_claim.pilot.full_name.split(" ")[0] }}.</p>{% endif %}
+    <p class="hint">{% if day_first %}Ganzer Tag: alle Starts von heute werden dir zugeordnet, bis du freigibst oder auscheckst.
+    {% else %}Der nächste Start mit diesem Flugzeug wird dir zugeordnet.{% endif %}</p>
 </div>
 {% endblock %}

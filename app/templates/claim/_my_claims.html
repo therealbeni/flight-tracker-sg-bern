@@ -1,0 +1,18 @@
+{# The pilot's active check-ins, each with a "Freigeben" button. #}
+{% macro my_claims(claims) %}
+{% for c in claims %}
+<div class="card claim-card">
+    <div>
+        <span class="badge badge-sky">Eingecheckt</span>
+        <p class="claim-text">
+            <strong>{{ c.glider.registration }}</strong>
+            {% if c.whole_day %}für den ganzen Tag - alle deine Starts heute werden dir zugeordnet.
+            {% else %}für den nächsten Start - er wird automatisch dir zugeordnet.{% endif %}
+        </p>
+    </div>
+    <form method="post" action="/claims/{{ c.id }}/release">
+        <button type="submit" class="secondary compact">Freigeben</button>
+    </form>
+</div>
+{% endfor %}
+{% endmacro %}

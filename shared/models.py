@@ -11,6 +11,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    and_,
     false,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -36,6 +37,34 @@ class PilotStatus(str, enum.Enum):
 class FlightSource(str, enum.Enum):
     AUTO = "auto"       # detected by the OGN tracker
     MANUAL = "manual"   # entered by hand (admin/pilot correction, no OGN beacon match)
+
+
+class AircraftKind(str, enum.Enum):
+    GLIDER = "glider"            # Segelflugzeug
+    MOTORGLIDER = "motorglider"  # Motorsegler (self-launching / TMG)
+    TOWPLANE = "towplane"        # Schleppflugzeug
+
+    @property
+    def label(self) -> str:
+        return {"glider": "Segelflugzeug", "motorglider": "Motorsegler", "towplane": "Schleppflugzeug"}[self.value]
+
+    @property
+    def flies_all_day(self) -> bool:
+        """Usually one pilot for many flights (tow pilot, motor glider trip), so
+        checking in defaults to 'for the whole day'."""
+        return self is not AircraftKind.GLIDER
+
+
+class LaunchMethod(str, enum.Enum):
+    """Startart, with the letters Vereinsflieger uses."""
+
+    AEROTOW = "F"  # F-Schlepp
+    WINCH = "W"    # Windenstart
+    SELF = "E"     # Eigenstart (motor glider, tow plane)
+
+    @property
+    def label(self) -> str:
+        return {"F": "F-Schlepp", "W": "Winde", "E": "Eigenstart"}[self.value]
 
 
 class Pilot(Base):
@@ -97,13 +126,19 @@ class Glider(Base):
         String(36), unique=True, nullable=False, default=lambda: str(uuid.uuid4())
     )
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    kind: Mapped[AircraftKind] = mapped_column(
+        Enum(AircraftKind), default=AircraftKind.GLIDER, server_default=AircraftKind.GLIDER.name, nullable=False
+    )
 
 
 class GliderClaim(Base):
-    """A pilot scanning a glider's QR code before takeoff.
+    """A pilot checking in on an aircraft (QR code or list) before takeoff.
 
-    Consumed when the tracker matches a takeoff on this glider to this claim; the
-    resulting Flight then carries the pilot automatically.
+    The tracker gives each takeoff the pilot of the most recent active claim.
+    A normal claim is used up by that takeoff (`consumed_at`, `flight_id`); a
+    whole-day claim (tow pilot, motor glider trip) stays active for every
+    takeoff until it expires at local midnight or is cancelled (released by
+    the pilot, or at checkout).
     """
 
     __tablename__ = "glider_claims"
@@ -115,9 +150,17 @@ class GliderClaim(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     flight_id: Mapped[int | None] = mapped_column(ForeignKey("flights.id"), nullable=True)
+    whole_day: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false(), nullable=False)
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     glider: Mapped["Glider"] = relationship()
     pilot: Mapped["Pilot"] = relationship()
+
+    @classmethod
+    def active_at(cls, when: datetime):
+        """SQL condition: claim can still be matched to a takeoff at `when`."""
+        return and_(cls.consumed_at.is_(None), cls.cancelled_at.is_(None),
+                    cls.claimed_at <= when, cls.expires_at > when)
 
 
 class Flight(Base):
@@ -156,6 +199,10 @@ class Flight(Base):
     vereinsflieger_external_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     vereinsflieger_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    launch_method: Mapped[LaunchMethod | None] = mapped_column(Enum(LaunchMethod), nullable=True)
+    # For a towed glider flight: the tow plane's flight (tow pilot, tow time).
+    tow_flight_id: Mapped[int | None] = mapped_column(ForeignKey("flights.id"), nullable=True)
+
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, nullable=False)
@@ -165,6 +212,7 @@ class Flight(Base):
 
     glider: Mapped["Glider | None"] = relationship()
     pilot: Mapped["Pilot | None"] = relationship()
+    tow_flight: Mapped["Flight | None"] = relationship(remote_side="Flight.id", foreign_keys=[tow_flight_id])
 
     @property
     def is_possible_outlanding(self) -> bool:

@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from config import settings
 from database import get_db
 from deps import require_admin
-from models import Airfield, Flight, Glider, Pilot, PilotStatus
+from models import AircraftKind, Airfield, Flight, Glider, Pilot, PilotStatus
 from timeutil import local_day_bounds, to_local
 
 from templating import templates
@@ -47,7 +47,7 @@ def reject_pilot(pilot_id: int, db: Session = Depends(get_db)):
 def list_gliders(request: Request, db: Session = Depends(get_db)):
     gliders = db.scalars(select(Glider).order_by(Glider.registration)).all()
     return templates.TemplateResponse(
-        request, "admin/gliders.html", {"gliders": gliders, "base_url": request.base_url}
+        request, "admin/gliders.html", {"gliders": gliders, "kinds": list(AircraftKind)}
     )
 
 
@@ -57,12 +57,14 @@ def create_glider(
     registration: str = Form(...),
     model: str = Form(""),
     ogn_device_id: str = Form(""),
+    kind: AircraftKind = Form(AircraftKind.GLIDER),
     db: Session = Depends(get_db),
 ):
     glider = Glider(
-        registration=registration.strip(),
+        registration=registration.strip().upper(),
         model=model.strip() or None,
         ogn_device_id=ogn_device_id.strip().upper() or None,
+        kind=kind,
         claim_token=str(uuid.uuid4()),
     )
     db.add(glider)
@@ -81,6 +83,15 @@ def glider_qr_code(glider_id: int, db: Session = Depends(get_db)):
     img.save(buf, format="PNG")
     buf.seek(0)
     return StreamingResponse(buf, media_type="image/png")
+
+
+@router.post("/gliders/{glider_id}/kind")
+def set_glider_kind(glider_id: int, kind: AircraftKind = Form(...), db: Session = Depends(get_db)):
+    glider = db.get(Glider, glider_id)
+    if glider is not None:
+        glider.kind = kind
+        db.commit()
+    return RedirectResponse("/admin/gliders", status_code=303)
 
 
 @router.post("/gliders/{glider_id}/toggle-active")

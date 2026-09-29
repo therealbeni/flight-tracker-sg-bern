@@ -7,7 +7,7 @@ Safe to re-run - existing rows are left untouched, only missing ones are added.
 from sqlalchemy import select
 
 from database import SessionLocal
-from models import Airfield, Glider
+from models import AircraftKind, Airfield, Glider
 
 # Initial fleet (OGN device id -> registration). After seeding, the `gliders`
 # table is the source of truth - the tracker reads the fleet from there.
@@ -25,6 +25,9 @@ SG_BERN_FLEET = {
     "4B5224": "HB-3453",
 }
 
+# Everything else is a glider.
+FLEET_KINDS = {"D-EDUY": AircraftKind.TOWPLANE, "HB-2377": AircraftKind.MOTORGLIDER}
+
 # Further airfields are added by the tracker automatically when a club glider
 # lands there.
 HOME_AIRFIELDS = [
@@ -39,7 +42,8 @@ def run():
         for device_id, registration in SG_BERN_FLEET.items():
             exists = db.scalar(select(Glider).where(Glider.registration == registration))
             if not exists:
-                db.add(Glider(registration=registration, ogn_device_id=device_id))
+                kind = FLEET_KINDS.get(registration, AircraftKind.GLIDER)
+                db.add(Glider(registration=registration, ogn_device_id=device_id, kind=kind))
                 print(f"Added glider {registration}")
 
         for airfield in HOME_AIRFIELDS:

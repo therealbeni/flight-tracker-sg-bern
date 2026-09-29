@@ -62,6 +62,14 @@
     <tr><th>Startzeit</th><td>{{ flight.takeoff_time|hhmm }}{% if flight.takeoff_estimated %} <span class="hint">(geschätzt)</span>{% endif %}</td></tr>
     <tr><th>Landezeit</th><td>{% if flight.landing_time %}{{ flight.landing_time|hhmm }}{% if flight.landing_estimated %} <span class="hint">(geschätzt)</span>{% endif %}{% else %}in der Luft{% endif %}</td></tr>
     <tr><th>Flugzeit</th><td>{{ flight.duration_min|flugzeit }}</td></tr>
+    <tr><th>Startart</th><td>{{ flight.launch_method.label if flight.launch_method else "unbekannt" }}</td></tr>
+    {% if flight.tow_flight %}
+    <tr><th>Schlepp</th><td>
+        <a href="/flights/{{ flight.tow_flight.id }}">{{ flight.tow_flight.glider.registration }}</a>,
+        {{ flight.tow_flight.pilot.full_name if flight.tow_flight.pilot else "Schlepppilot unbekannt" }},
+        {{ flight.tow_flight.duration_min|flugzeit or "noch in der Luft" }}
+    </td></tr>
+    {% endif %}
     <tr><th>Erfasst</th><td>{{ "automatisch (OGN)" if flight.source.value == "auto" else "von Hand" }}</td></tr>
     <tr><th>Bestätigt</th><td>{{ "ja" if flight.verified_by_pilot else "nein" }}</td></tr>
 </table>

@@ -21,7 +21,11 @@ from sqlalchemy.orm import Session, sessionmaker
 from airports import Airport
 from detection import EventKind, FlightEvent, FlightRecord
 from flight_tracker import is_too_short
-from shared.models import Airfield, Flight, FlightSource, Glider, GliderClaim
+from shared.models import AircraftKind, Airfield, Flight, FlightSource, Glider, GliderClaim, LaunchMethod
+
+# A glider and its tow plane start their takeoff roll together; detected
+# takeoff times differ by a few seconds (different speed/beacon timing).
+TOW_WINDOW = timedelta(seconds=60)
 
 
 def _aware(dt: Optional[datetime]) -> Optional[datetime]:
@@ -78,20 +82,56 @@ class DbSink:
             takeoff_estimated=record.takeoff_estimated,
             source=FlightSource.AUTO,
         )
+        if glider.kind is not AircraftKind.GLIDER:
+            flight.launch_method = LaunchMethod.SELF
+        # The most recent check-in wins: someone checking in for one flight on
+        # the tow plane takes precedence over the tow pilot's whole-day claim,
+        # which applies again afterwards.
         claim = db.scalar(
             select(GliderClaim)
-            .where(GliderClaim.glider_id == glider.id, GliderClaim.consumed_at.is_(None))
-            .where(GliderClaim.expires_at > takeoff_time)
+            .where(GliderClaim.glider_id == glider.id, GliderClaim.active_at(takeoff_time))
             .order_by(GliderClaim.claimed_at.desc())
         )
         if claim is not None:
             flight.pilot_id = claim.pilot_id
         db.add(flight)
         db.flush()  # need flight.id before we can link the claim to it
-        if claim is not None:
+        if claim is not None and not claim.whole_day:
             claim.consumed_at = takeoff_time
             claim.flight_id = flight.id
+        self._link_tow(db, glider, flight)
         return flight
+
+    def _link_tow(self, db: Session, glider: Glider, flight: Flight) -> None:
+        """Pairs a glider takeoff with the tow plane taking off with it (same
+        airfield, within TOW_WINDOW). Whichever of the two is detected second
+        makes the link."""
+        if flight.takeoff_airfield_icao is None or flight.takeoff_estimated:
+            return
+        if glider.kind is AircraftKind.TOWPLANE:
+            wanted = AircraftKind.GLIDER
+        elif glider.kind is AircraftKind.GLIDER:
+            wanted = AircraftKind.TOWPLANE
+        else:
+            return
+        candidates = db.scalars(
+            select(Flight).join(Glider, Flight.glider_id == Glider.id)
+            .where(Glider.kind == wanted, Flight.id != flight.id)
+            .where(Flight.takeoff_airfield_icao == flight.takeoff_airfield_icao,
+                   Flight.takeoff_estimated.is_(False))
+            .where(Flight.takeoff_time.between(flight.takeoff_time - TOW_WINDOW, flight.takeoff_time + TOW_WINDOW))
+        ).all()
+        if wanted is AircraftKind.GLIDER:
+            candidates = [f for f in candidates if f.tow_flight_id is None]
+        else:
+            towing = set(db.scalars(select(Flight.tow_flight_id).where(Flight.tow_flight_id.is_not(None))).all())
+            candidates = [f for f in candidates if f.id not in towing]
+        if not candidates:
+            return
+        other = min(candidates, key=lambda f: abs(_aware(f.takeoff_time) - _aware(flight.takeoff_time)))
+        towed, tow = (other, flight) if wanted is AircraftKind.GLIDER else (flight, other)
+        towed.tow_flight_id = tow.id
+        towed.launch_method = LaunchMethod.AEROTOW
 
     def _record_landing(self, db: Session, flight: Flight, record: FlightRecord) -> None:
         if is_too_short(record, self._min_duration):
@@ -101,6 +141,9 @@ class DbSink:
             if claim is not None:
                 claim.consumed_at = None
                 claim.flight_id = None
+            for towed in db.scalars(select(Flight).where(Flight.tow_flight_id == flight.id)).all():
+                towed.tow_flight_id = None
+                towed.launch_method = None
             db.delete(flight)
             return
         duration = record.duration

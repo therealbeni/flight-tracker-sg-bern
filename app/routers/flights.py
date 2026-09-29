@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from database import get_db
-from deps import require_approved
+from deps import back_url, require_approved
 from models import Airfield, Flight, FlightAuditEntry, Pilot, PilotStatus
 
 from templating import templates
@@ -147,5 +147,4 @@ def flight_verify(
         raise HTTPException(status_code=403, detail="Dieser Flug kann nicht mehr geändert werden.")
     flight.verified_by_pilot = True
     db.commit()
-    redirect_to = request.headers.get("referer") or "/dashboard"
-    return RedirectResponse(redirect_to, status_code=303)
+    return RedirectResponse(back_url(request, "/dashboard"), status_code=303)

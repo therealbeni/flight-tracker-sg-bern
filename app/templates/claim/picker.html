@@ -1,24 +1,24 @@
 {% extends "base.html" %}
+{% from "claim/_my_claims.html" import my_claims as my_claims_list %}
 {% block title %}Einchecken{% endblock %}
 {% block content %}
 <h1>Einchecken</h1>
+{{ my_claims_list(my_claims) }}
 <p class="hint">Scanne den QR-Code am Flugzeug, oder wähle es hier aus - vor dem Start.</p>
 
 <div class="glider-pick-list">
     {% for row in rows %}
-    <form method="post" action="/claim/{{ row.glider.claim_token }}">
-        <button type="submit" class="glider-pick">
-            <span>
-                <span class="reg">{{ row.glider.registration }}</span>
-                {% if row.glider.model %}<span class="model">{{ row.glider.model }}</span>{% endif %}
-            </span>
-            {% if row.active_claim %}
-            <span class="claimed-by">{{ row.active_claim.pilot.full_name.split(" ")[0] }} eingecheckt</span>
-            {% else %}
-            <span class="claim-cta">Einchecken &rarr;</span>
-            {% endif %}
-        </button>
-    </form>
+    <a class="glider-pick" href="/claim/{{ row.glider.claim_token }}">
+        <span>
+            <span class="reg">{{ row.glider.registration }}</span>
+            <span class="model">{{ row.glider.model or row.glider.kind.label }}</span>
+        </span>
+        {% if row.claims %}
+        <span class="claimed-by">{% for c in row.claims %}{{ c.pilot.full_name.split(" ")[0] }}{{ ", " if not loop.last }}{% endfor %} eingecheckt</span>
+        {% else %}
+        <span class="claim-cta">Einchecken &rarr;</span>
+        {% endif %}
+    </a>
     {% else %}
     <p class="record-empty">Noch keine Flugzeuge erfasst - ein Admin kann sie unter Verwaltung hinzufügen.</p>
     {% endfor %}

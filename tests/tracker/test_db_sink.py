@@ -32,10 +32,10 @@ def pilot(db_session) -> Pilot:
     return pilot
 
 
-def make_claim(db, glider, pilot, expires_in_minutes=180) -> GliderClaim:
-    now = datetime.now(timezone.utc)
+def make_claim(db, glider, pilot, expires_in_minutes=180, whole_day=False, at=None) -> GliderClaim:
+    now = at or datetime.now(timezone.utc) - timedelta(minutes=1)
     claim = GliderClaim(glider_id=glider.id, pilot_id=pilot.id, claimed_at=now,
-                        expires_at=now + timedelta(minutes=expires_in_minutes))
+                        expires_at=now + timedelta(minutes=expires_in_minutes), whole_day=whole_day)
     db.add(claim)
     db.commit()
     return claim
@@ -193,8 +193,8 @@ def test_fleet_comes_from_the_gliders_table(db_session, glider):
 
 
 def test_end_to_end_simulated_flight_lands_in_the_database(db_session, glider, pilot):
-    make_claim(db_session, glider, pilot)
     sim = Sim().park(300)
+    make_claim(db_session, glider, pilot, at=sim.t)
     takeoff_roll = sim.t
     sim.local_flight(minutes=25)
     touchdown = sim.t - timedelta(seconds=24)  # local_flight ends with a 24 s rollout
