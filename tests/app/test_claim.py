@@ -170,4 +170,10 @@ def test_picker_shows_who_is_checked_in(client, db_session):
     signup_and_login(client, "Alice Admin", "alice@example.com")
     glider = make_glider(db_session)
     client.post(f"/claim/{glider.claim_token}")
+    assert "Du bist eingecheckt" in client.get("/claim").text
+
+    client.post("/logout")
+    client.post("/signup", data={"full_name": "Bob Pilot", "email": "bob@example.com", "password": "password123"})
+    approve(db_session, "bob@example.com")
+    client.post("/login", data={"email": "bob@example.com", "password": "password123"})
     assert "Alice eingecheckt" in client.get("/claim").text
