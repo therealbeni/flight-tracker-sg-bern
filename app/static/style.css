@@ -496,3 +496,49 @@ form.stack button { width: 100%; }
     font-weight: 600;
 }
 .view-as-banner form { margin: 0; }
+
+/* ---------- QR scanner ---------- */
+
+.scan-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    width: 100%;
+    padding: 1.1rem;
+    font-size: 1.1rem;
+    margin: 0.5rem 0 0.25rem;
+}
+.scan-button svg { width: 1.6rem; height: 1.6rem; }
+
+.scan-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: #000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+.scan-overlay[hidden] { display: none; }
+.scan-overlay video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.scan-frame {
+    position: relative;
+    width: min(70vw, 300px);
+    aspect-ratio: 1;
+    border: 3px solid #fff;
+    border-radius: 18px;
+    box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.45);
+}
+.scan-message {
+    position: relative;
+    margin: 1.5rem 1.5rem 1rem;
+    max-width: 28rem;
+    color: #fff;
+    text-align: center;
+    font-size: 1.05rem;
+    font-weight: 600;
+}
+.scan-close { position: relative; min-width: 10rem; }
+body.scanning { overflow: hidden; }

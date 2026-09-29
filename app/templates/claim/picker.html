@@ -1,10 +1,12 @@
 {% extends "base.html" %}
 {% from "claim/_my_claims.html" import my_claims as my_claims_list %}
+{% import "_icons.html" as icons %}
 {% block title %}Einchecken{% endblock %}
 {% block content %}
 <h1>Einchecken</h1>
 {{ my_claims_list(my_claims) }}
-<p class="hint">Scanne den QR-Code am Flugzeug, oder wähle es hier aus - vor dem Start.</p>
+<button type="button" id="scan-start" class="scan-button">{{ icons.icon("qr") }} QR-Code am Flugzeug scannen</button>
+<p class="hint">oder wähle das Flugzeug hier aus:</p>
 
 <div class="glider-pick-list">
     {% for row in rows %}
@@ -14,7 +16,10 @@
             <span class="model">{{ row.glider.model or row.glider.kind.label }}</span>
         </span>
         {% if row.claims %}
-        <span class="claimed-by">{% for c in row.claims %}{{ c.pilot.full_name.split(" ")[0] }}{{ ", " if not loop.last }}{% endfor %} eingecheckt</span>
+        <span class="claimed-by">
+            {%- if row.claims | selectattr("pilot_id", "equalto", pilot.id) | list %}Du bist eingecheckt
+            {%- else %}{% for c in row.claims %}{{ c.pilot.full_name.split(" ")[0] }}{{ ", " if not loop.last }}{% endfor %} eingecheckt{% endif -%}
+        </span>
         {% else %}
         <span class="claim-cta">Einchecken &rarr;</span>
         {% endif %}
@@ -23,4 +28,15 @@
     <p class="record-empty">Noch keine Flugzeuge erfasst - ein Admin kann sie unter Verwaltung hinzufügen.</p>
     {% endfor %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<div id="scan-overlay" class="scan-overlay" hidden>
+    <video playsinline muted></video>
+    <div class="scan-frame" aria-hidden="true"></div>
+    <p class="scan-message" role="status"></p>
+    <button type="button" class="scan-close secondary">Abbrechen</button>
+</div>
+<script src="/static/vendor/jsQR.js?v={{ asset_version }}"></script>
+<script src="/static/scan.js?v={{ asset_version }}"></script>
 {% endblock %}
