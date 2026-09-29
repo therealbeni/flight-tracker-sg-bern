@@ -31,3 +31,9 @@ dev/test.sh
 Takeoff/landing detection lives in `tracker/src/detection.py` and is tested scenario by
 scenario in `tests/tracker/test_detection.py` plus a randomised stress test over hundreds
 of simulated flying days (`tests/tracker/test_detection_stress.py`).
+
+Click through the whole web app in a real browser (phone and club PC, incl. QR scan):
+
+```bash
+dev/ui/run.sh
+```

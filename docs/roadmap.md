@@ -30,6 +30,7 @@ dashboard, personal logbooks, and Vereinsflieger sync. That's the scope of this 
 - Phase 0: done.
 - Phase 1: done.
 - Phase 2: done.
+- Club ops v2 (below): done 2026-09-29, running on staging (flight.clanker.ch).
 - Phase 3: on hold - waiting on the club board to confirm/request a Vereinsflieger AppKey.
 
 ## Phase 0 — Accounts & data foundation
@@ -76,6 +77,7 @@ dashboard, personal logbooks, and Vereinsflieger sync. That's the scope of this 
 
 Findings from reviewing the Sonnet-built code, and the features requested by Benja.
 Order = implementation order; each step is tested and deployed to staging on its own.
+**Status: all steps done and deployed to staging on 2026-09-29.**
 
 **Done - tracker overhaul.** New takeoff/landing detector (hysteresis, confirmation,
 signal loss, restarts, duplicates), fleet from the database, airfields added

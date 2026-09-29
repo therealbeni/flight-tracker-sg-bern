@@ -64,3 +64,44 @@ First deploy only: `docker compose exec app python seed.py` to load the club's k
 gliders and home airfields. The very first person to sign up at
 https://flight.clanker.ch/signup becomes an approved admin automatically; everyone after
 that needs that admin's approval.
+
+## Updating (deploying a new version)
+
+1. Back up the database first:
+   `docker compose exec -T db pg_dump -U flighttracker -Fc flighttracker > ~/backups/flighttracker-$(date -u +%Y%m%dT%H%M%SZ).dump`
+2. Deploy when no club aircraft is in the air (evening): a tracker restart re-attaches
+   open flights from the database, but beacons during the restart are lost.
+3. `docker compose build app flight-tracker`
+4. `docker compose up -d app` first - its entrypoint runs the database migrations
+   (`alembic upgrade head`) - then `docker compose up -d flight-tracker`.
+5. After a `Caddyfile` change: `docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile`.
+
+Restore a backup: `docker compose exec -T db pg_restore -U flighttracker -d flighttracker --clean < backup.dump`.
+
+## Accounts and roles
+
+- **Pilot**: checks in, sees and corrects own flights, checks out.
+- **Admin**: everything, incl. approving pilots, aircraft, airfields, closing days, and
+  "Als Pilot ansehen" (see the app exactly as a given pilot does, to test or help).
+- **Startstelle** (club PC at the launch point): register an account for the PC (e.g.
+  "Startstelle LSZB"), then give it this role on Verwaltung > Piloten. It opens on the
+  Flugbuch, can edit/add/delete all flights of open days and check out any pilot, but
+  can't manage pilots or aircraft.
+
+Aircraft kinds (Verwaltung > Flugzeuge) matter: tow planes and motor gliders default to
+"check in for the whole day", and tows are linked to the glider they towed.
+
+## Before going live on the club server
+
+- `BASE_URL` must be the club's domain before printing QR codes - the codes contain it.
+- Password reset e-mails are only printed to the app log until an SMTP account is wired
+  up in `app/email_sender.py`.
+- The staging server has test accounts (`testpilot@flight.clanker.ch`,
+  `startstelle@flight.clanker.ch`) - don't carry them over.
+
+## Checks
+
+- `dev/test.sh` - all automated tests (in Docker).
+- `dev/ui/run.sh` - clicks through every flow in a real browser on a phone-sized and a
+  desktop screen, including a QR scan through a simulated camera; screenshots land in
+  `dev/ui/screens/`. Uses a throwaway database, touches nothing live.
