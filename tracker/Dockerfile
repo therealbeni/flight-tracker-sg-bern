@@ -7,7 +7,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY shared/ shared/
 COPY tracker/src/ src/
-COPY tracker/run.py .
+COPY tracker/run.py tracker/replay.py ./
 
 ENV PYTHONPATH=/app/src:/app
 

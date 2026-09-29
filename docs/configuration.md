@@ -1,32 +1,28 @@
 # Configuration
 
-## Environment variables
+## Environment variables (tracker)
 
 | Variable | Default | Description |
 |---|---|---|
-| `CSV_PATH` | `.` | Directory where CSV output files are written. If set to a file path, the directory containing that path is used. |
+| `DATA_DIR` | `.` | Where CSV files and raw beacon recordings (`raw/`) are written. |
+| `SRTM_CACHE_DIR` | srtm.py default | Terrain tile cache. Keep it on a persistent volume. |
+| `DATABASE_URL` | see `shared/database.py` | The web app's database. |
 
-## Detection parameters
+## Club gliders
 
-These are constructor arguments on `GlobalFlightTracker` and `FlightPhaseRules`, configured in `tracker/run.py`.
+The tracker takes the fleet from the `gliders` table (managed in the web app under
+Admin), matched by OGN device address (`ogn_device_id`, the 6 hex digits of the FLARM
+ID). Changes are picked up within 5 minutes, no restart needed.
 
-| Parameter | Default | Description |
-|---|---|---|
-| `detection_radius_km` | `5.0` | Radius around each airport within which a state transition is attributed to that airport (km). |
-| `takeoff_speed_min` | `60.0` | Ground speed (km/h) above which an aircraft can be classified as airborne. |
-| `takeoff_agl_min` | `10.0` | Altitude above ground level (m) above which an aircraft is classified as airborne regardless of speed. |
+## Home airfields
 
-AGL is computed from SRTM elevation data at the aircraft's current position, not from a fixed airport elevation.
+`HOME_AIRFIELDS` in `tracker/run.py` lists the airfields that get their own daily CSV
+(currently LSZB and LSTZ). Takeoffs and landings are attributed to any airfield in
+`tracker/src/airports.csv` within 3 km; an airfield a club glider lands at is added to
+the database automatically.
 
-## Airports
+## Detection thresholds
 
-Tracked airports are listed in `tracker/run.py`:
-
-```python
-AIRPORTS = [
-    Airport(icao="LSZB", name="Bern Belp", lat=46.9144, lon=7.4990, elevation_m=510.0),
-    Airport(icao="LSTZ", name="Zweisimmen", lat=46.551713, lon=7.381012, elevation_m=935.0),
-]
-```
-
-`GlobalFlightTracker` also loads all airports from `tracker/src/airports.csv` (a standard OurAirports export) to identify airports for state transitions across the broader region. To add a tracked airport, add it to the `AIRPORTS` list and create an `AirportLogger` for it.
+All thresholds are fields of `DetectionRules` in `tracker/src/detection.py`, each with a
+comment explaining it; see [How it works](how-it-works.md) for the reasoning. After
+changing one, run `dev/test.sh` and replay a few recorded days (`replay.py`).

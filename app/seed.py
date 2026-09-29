@@ -9,7 +9,8 @@ from sqlalchemy import select
 from database import SessionLocal
 from models import Airfield, Glider
 
-# Mirrors tracker/src/models.py SG_BERN_FLEET (OGN device id -> registration).
+# Initial fleet (OGN device id -> registration). After seeding, the `gliders`
+# table is the source of truth - the tracker reads the fleet from there.
 SG_BERN_FLEET = {
     "3D0EB4": "D-EDUY",
     "4B473F": "HB-664",
@@ -24,7 +25,8 @@ SG_BERN_FLEET = {
     "4B5224": "HB-3453",
 }
 
-# Mirrors tracker/run.py AIRPORTS.
+# Further airfields are added by the tracker automatically when a club glider
+# lands there.
 HOME_AIRFIELDS = [
     Airfield(icao="LSZB", name="Bern Belp", latitude=46.9144, longitude=7.4990, elevation_m=510.0),
     Airfield(icao="LSTZ", name="Zweisimmen", latitude=46.551713, longitude=7.381012, elevation_m=935.0),

@@ -10,7 +10,8 @@ services:
     volumes:
       - ./data:/data
     environment:
-      - CSV_PATH=/data/lszb_movements.csv
+      - DATA_DIR=/data
+      - SRTM_CACHE_DIR=/data/srtm  # terrain tiles, kept across restarts
       - DATABASE_URL=postgresql+psycopg://flighttracker:${POSTGRES_PASSWORD:-flighttracker}@db:5432/flighttracker
 
   db:

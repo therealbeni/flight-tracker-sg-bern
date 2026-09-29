@@ -11,6 +11,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    false,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -76,7 +77,8 @@ class PasswordResetToken(Base):
 class Airfield(Base):
     __tablename__ = "airfields"
 
-    icao: Mapped[str] = mapped_column(String(4), primary_key=True)
+    # ICAO code, or the OurAirports ident (e.g. "CH-0012") for fields without one.
+    icao: Mapped[str] = mapped_column(String(16), primary_key=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     latitude: Mapped[float] = mapped_column(Float, nullable=False)
     longitude: Mapped[float] = mapped_column(Float, nullable=False)
@@ -135,11 +137,15 @@ class Flight(Base):
     takeoff_airfield_icao: Mapped[str | None] = mapped_column(ForeignKey("airfields.icao"), nullable=True)
     landing_airfield_icao: Mapped[str | None] = mapped_column(ForeignKey("airfields.icao"), nullable=True)
 
-    # Raw coordinates of the landing point. Populated whenever no known airfield was
-    # within the detection radius, i.e. a candidate outlanding, so it isn't just
-    # silently dropped.
+    # Raw coordinates of the landing point as detected. For a candidate outlanding
+    # (no known airfield within range) this is the only location we have.
     landing_latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     landing_longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    # True when the tracker did not see the takeoff/landing itself (e.g. out of
+    # receiver coverage, FLARM switched off) and the time is its best guess.
+    takeoff_estimated: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false(), nullable=False)
+    landing_estimated: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false(), nullable=False)
 
     duration_min: Mapped[float | None] = mapped_column(Float, nullable=True)
     source: Mapped[FlightSource] = mapped_column(Enum(FlightSource), default=FlightSource.AUTO, nullable=False)

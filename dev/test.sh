@@ -8,6 +8,9 @@
 set -e
 cd "$(dirname "$0")/.."
 docker build -q -t flight-tracker-test -f dev/Dockerfile.test . >/dev/null
-run() { docker run --rm -v "$PWD":/src -w /src flight-tracker-test python -m pytest -q -p no:cacheprovider "$@"; }
+run() {
+  # Exit code 5 = "no tests selected", normal when -k only matches one half.
+  docker run --rm -v "$PWD":/src -w /src flight-tracker-test python -m pytest -q -p no:cacheprovider "$@" || [ $? -eq 5 ]
+}
 run tests/app "$@"
 run tests/tracker "$@"

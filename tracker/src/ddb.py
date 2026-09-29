@@ -2,11 +2,16 @@ import csv
 import io
 import sys
 import urllib.request
+from dataclasses import dataclass
 from typing import Optional
 
-from models import AircraftInfo
-
 OGN_DDB_URL = "https://ddb.glidernet.org/download/?t=1"
+
+
+@dataclass(frozen=True)
+class AircraftInfo:
+    registration: str
+    model: str
 
 
 class DeviceDatabase:

@@ -1,333 +1,216 @@
+"""Glue between the OGN feed, the flight detector and the outputs ("sinks").
+
+    OGN APRS line -> ogn-parser dict -> Beacon -> FlightDetector -> FlightEvent -> sinks
+
+The detection logic itself lives in detection.py. This module only converts
+data, keeps the sweep timer running and makes sure one failing sink (e.g. the
+database being restarted) can never stop the others or the tracker.
+"""
+
+from __future__ import annotations
+
 import csv
-import math
-from dataclasses import dataclass
-from datetime import date
+import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Optional, Union
-import srtm
+from typing import Callable, Iterable, Optional, Protocol, Union
 
-from models import AIRCRAFT_TYPE_NAMES, AircraftFleet, Airport, FlightPhaseRules, FlightState
-from flight_record import FlightRecord
-from ddb import DeviceDatabase
-from abc import ABC, abstractmethod
+from detection import Beacon, EventKind, FlightDetector, FlightEvent, FlightRecord
 
 
-def _haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    r = 6371.0
-    phi1, phi2 = math.radians(lat1), math.radians(lat2)
-    d_phi = math.radians(lat2 - lat1)
-    d_lambda = math.radians(lon2 - lon1)
-    a = math.sin(d_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2) ** 2
-    return 2 * r * math.asin(math.sqrt(a))
+def beacon_from_ogn(parsed: dict, received_at: datetime) -> Optional[Beacon]:
+    """Converts an ogn-parser result into a Beacon, or None if it isn't an
+    aircraft position report with everything detection needs."""
+    if parsed.get("aprs_type") != "position":
+        return None
+    address = parsed.get("address")
+    timestamp = parsed.get("timestamp")
+    values = [parsed.get(k) for k in ("latitude", "longitude", "altitude", "ground_speed")]
+    if not address or timestamp is None or any(v is None for v in values):
+        return None  # receiver/weather station beacons, incomplete packets
+    latitude, longitude, altitude, ground_speed = values
+    if timestamp.tzinfo is None:
+        timestamp = timestamp.replace(tzinfo=timezone.utc)
+    # APRS beacons only carry a time of day. ogn-parser puts it on *today's*
+    # date (it ignores reference_timestamp), which is wrong for a 23:59:59
+    # beacon received at 00:00:02, and for every beacon when replaying an old
+    # day. Move it to the day that puts it closest to when it was received.
+    timestamp += timedelta(days=round((received_at - timestamp).total_seconds() / 86400))
+    return Beacon(
+        address=address.upper(),
+        timestamp=timestamp,
+        received_at=received_at,
+        latitude=latitude,
+        longitude=longitude,
+        altitude_m=altitude,
+        ground_speed_kmh=ground_speed,
+        climb_rate_ms=parsed.get("climb_rate"),
+        name=parsed.get("name", ""),
+        aircraft_type=parsed.get("aircraft_type") or 0,
+    )
 
 
+class Sink(Protocol):
+    def handle(self, event: FlightEvent) -> None: ...
 
-class GlobalFlightTracker:
-    """Takes in OGN Data and creates a flight_record for each plane and keeps it in memory.
-    Uses the airports.csv to detect if a plane lands at an airport and then logs accordingly
-    """
 
-    def __init__(
-        self,
-        airports_csv: Union[str, Path],
-        ddb: DeviceDatabase,
-        phase_rules: Optional[FlightPhaseRules] = None,
-        detection_radius_km: float = 5.0,
-    ):
-        self._ddb = ddb
-        self._phase_rules = phase_rules or FlightPhaseRules()
-        self._detection_radius_km = detection_radius_km
+class Tracker:
+    """Feeds beacons to the detector and hands every takeoff/landing to all sinks."""
 
-        self._airports: list[Airport] = self._load_airports(Path(airports_csv))
-        self._active_flights: dict[str, FlightRecord] = {}
+    def __init__(self, detector: FlightDetector, sinks: Iterable[Sink], sweep_every_s: float = 30.0,
+                 announce: Callable[[FlightRecord], bool] = lambda flight: True):
+        self.detector = detector
+        self.sinks = list(sinks)
+        # Which takeoffs/landings to print to the log (all aircraft in range
+        # would be hundreds per hour).
+        self._announce = announce
+        self._sweep_every = timedelta(seconds=sweep_every_s)
+        self._next_sweep: Optional[datetime] = None
 
-        self.elevation_data = srtm.get_data()
+    def process(self, beacon: Beacon) -> None:
+        events = self.detector.process(beacon)
+        # The sweep runs on the stream clock (receive time), see FlightDetector.sweep.
+        now = beacon.received_at
+        if self._next_sweep is None or now >= self._next_sweep:
+            events += self.detector.sweep(now)
+            self._next_sweep = now + self._sweep_every
+        for event in events:
+            self.dispatch(event)
 
-    def _load_airports(self, path: Path) -> list[Airport]:
-        airports = []
-        with path.open(newline="", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                try:
-                    lat = float(row["latitude_deg"])
-                    lon = float(row["longitude_deg"])
-                except (ValueError, KeyError):
-                    continue
-                elevation_ft = row.get("elevation_ft", "")
-                elevation_m = float(elevation_ft) * 0.3048 if elevation_ft else 0.0
-                icao = row.get("icao_code") or row.get("ident") or ""
-                name = row.get("name", "")
-                airports.append(Airport(icao=icao, name=name, lat=lat, lon=lon, elevation_m=elevation_m))
-        return airports
+    def dispatch(self, event: FlightEvent) -> None:
+        f = event.flight
+        if self._announce(f):
+            print(
+                f"{event.kind.value}: {f.registration or f.address} "
+                f"{_icao(f.takeoff_airport) or '?'} {f.takeoff_time:%H:%M:%S}"
+                + (f" -> {_icao(f.landing_airport) or '?'} {f.landing_time:%H:%M:%S}" if f.landing_time else "")
+                + (" (estimated)" if f.takeoff_estimated or f.landing_estimated else ""),
+                file=sys.stderr,
+            )
+        for sink in self.sinks:
+            try:
+                sink.handle(event)
+            except Exception as exc:  # noqa: BLE001 - a broken sink must not stop tracking
+                print(f"{type(sink).__name__} failed on {event.kind.value} of {f.registration}: {exc}", file=sys.stderr)
 
-    def _nearest_airport(self, lat: float, lon: float) -> Optional[Airport]:
-        best = None
-        best_dist = self._detection_radius_km
-        for airport in self._airports:
-            dist = _haversine(lat, lon, airport.lat, airport.lon)
-            if dist < best_dist:
-                best_dist = dist
-                best = airport
-        return best
 
-    def _classify(self, speed: float, altitude_msl, lat, lon) -> FlightState:
-        terrain = self.elevation_data.get_elevation(lat, lon)
-        if terrain is None:
-            # Fallback for failed terrain query
-            return FlightState.FLYING if speed >= self._phase_rules.takeoff_speed_min else FlightState.GROUND
-
-        agl = altitude_msl - terrain
-        if speed < self._phase_rules.takeoff_speed_min and agl < self._phase_rules.takeoff_agl_min:
-            return FlightState.GROUND
-        else:
-            return FlightState.FLYING
-
-    def process_beacon(self, beacon: dict) -> Optional[FlightRecord]:
-        if beacon.get("aprs_type") != "position":
-            return None
-        
-        latitude = beacon.get("latitude")
-        longitude = beacon.get("longitude")
-        altitude = beacon.get("altitude")
-        speed = beacon.get("ground_speed")
-        
-        if latitude is None or longitude is None or altitude is None or speed is None:
-            return None # Invalid data
-        
-        # prepare data
-        plane_id = beacon.get("name", "")
-        address = beacon.get("address", "")
-        ddb_entry = self._ddb.lookup(address)
-        callsign = ddb_entry.registration if ddb_entry else ""
-        plane_type = (
-            ddb_entry.model if ddb_entry and ddb_entry.model
-            else AIRCRAFT_TYPE_NAMES.get(beacon.get("aircraft_type") or 0, "Unknown")
-        )
-        vertical_speed = beacon.get("climb_rate", "")
-        flight_state = self._classify(speed, altitude, latitude, longitude)
-        timestamp = beacon.get("timestamp")
-
-        if plane_id not in self._active_flights:
-            # plane is new, no active flight exists
-            new_flight = FlightRecord(
-                plane_id,
-                plane_type,
-                callsign,
-                flight_state,
-                timestamp)
-            new_flight.update(latitude, longitude, altitude, speed, vertical_speed, timestamp)
-            self._active_flights[plane_id] = new_flight
-            return new_flight
-
-        else:
-            # update entry
-            flight = self._active_flights[plane_id]
-            if timestamp is not None and flight.last_updated is not None and timestamp < flight.last_updated:
-                return flight  # out-of-order beacon, skip
-            flight.update(latitude,
-                          longitude,
-                          altitude,
-                          speed,
-                          vertical_speed,
-                          timestamp)
-            old_flight_state = flight.flight_state
-
-            if old_flight_state == flight_state:
-                # no change
-                return flight
-            
-            elif old_flight_state == FlightState.GROUND and flight_state == FlightState.FLYING:
-                # Takeoff
-                # get nearest airport
-                airport = self._nearest_airport(latitude, longitude)
-                flight.takeoff(airport)
-                return flight
-            
-            elif old_flight_state == FlightState.FLYING and flight_state == FlightState.GROUND:
-                # Land
-                airport = self._nearest_airport(latitude, longitude)
-                flight.land(airport)
-                self._active_flights.pop(plane_id)
-                return flight
+def _icao(airport) -> str:
+    return airport.icao if airport is not None else ""
 
 
 CSV_FIELDNAMES = [
     "record_id", "plane_id", "callsign", "plane_type",
-    "latitude", "longitude", "altitude_m", "speed_kmh",
     "takeoff_airport", "landing_airport",
     "takeoff_time", "landing_time", "flight_duration_min",
+    "takeoff_estimated", "landing_estimated",
+    "max_height_m", "landing_latitude", "landing_longitude",
 ]
 
 
-class FilteredLogger(ABC):
-    """Abstract base class for a filtered logger"""
+class CsvLogger:
+    """Writes one row per flight into a daily CSV file `{name}_movements_{date}.csv`.
 
-    @abstractmethod
-    def log(self, flight_record: FlightRecord) -> None: ...
-
-    @abstractmethod
-    def close(self) -> None: ...
-
-class AirportLogger(FilteredLogger):
-    """Logs all traffic related to a specific airport as icao_movements_date.csv.
-
-    Each row represents one flight. The row is written on takeoff and overwritten
-    on landing so landing data is filled in on the same record.
+    The row is written on takeoff and rewritten on landing (same record_id).
+    The date is the UTC date of the takeoff, so a flight always stays in one file.
+    `wants` decides which flights belong in this file (e.g. "touches LSZB",
+    "is a club aircraft"). Flights shorter than `min_flight_duration_min` are
+    removed again on landing - they are ground movements that slipped through.
     """
 
-    def __init__(self, airport: Airport, output_dir: Union[str, Path] = ".", min_flight_duration_min: float = 1.0):
-        self.airport = airport
+    def __init__(
+        self,
+        name: str,
+        wants: Callable[[FlightRecord], bool],
+        output_dir: Union[str, Path] = ".",
+        min_flight_duration_min: float = 1.0,
+    ):
+        self.name = name
+        self._wants = wants
         self._output_dir = Path(output_dir)
-        self._min_flight_duration_min = min_flight_duration_min
-        self._current_date: Optional[date] = None
-        self._rows: dict[str, dict] = {}
-        self._rotate()
+        self._min_duration = timedelta(minutes=min_flight_duration_min)
 
-    def _daily_path(self) -> Path:
-        return self._output_dir / f"{self.airport.icao}_movements_{date.today()}.csv"
+    @classmethod
+    def for_airport(cls, icao: str, **kwargs) -> "CsvLogger":
+        return cls(icao, lambda f: icao in (_icao(f.takeoff_airport), _icao(f.landing_airport)), **kwargs)
 
-    def _rotate(self) -> None:
-        today = date.today()
-        if self._current_date == today:
+    @classmethod
+    def for_fleet(cls, name: str, addresses: Callable[[], Iterable[str]], **kwargs) -> "CsvLogger":
+        return cls(name, lambda f: f.address in addresses(), **kwargs)
+
+    def path_for(self, flight: FlightRecord) -> Path:
+        return self._output_dir / f"{self.name}_movements_{flight.takeoff_time.date()}.csv"
+
+    def handle(self, event: FlightEvent) -> None:
+        flight = event.flight
+        if not self._wants(flight):
             return
-        self._current_date = today
-        self._rows = {}
-        path = self._daily_path()
-        if path.exists():
-            with path.open(newline="", encoding="utf-8") as f:
-                for row in csv.DictReader(f):
-                    if row.get("record_id"):
-                        self._rows[row["record_id"]] = row
-
-    def _flush(self) -> None:
-        with self._daily_path().open("w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=CSV_FIELDNAMES)
-            writer.writeheader()
-            writer.writerows(self._rows.values())
-
-    def log(self, flight_record: FlightRecord) -> None:
-        takeoff_icao = flight_record.takeoff_airport.icao if flight_record.takeoff_airport else None
-        landing_icao = flight_record.landing_airport.icao if flight_record.landing_airport else None
-
-        # Check if this flight is relevant to this specific airport logger
-        if takeoff_icao != self.airport.icao and landing_icao != self.airport.icao:
-            return
-
-        # Flight hasnt started yet. Dont add record
-        if flight_record.takeoff_time == None and flight_record.landing_time == None:
-            return
-
-        self._rotate()
-
-        duration = flight_record.flight_duration
-        duration_min = round(duration.total_seconds() / 60, 1) if duration is not None else ""
-
-        # Drop completed flights that are too short to be real
-        if flight_record.landing_time is not None and duration is not None:
-            if duration.total_seconds() / 60 < self._min_flight_duration_min:
-                self._rows.pop(flight_record.record_id, None)
-                self._flush()
+        path = self.path_for(flight)
+        rows = _read_rows(path)
+        if event.kind is EventKind.LANDING and is_too_short(flight, self._min_duration):
+            if rows.pop(flight.record_id, None) is None:
                 return
-
-        # Using unique UUID record_id prevents overwriting separate flight legs!
-        self._rows[flight_record.record_id] = {
-            "record_id": flight_record.record_id,
-            "plane_id": flight_record.plane_id,
-            "callsign": flight_record.callsign,
-            "plane_type": flight_record.plane_type,
-            "latitude": flight_record.latitude if flight_record.latitude is not None else "",
-            "longitude": flight_record.longitude if flight_record.longitude is not None else "",
-            "altitude_m": flight_record.height if flight_record.height is not None else "",
-            "speed_kmh": flight_record.speed if flight_record.speed is not None else "",
-            "takeoff_airport": takeoff_icao,
-            "landing_airport": landing_icao,
-            "takeoff_time": flight_record.takeoff_time.isoformat() if flight_record.takeoff_time else "",
-            "landing_time": flight_record.landing_time.isoformat() if flight_record.landing_time else "",
-            "flight_duration_min": duration_min,
-        }
-        self._flush()
-
-    def close(self) -> None:
-        pass
+        else:
+            rows[flight.record_id] = _csv_row(flight)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=CSV_FIELDNAMES, extrasaction="ignore")
+            writer.writeheader()
+            writer.writerows(rows.values())
 
 
-class ClubLogger(FilteredLogger):
-    """Logs all flights by planes in a specific club fleet, regardless of airport.
+def is_too_short(flight: FlightRecord, min_duration: timedelta) -> bool:
+    """A seen takeoff followed by a seen landing within `min_duration` was not a
+    real flight. Estimated times are never "too short": a flight that lost
+    signal right after takeoff is real, we just don't know how long it was."""
+    return (
+        flight.duration is not None
+        and flight.duration < min_duration
+        and not (flight.takeoff_estimated or flight.landing_estimated)
+    )
 
-    Each row represents one flight. The row is written on takeoff and overwritten
-    on landing so landing data is filled in on the same record.
-    Output filename: {club_name}_movements_{date}.csv
+
+def _read_rows(path: Path) -> dict[str, dict]:
+    if not path.exists():
+        return {}
+    with path.open(newline="", encoding="utf-8") as f:
+        return {row["record_id"]: row for row in csv.DictReader(f) if row.get("record_id")}
+
+
+def _csv_row(f: FlightRecord) -> dict:
+    duration = f.duration
+    return {
+        "record_id": f.record_id,
+        "plane_id": f.address,
+        "callsign": f.registration,
+        "plane_type": f.model,
+        "takeoff_airport": _icao(f.takeoff_airport),
+        "landing_airport": _icao(f.landing_airport),
+        "takeoff_time": f.takeoff_time.isoformat(),
+        "landing_time": f.landing_time.isoformat() if f.landing_time else "",
+        "flight_duration_min": round(duration.total_seconds() / 60, 1) if duration is not None else "",
+        "takeoff_estimated": int(f.takeoff_estimated),
+        "landing_estimated": int(f.landing_estimated),
+        "max_height_m": round(f.max_height_m),
+        "landing_latitude": f.landing_latitude if f.landing_latitude is not None else "",
+        "landing_longitude": f.landing_longitude if f.landing_longitude is not None else "",
+    }
+
+
+class RawRecorder:
+    """Keeps the raw APRS lines of selected aircraft, one file per UTC day.
+
+    Detection problems can then be reproduced exactly by replaying a day
+    (see tracker/replay.py) instead of guessing from the resulting CSV.
     """
 
-    def __init__(self, club_name: str, fleet: AircraftFleet, output_dir: Union[str, Path] = ".", min_flight_duration_min: float = 1.0):
-        self._club_name = club_name
-        self._registrations: frozenset[str] = frozenset(fleet.values())
-        self._output_dir = Path(output_dir)
-        self._min_flight_duration_min = min_flight_duration_min
-        self._current_date: Optional[date] = None
-        self._rows: dict[str, dict] = {}
-        self._rotate()
+    def __init__(self, output_dir: Union[str, Path], addresses: Callable[[], Iterable[str]]):
+        self._dir = Path(output_dir)
+        self._addresses = addresses
 
-    def _daily_path(self) -> Path:
-        return self._output_dir / f"{self._club_name}_movements_{date.today()}.csv"
-
-    def _rotate(self) -> None:
-        today = date.today()
-        if self._current_date == today:
+    def record(self, beacon: Beacon, raw_message: str) -> None:
+        if beacon.address not in self._addresses():
             return
-        self._current_date = today
-        self._rows = {}
-        path = self._daily_path()
-        if path.exists():
-            with path.open(newline="", encoding="utf-8") as f:
-                for row in csv.DictReader(f):
-                    if row.get("record_id"):
-                        self._rows[row["record_id"]] = row
-
-    def _flush(self) -> None:
-        with self._daily_path().open("w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=CSV_FIELDNAMES)
-            writer.writeheader()
-            writer.writerows(self._rows.values())
-
-    def log(self, flight_record: FlightRecord) -> None:
-        if flight_record.callsign not in self._registrations:
-            return
-
-        # Flight hasnt started yet. Dont add record
-        if flight_record.takeoff_time == None and flight_record.landing_time == None:
-            return
-
-        self._rotate()
-
-        takeoff_icao = flight_record.takeoff_airport.icao if flight_record.takeoff_airport else None
-        landing_icao = flight_record.landing_airport.icao if flight_record.landing_airport else None
-        duration = flight_record.flight_duration
-        duration_min = round(duration.total_seconds() / 60, 1) if duration is not None else ""
-
-        # Drop completed flights that are too short to be real
-        if flight_record.landing_time is not None and duration is not None:
-            if duration.total_seconds() / 60 < self._min_flight_duration_min:
-                self._rows.pop(flight_record.record_id, None)
-                self._flush()
-                return
-
-        self._rows[flight_record.record_id] = {
-            "record_id": flight_record.record_id,
-            "plane_id": flight_record.plane_id,
-            "callsign": flight_record.callsign,
-            "plane_type": flight_record.plane_type,
-            "latitude": flight_record.latitude if flight_record.latitude is not None else "",
-            "longitude": flight_record.longitude if flight_record.longitude is not None else "",
-            "altitude_m": flight_record.height if flight_record.height is not None else "",
-            "speed_kmh": flight_record.speed if flight_record.speed is not None else "",
-            "takeoff_airport": takeoff_icao,
-            "landing_airport": landing_icao,
-            "takeoff_time": flight_record.takeoff_time.isoformat() if flight_record.takeoff_time else "",
-            "landing_time": flight_record.landing_time.isoformat() if flight_record.landing_time else "",
-            "flight_duration_min": duration_min,
-        }
-        self._flush()
-
-    def close(self) -> None:
-        pass
+        self._dir.mkdir(parents=True, exist_ok=True)
+        path = self._dir / f"{beacon.received_at.date()}.aprs"
+        with path.open("a", encoding="utf-8") as f:
+            f.write(f"{beacon.received_at.isoformat()} {raw_message}\n")

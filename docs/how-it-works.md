@@ -1,10 +1,69 @@
 # How it works
 
-The tracker connects to the OGN APRS network with an anonymous `N0CALL` login, receiving beacons from a broad region covering Switzerland. Each incoming position beacon passes through this pipeline:
+The tracker connects to the OGN APRS network with an anonymous `N0CALL` login and
+receives every position beacon within 300 km of central Switzerland.
 
-1. **Phase classification** — ground speed and altitude above ground level (AGL, computed from SRTM elevation data) are compared against `FlightPhaseRules` thresholds. An aircraft is considered airborne if its speed exceeds `takeoff_speed_min` or its AGL exceeds `takeoff_agl_min`; otherwise it is on the ground.
-2. **State transition detection** — `GlobalFlightTracker` tracks every aircraft in memory as a `FlightRecord`. When the classified state differs from the previous beacon, a takeoff or landing event is triggered.
-3. **Nearest airport lookup** — on a state transition the aircraft's position is compared against all airports in `airports.csv`. The closest airport within `detection_radius_km` is attached to the event; if none is found, the airport field is left empty.
-4. **DDB lookup** — the aircraft's FLARM address is looked up in the [OGN device database](https://ddb.glidernet.org/) (fetched at startup) to resolve registration and model name.
-5. **Duration tracking** — takeoff time is stored on the `FlightRecord`. When a landing is detected, flight duration is computed from the takeoff timestamp.
-6. **Per-airport CSV logger** — each `AirportLogger` watches for flights relevant to its airport (takeoff or landing ICAO matches). Flights are written as a single row on takeoff and the row is overwritten on landing so departure and arrival data share one record. Files rotate at midnight.
+```
+APRS line -> ogn-parser -> Beacon -> FlightDetector -> takeoff/landing events -> sinks
+```
+
+| Module | Job |
+|---|---|
+| `tracker/run.py` | Wiring: connects to OGN, restores open flights after a restart, logs a health line every 10 min. |
+| `flight_tracker.py` | Converts parser output to `Beacon`s, runs the periodic sweep, hands events to every sink (one failing sink never affects the others). Also the CSV logger and the raw beacon recorder. |
+| `detection.py` | The takeoff/landing state machine. Pure logic, no I/O - tested beacon by beacon. |
+| `db_sink.py` | Writes club glider flights into the web app's database and matches QR claims to takeoffs. |
+| `airports.py` | "Which airfield is this?" - nearest real airfield within 3 km (OurAirports data, heliports/closed fields excluded). |
+| `terrain.py` | Ground elevation (SRTM) for height above ground. Tiles download in the background. |
+
+## Detection
+
+Real OGN data is dirty: GPS altitude jumps by 30 m on the ground, speed flickers,
+beacons arrive twice (several receivers) or late, receivers lose aircraft close to the
+ground, and pilots switch FLARM off right after landing. So no single beacon ever
+changes an aircraft's state. The rules (all in `DetectionRules`):
+
+**Every beacon is classified** as *clearly flying* (>= 60 km/h, or >= 100 m above
+ground), *clearly on the ground* (< 30 km/h and < 40 m above ground) or *unsure*
+(the gap in between, e.g. a glider rolling out at 45 km/h). Unsure beacons never change
+state on their own.
+
+**Takeoff** starts with the first clearly-flying beacon (that is the takeoff time), but
+only counts once the aircraft has climbed at least 50 m above ground on two beacons in a
+row. A car towing a glider along the runway or a trailer on the motorway never climbs,
+so it never becomes a flight.
+
+**Landing** needs clearly-on-the-ground beacons spanning at least 20 s (60 s if there is
+no airfield nearby - a glider scraping along a slope in strong wind must not become an
+"outlanding"). The landing time is the first low beacon, i.e. the touchdown, not the end
+of the rollout. A single fast beacon during the rollout is treated as a GPS glitch;
+climbing away again (touch-and-go, go-around) cancels the landing.
+
+**Signal loss.** An airborne aircraft that goes silent while low (below 300 m) is
+considered landed after 10 minutes, with an *estimated* landing time (when it was last
+seen). Silent while high: only after 5 hours (cross-country out of coverage). If the
+aircraft reappears on the ground after being silent in the air, the landing is also
+estimated. Silence caused by our own connection being down is not counted.
+
+**First seen in the air** (e.g. took off out of coverage, or the tracker just started):
+the flight gets an *estimated* takeoff.
+
+**Restarts.** Flights still open in the database are re-attached at startup, so their
+landing completes the same record.
+
+Estimated times are flagged (`takeoff_estimated` / `landing_estimated`) so pilots can
+check and correct them. Flights under 1 minute with seen takeoff and landing are dropped
+as ground movements.
+
+## Testing and replay
+
+`tests/tracker/test_detection.py` simulates one real-world situation per test (see
+`tests/tracker/sim.py`), and `test_detection_stress.py` runs hundreds of randomised
+flying days with noise, spikes, lost/duplicate/late beacons. Run `dev/test.sh`.
+
+The live tracker records the raw beacons of club gliders to `data/raw/{date}.aprs`. To
+see what the detector makes of a recorded day - e.g. after changing a threshold:
+
+```bash
+docker compose run --rm flight-tracker python replay.py /data/raw/2026-09-29.aprs
+```

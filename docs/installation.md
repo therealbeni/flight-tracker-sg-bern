@@ -6,11 +6,16 @@
 docker compose up -d
 ```
 
-CSV files are written to `./data/` on the host. The container restarts automatically unless explicitly stopped.
+CSV files, raw beacon recordings and the terrain cache are written to `./data/` on the
+host. The app container applies database migrations on startup. All containers restart
+automatically unless explicitly stopped.
 
-## Running directly
+See [Deployment](deployment.md) for the production setup.
+
+## Tests
 
 ```bash
-pip install ogn-client ogn-parser srtm.py matplotlib
-CSV_PATH=./data python tracker/run.py
+dev/test.sh
 ```
+
+Runs everything in Docker; nothing needs to be installed on the host.

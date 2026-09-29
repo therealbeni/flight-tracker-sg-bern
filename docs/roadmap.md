@@ -49,7 +49,7 @@ dashboard, personal logbooks, and Vereinsflieger sync. That's the scope of this 
   unconsumed claim.
 - The tracker and web app now share one schema (`shared/` package, used by both Docker
   images) instead of duplicating models. `tracker/src/db_sink.py` is a `FilteredLogger`
-  (same abstraction as the existing `AirportLogger`/`ClubLogger`) that writes flights for
+  (a sink like the existing `CsvLogger`) that writes flights for
   known club gliders into Postgres and matches a new takeoff to the most recent
   unconsumed, unexpired claim for that glider - consuming it and attaching the pilot.
   A DB write failure logs and moves on rather than crashing the tracker process.
