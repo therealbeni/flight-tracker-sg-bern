@@ -61,9 +61,9 @@ def view_as_pilot(request: Request, pilot_id: int, db: Session = Depends(get_db)
 
 
 @router.post("/pilots/{pilot_id}/reject")
-def reject_pilot(pilot_id: int, db: Session = Depends(get_db)):
+def reject_pilot(request: Request, pilot_id: int, db: Session = Depends(get_db)):
     pilot = db.get(Pilot, pilot_id)
-    if pilot is not None:
+    if pilot is not None and pilot.id != request.session.get("pilot_id"):  # never lock yourself out
         pilot.status = PilotStatus.REJECTED
         db.commit()
     return RedirectResponse("/admin/pilots", status_code=303)

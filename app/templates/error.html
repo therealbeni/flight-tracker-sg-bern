@@ -5,7 +5,7 @@
 <div class="auth-wrap">
     <div class="auth-card" style="text-align:center;">
         {{ icons.logo() }}
-        <h1>{{ {404: "Nicht gefunden", 403: "Keine Berechtigung"}.get(status_code, "Fehler") }}</h1>
+        <h1>{{ {404: "Nicht gefunden", 403: "Keine Berechtigung", 400: "Ungültige Eingabe"}.get(status_code, "Fehler") }}</h1>
         <p class="hint">{{ detail }}</p>
         <a href="/dashboard" class="btn secondary">Zur Startseite</a>
     </div>

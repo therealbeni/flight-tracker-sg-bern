@@ -30,6 +30,7 @@
             {% if request.session.get("is_admin") %}
             <a href="/admin/pilots" class="{{ 'active' if request.url.path.startswith('/admin') }}">Verwaltung</a>
             {% endif %}
+            <a href="/hilfe" class="{{ 'active' if request.url.path == '/hilfe' }}">Hilfe</a>
         </nav>
         <form action="/logout" method="post" class="logout-form">
             <button type="submit" class="secondary compact">{{ icons.icon("logout") }} Abmelden</button>

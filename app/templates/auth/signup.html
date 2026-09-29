@@ -9,9 +9,9 @@
         <p class="hint">Nach der Registrierung schaltet dich ein Vorstandsmitglied frei.</p>
         {% if error %}<p class="error">{{ error }}</p>{% endif %}
         <form method="post" action="/signup">
-            <label>Vorname und Name<input type="text" name="full_name" required autofocus autocomplete="name"></label>
+            <label>Vorname und Name<input type="text" name="full_name" required autofocus autocomplete="name" maxlength="100"></label>
             <label>E-Mail<input type="email" name="email" required autocomplete="username"></label>
-            <label>Passwort (mindestens 8 Zeichen)<input type="password" name="password" minlength="8" required autocomplete="new-password"></label>
+            <label>Passwort (mindestens 8 Zeichen)<input type="password" name="password" minlength="8" maxlength="72" required autocomplete="new-password"></label>
             <button type="submit">Registrieren</button>
         </form>
         <p class="below-form">Schon ein Konto? <a href="/login">Anmelden</a></p>

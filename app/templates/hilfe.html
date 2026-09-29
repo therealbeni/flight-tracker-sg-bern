@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Hilfe{% endblock %}
+{% block content %}
+<h1>So funktioniert's</h1>
+
+<ol class="steps">
+    <li>
+        <h2>Vor dem Start: einchecken</h2>
+        <p>Tippe unten auf <strong>Einchecken</strong> und scanne den QR-Code am Flugzeug (oder wähle es aus der Liste). So weiss das System, wer fliegt.</p>
+    </li>
+    <li>
+        <h2>Fliegen</h2>
+        <p>Start und Landung werden automatisch erfasst - über FLARM und das OGN-Empfängernetz. Du musst nichts tun, ausser FLARM einzuschalten.</p>
+    </li>
+    <li>
+        <h2>Nach dem Fliegen: auschecken</h2>
+        <p>Unter <strong>Heute</strong> auf <strong>Auschecken</strong> tippen (oder am Vereins-PC im Flugbuch deinen Namen wählen), deine Flüge kurz prüfen und bestätigen. Fertig.</p>
+    </li>
+</ol>
+
+<h2>Häufige Fragen</h2>
+<div class="faq">
+    <details class="card"><summary>Ich habe das falsche Flugzeug eingecheckt.</summary>
+        <p>Unter <strong>Einchecken</strong> oder <strong>Heute</strong> bei deinem Check-in auf <strong>Freigeben</strong> tippen und das richtige Flugzeug einchecken.</p></details>
+    <details class="card"><summary>Ich habe vergessen einzuchecken.</summary>
+        <p>Kein Problem: Öffne den Flug unter <strong>Heute</strong>, tippe auf <strong>Korrigieren</strong> und wähle dich als Pilot.</p></details>
+    <details class="card"><summary>Mein Flug fehlt (FLARM war aus, kein Empfang).</summary>
+        <p>Im <strong>Flugbuch</strong> mit <strong>Flug hinzufügen</strong> nachtragen - oder die Startstelle bitten.</p></details>
+    <details class="card"><summary>Eine Zeit ist falsch oder mit «~» markiert.</summary>
+        <p>«~» heisst: der Tracker hat den Start oder die Landung nicht direkt gesehen und die Zeit geschätzt. Öffne den Flug, tippe auf <strong>Korrigieren</strong> und trage die richtige Zeit ein.</p></details>
+    <details class="card"><summary>Ich schleppe heute / fliege den Motorsegler den ganzen Tag.</summary>
+        <p>Checke einmal am Morgen <strong>für den ganzen Tag</strong> ein. Dann werden dir alle Starts mit diesem Flugzeug zugeordnet, bis du auscheckst.</p></details>
+    <details class="card"><summary>Wie bekomme ich die App auf den Startbildschirm?</summary>
+        <p><strong>iPhone:</strong> in Safari unten auf «Teilen» und dann «Zum Home-Bildschirm».<br>
+        <strong>Android:</strong> in Chrome oben rechts das Menü (⋮) und «App installieren» oder «Zum Startbildschirm hinzufügen».</p></details>
+    <details class="card"><summary>Der Scanner öffnet die Kamera nicht.</summary>
+        <p>Erlaube dem Browser den Zugriff auf die Kamera (Einstellungen des Browsers). Oder scanne den QR-Code mit der normalen Kamera-App - das öffnet dieselbe Seite. Oder wähle das Flugzeug einfach aus der Liste.</p></details>
+</div>
+
+<p class="hint">Weitere Fragen? Melde dich beim Vorstand.</p>
+{% endblock %}

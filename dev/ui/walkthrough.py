@@ -31,6 +31,15 @@ def check_page(page: Page, name: str) -> None:
     overflow = page.evaluate("document.documentElement.scrollWidth - window.innerWidth")
     if overflow > 1:
         problems.append(f"{name}: page is {overflow}px wider than the phone screen")
+    covered = page.evaluate("""() => {
+        const bar = document.querySelector('.tabbar');
+        if (!bar || getComputedStyle(bar).display === 'none') return false;
+        window.scrollTo(0, document.documentElement.scrollHeight);
+        const last = document.querySelector('.content').lastElementChild;
+        return last && last.getBoundingClientRect().bottom > bar.getBoundingClientRect().top + 1;
+    }""")
+    if covered:
+        problems.append(f"{name}: end of the page is hidden under the tab bar")
     if not page.context.pages[0].evaluate("matchMedia('(pointer: coarse)').matches"):
         return  # tap target sizes matter on touch screens only
     small = page.evaluate("""() => [...document.querySelectorAll('button, a.btn, .glider-pick, .tabbar a')]
@@ -72,6 +81,11 @@ def pilot_flow(page: Page) -> None:
     page.click(".claim-card >> text=Freigeben")
     expect(page).to_have_url(f"{BASE}/dashboard")
     expect(page.locator(".claim-card")).to_have_count(0)
+
+    page.click(".content a[href='/hilfe']")
+    page.click("text=Ich habe vergessen einzuchecken.")
+    expect(page.locator("details[open]")).to_contain_text("wähle dich als Pilot")
+    check_page(page, "05b-hilfe")
 
     page.click(".tabbar >> text=Meine Flüge")
     check_page(page, "06-meine-fluege")

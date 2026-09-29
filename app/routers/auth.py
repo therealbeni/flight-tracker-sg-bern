@@ -10,7 +10,8 @@ from database import get_db
 from deps import get_current_pilot
 from email_sender import sender
 from models import Pilot, PilotRole, PilotStatus, PasswordResetToken
-from security import generate_token, hash_password, hash_token, verify_password
+from security import (client_ip, generate_token, hash_password, hash_token, login_throttle, password_problem,
+                      verify_password)
 
 from templating import templates
 
@@ -31,20 +32,23 @@ def signup_submit(
     db: Session = Depends(get_db),
 ):
     email = email.strip().lower()
-    existing = db.scalar(select(Pilot).where(Pilot.email == email))
-    if existing:
-        return templates.TemplateResponse(
-            request, "auth/signup.html", {"error": "Mit dieser E-Mail-Adresse gibt es schon ein Konto."}
-        )
-    if len(password) < 8:
-        return templates.TemplateResponse(
-            request, "auth/signup.html", {"error": "Das Passwort muss mindestens 8 Zeichen lang sein."}
-        )
+    full_name = " ".join(full_name.split())
+    error = None
+    if db.scalar(select(Pilot).where(Pilot.email == email)):
+        error = "Mit dieser E-Mail-Adresse gibt es schon ein Konto."
+    elif not full_name or len(full_name) > 100:
+        error = "Bitte gib deinen Vor- und Nachnamen ein (höchstens 100 Zeichen)."
+    elif len(email) > 254 or "@" not in email:
+        error = "Bitte gib eine gültige E-Mail-Adresse ein."
+    else:
+        error = password_problem(password)
+    if error:
+        return templates.TemplateResponse(request, "auth/signup.html", {"error": error}, status_code=400)
 
     # First-ever account becomes an approved admin so someone can approve everyone else.
     is_first_account = db.scalar(select(Pilot.id).limit(1)) is None
     pilot = Pilot(
-        full_name=full_name.strip(),
+        full_name=full_name,
         email=email,
         password_hash=hash_password(password),
         role=PilotRole.ADMIN if is_first_account else PilotRole.PILOT,
@@ -74,11 +78,18 @@ def login_submit(
     db: Session = Depends(get_db),
 ):
     email = email.strip().lower()
+    ip = client_ip(request)
+    if login_throttle.blocked(email, ip):
+        return templates.TemplateResponse(request, "auth/login.html", {
+            "error": "Zu viele Versuche. Warte 15 Minuten, oder setze dein Passwort über «Passwort vergessen?» zurück."
+        }, status_code=429)
     pilot = db.scalar(select(Pilot).where(Pilot.email == email))
     if pilot is None or not verify_password(password, pilot.password_hash):
+        login_throttle.failed(email, ip)
         return templates.TemplateResponse(
-            request, "auth/login.html", {"error": "E-Mail oder Passwort falsch."}
+            request, "auth/login.html", {"error": "E-Mail oder Passwort falsch."}, status_code=400
         )
+    login_throttle.succeeded(email)
     if pilot.status == PilotStatus.PENDING:
         return templates.TemplateResponse(request, "auth/pending.html", {})
     if pilot.status == PilotStatus.REJECTED:
@@ -86,6 +97,7 @@ def login_submit(
             request, "auth/login.html", {"error": "Dieses Konto ist deaktiviert. Bitte melde dich beim Vorstand."}
         )
 
+    request.session.clear()
     request.session["pilot_id"] = pilot.id
     request.session["is_admin"] = pilot.is_admin
     return RedirectResponse("/dashboard", status_code=303)
@@ -171,9 +183,9 @@ def reset_password_submit(
             "auth/reset_password.html",
             {"token": token, "error": "Dieser Link ist ungültig oder abgelaufen. Fordere einen neuen an."},
         )
-    if len(password) < 8:
+    if problem := password_problem(password):
         return templates.TemplateResponse(
-            request, "auth/reset_password.html", {"token": token, "error": "Das Passwort muss mindestens 8 Zeichen lang sein."}
+            request, "auth/reset_password.html", {"token": token, "error": problem}, status_code=400
         )
 
     pilot = db.get(Pilot, reset_token.pilot_id)
