@@ -3,6 +3,7 @@
 {% block content %}
 {% include "admin/_nav.html" %}
 <h1>Piloten</h1>
+<p class="hint">«Als Pilot ansehen» zeigt dir die App genau so, wie dieser Pilot sie sieht - zum Testen oder um jemandem zu helfen. Alles, was du dabei tust, geschieht in seinem Namen.</p>
 <table class="data-table">
     <thead><tr><th>Name</th><th>E-Mail</th><th>Rolle</th><th>Status</th><th>Aktionen</th></tr></thead>
     <tbody>
@@ -16,6 +17,11 @@
                 {% if p.status.value != "approved" %}
                 <form method="post" action="/admin/pilots/{{ p.id }}/approve" class="inline-form">
                     <button type="submit">Freischalten</button>
+                </form>
+                {% endif %}
+                {% if p.status.value == "approved" and p.id != request.session.get("pilot_id") %}
+                <form method="post" action="/admin/pilots/{{ p.id }}/view-as" class="inline-form">
+                    <button type="submit" class="secondary">Als Pilot ansehen</button>
                 </form>
                 {% endif %}
                 {% if p.status.value != "rejected" %}

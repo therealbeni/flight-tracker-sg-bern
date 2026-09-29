@@ -34,6 +34,20 @@ def approve_pilot(pilot_id: int, db: Session = Depends(get_db)):
     return RedirectResponse("/admin/pilots", status_code=303)
 
 
+@router.post("/pilots/{pilot_id}/view-as")
+def view_as_pilot(request: Request, pilot_id: int, db: Session = Depends(get_db)):
+    """See the app exactly as this pilot does (to test, or to help someone).
+    The admin's own id is kept in the session so they can switch back."""
+    target = db.get(Pilot, pilot_id)
+    if target is None or target.status != PilotStatus.APPROVED:
+        raise HTTPException(status_code=404, detail="Diesen Piloten gibt es nicht, oder er ist nicht freigeschaltet.")
+    request.session["viewing_as_admin_id"] = request.session["pilot_id"]
+    request.session["pilot_id"] = target.id
+    request.session["is_admin"] = target.is_admin
+    request.session["viewing_as_name"] = target.full_name
+    return RedirectResponse("/dashboard", status_code=303)
+
+
 @router.post("/pilots/{pilot_id}/reject")
 def reject_pilot(pilot_id: int, db: Session = Depends(get_db)):
     pilot = db.get(Pilot, pilot_id)

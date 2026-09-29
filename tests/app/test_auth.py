@@ -1,5 +1,7 @@
 import re
 
+from models import Pilot, PilotStatus
+
 
 def signup(client, name, email, password="password123"):
     return client.post(
@@ -103,3 +105,43 @@ def test_forgot_password_does_not_reveal_whether_account_exists(client, fake_ema
     resp_unknown = client.post("/forgot-password", data={"email": "nobody@example.com"})
     assert "falls diese e-mail-adresse registriert ist" in resp_unknown.text.lower()
     assert len(fake_email.messages) == 0
+
+
+def signup_and_login(client, name, email, password="password123"):
+    signup(client, name, email, password)
+    return client.post("/login", data={"email": email, "password": password}, follow_redirects=False)
+
+
+def test_admin_can_view_the_app_as_a_pilot_and_switch_back(client, db_session):
+    signup_and_login(client, "Alice Admin", "alice@example.com")
+    client.post("/signup", data={"full_name": "Bob Pilot", "email": "bob@example.com", "password": "password123"})
+    bob = db_session.query(Pilot).filter_by(email="bob@example.com").one()
+    bob.status = PilotStatus.APPROVED
+    db_session.commit()
+
+    client.post(f"/admin/pilots/{bob.id}/view-as")
+    home = client.get("/dashboard").text
+    assert "Hallo Bob" in home
+    assert "Du siehst die App als Bob Pilot" in home
+    assert client.get("/admin/pilots").status_code == 403  # really sees what Bob sees
+
+    resp = client.post("/view-as/end", follow_redirects=False)
+    assert resp.headers["location"] == "/admin/pilots"
+    home = client.get("/dashboard").text
+    assert "Hallo Alice" in home and "Du siehst die App als" not in home
+
+
+def test_pilot_cannot_view_as_someone_else(client, db_session):
+    signup_and_login(client, "Alice Admin", "alice@example.com")
+    client.post("/logout")
+    client.post("/signup", data={"full_name": "Bob Pilot", "email": "bob@example.com", "password": "password123"})
+    bob = db_session.query(Pilot).filter_by(email="bob@example.com").one()
+    bob.status = PilotStatus.APPROVED
+    db_session.commit()
+    client.post("/login", data={"email": "bob@example.com", "password": "password123"})
+    alice = db_session.query(Pilot).filter_by(email="alice@example.com").one()
+
+    assert client.post(f"/admin/pilots/{alice.id}/view-as").status_code == 403
+    # Ending a view-as that never started logs out instead of granting anything.
+    resp = client.post("/view-as/end", follow_redirects=False)
+    assert resp.headers["location"] == "/login"

@@ -481,3 +481,18 @@ a.glider-pick { text-decoration: none; color: inherit; }
 
 form.stack { display: flex; flex-direction: column; gap: 0.5rem; }
 form.stack button { width: 100%; }
+
+/* ---------- "Als Pilot ansehen" ---------- */
+
+.view-as-banner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    padding: 0.5rem 1rem;
+    background: #fff4d6;
+    border-bottom: 1px solid #e6c870;
+    font-weight: 600;
+}
+.view-as-banner form { margin: 0; }

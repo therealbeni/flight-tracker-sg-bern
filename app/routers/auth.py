@@ -91,6 +91,20 @@ def login_submit(
     return RedirectResponse("/dashboard", status_code=303)
 
 
+@router.post("/view-as/end")
+def view_as_end(request: Request, db: Session = Depends(get_db)):
+    """Back to the admin's own account after "Als Pilot ansehen"."""
+    admin_id = request.session.pop("viewing_as_admin_id", None)
+    request.session.pop("viewing_as_name", None)
+    admin = db.get(Pilot, admin_id) if admin_id is not None else None
+    if admin is None or not admin.is_admin:
+        request.session.clear()
+        return RedirectResponse("/login", status_code=303)
+    request.session["pilot_id"] = admin.id
+    request.session["is_admin"] = True
+    return RedirectResponse("/admin/pilots", status_code=303)
+
+
 @router.post("/logout")
 def logout(request: Request):
     request.session.clear()

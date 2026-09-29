@@ -36,6 +36,15 @@
         {% endif %}
     </header>
 
+    {% if request.session.get("viewing_as_admin_id") %}
+    <div class="view-as-banner">
+        <span>Du siehst die App als {{ request.session.get("viewing_as_name") }}.</span>
+        <form method="post" action="/view-as/end">
+            <button type="submit" class="compact">Zurück zu meinem Konto</button>
+        </form>
+    </div>
+    {% endif %}
+
     <main class="content">
         {% block content %}{% endblock %}
     </main>
