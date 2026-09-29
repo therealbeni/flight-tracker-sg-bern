@@ -542,3 +542,63 @@ form.stack button { width: 100%; }
 }
 .scan-close { position: relative; min-width: 10rem; }
 body.scanning { overflow: hidden; }
+
+/* ---------- Flugbuch (club PC) and flight form ---------- */
+
+.content.wide { max-width: 1400px; }
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 0.75rem;
+}
+.form-grid .span-2, .form-grid .span-3 { grid-column: 1 / -1; }
+@media (min-width: 900px) {
+    .form-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .form-grid .span-2 { grid-column: span 2; }
+    .form-grid .span-3 { grid-column: span 3; }
+}
+.form-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.card-head { display: flex; align-items: baseline; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+.card-head h2 { margin: 0; }
+
+.day-nav { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.day-nav h1 { margin: 0 0.25rem; font-size: 1.35rem; }
+
+.table-scroll { overflow-x: auto; margin-bottom: 0.5rem; border-radius: var(--radius-md); }
+.flugbuch-table { display: table; white-space: nowrap; }
+.flugbuch-table th, .flugbuch-table td { padding: 0.45rem 0.55rem; font-size: 0.88rem; vertical-align: middle; }
+.flugbuch-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.flugbuch-table td.notes { white-space: normal; min-width: 8rem; max-width: 16rem; }
+.flugbuch-table tr.needs-attention td { background: #fffaf0; }
+.flugbuch-table tr.is-editing td { background: var(--brand-100); }
+.flugbuch-table tfoot td { font-weight: 700; border-top: 2px solid var(--border); }
+.flugbuch-table .actions { text-align: right; }
+.missing { color: #b54708; font-weight: 700; }
+.estimated { color: #b54708; font-weight: 700; margin-left: 0.15rem; cursor: help; }
+
+.checkout-names { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.record.needs-attention { border-color: #e6c870; }
+
+.flight-head { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+.flight-head h1 { margin: 0; }
+.subline { color: var(--ink-muted); margin: 0.25rem 0 1rem; }
+.facts { margin-bottom: 1rem; }
+.facts th { width: 8rem; }
+.confirm-card { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
+.confirm-card p { margin: 0; }
+details.card > summary { cursor: pointer; list-style: none; }
+details.card > summary h2 { display: inline; margin: 0; }
+details.card > summary::before { content: "\25B8  "; color: var(--ink-muted); }
+details.card[open] > summary::before { content: "\25BE  "; }
+details.card[open] > summary { margin-bottom: 0.75rem; }
+.error p { margin: 0.15rem 0; }
+.flugbuch-table .badge { white-space: normal; }
+.warning {
+    background: #fff7e0;
+    border: 1px solid #e6c870;
+    color: #7a5200;
+    border-radius: var(--radius-md);
+    padding: 0.7rem 0.9rem;
+    font-weight: 600;
+}

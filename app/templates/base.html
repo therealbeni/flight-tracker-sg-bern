@@ -24,6 +24,7 @@
         {% if request.session.get("pilot_id") %}
         <nav>
             <a href="/dashboard" class="{{ 'active' if request.url.path == '/dashboard' }}">Heute</a>
+            <a href="/flugbuch" class="{{ 'active' if request.url.path.startswith('/flugbuch') or request.url.path.startswith('/auschecken') }}">Flugbuch</a>
             <a href="/claim" class="{{ 'active' if request.url.path.startswith('/claim') }}">Einchecken</a>
             <a href="/logbook" class="{{ 'active' if request.url.path == '/logbook' }}">Meine Flüge</a>
             {% if request.session.get("is_admin") %}
@@ -45,7 +46,7 @@
     </div>
     {% endif %}
 
-    <main class="content">
+    <main class="content {% block page_class %}{% endblock %}">
         {% block content %}{% endblock %}
     </main>
 

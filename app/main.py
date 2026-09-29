@@ -5,7 +5,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from config import settings
 from paths import STATIC_DIR
-from routers import admin, auth, claim, dashboard, flights, logbook
+from routers import admin, auth, claim, dashboard, flights, flugbuch, logbook
 from templating import templates
 
 app = FastAPI(title="Flight Tracker SG Bern")
@@ -26,6 +26,7 @@ app.include_router(admin.router)
 app.include_router(claim.router)
 app.include_router(dashboard.router)
 app.include_router(flights.router)
+app.include_router(flugbuch.router)
 app.include_router(logbook.router)
 
 

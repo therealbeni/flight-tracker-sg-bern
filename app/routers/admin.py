@@ -11,18 +11,20 @@ from sqlalchemy.orm import Session
 from config import settings
 from database import get_db
 from deps import require_admin
-from models import AircraftKind, Airfield, Flight, Glider, Pilot, PilotStatus
+from models import AircraftKind, Airfield, Flight, Glider, Pilot, PilotRole, PilotStatus
 from timeutil import local_day_bounds, to_local
 
 from templating import templates
 
 router = APIRouter(prefix="/admin", dependencies=[Depends(require_admin)])
 
+ROLE_LABELS = {PilotRole.PILOT: "Pilot", PilotRole.ADMIN: "Admin", PilotRole.FLIGHTDESK: "Startstelle (Vereins-PC)"}
+
 
 @router.get("/pilots")
 def list_pilots(request: Request, db: Session = Depends(get_db)):
     pilots = db.scalars(select(Pilot).order_by(Pilot.status, Pilot.full_name)).all()
-    return templates.TemplateResponse(request, "admin/pilots.html", {"pilots": pilots})
+    return templates.TemplateResponse(request, "admin/pilots.html", {"pilots": pilots, "roles": ROLE_LABELS})
 
 
 @router.post("/pilots/{pilot_id}/approve")
@@ -30,6 +32,16 @@ def approve_pilot(pilot_id: int, db: Session = Depends(get_db)):
     pilot = db.get(Pilot, pilot_id)
     if pilot is not None:
         pilot.status = PilotStatus.APPROVED
+        db.commit()
+    return RedirectResponse("/admin/pilots", status_code=303)
+
+
+@router.post("/pilots/{pilot_id}/role")
+def set_pilot_role(request: Request, pilot_id: int, role: PilotRole = Form(...), db: Session = Depends(get_db)):
+    """Pilot, Admin, or Startstelle (the shared club PC account)."""
+    pilot = db.get(Pilot, pilot_id)
+    if pilot is not None and pilot.id != request.session.get("pilot_id"):  # never lock yourself out
+        pilot.role = role
         db.commit()
     return RedirectResponse("/admin/pilots", status_code=303)
 
@@ -150,7 +162,8 @@ def create_airfield(
 @router.get("/finalize")
 def finalize_overview(request: Request, db: Session = Depends(get_db)):
     flights = db.scalars(
-        select(Flight).where(Flight.takeoff_time.isnot(None)).order_by(Flight.takeoff_time.desc())
+        select(Flight).where(Flight.takeoff_time.isnot(None), Flight.deleted_at.is_(None))
+        .order_by(Flight.takeoff_time.desc())
     ).all()
 
     by_date: dict[date, list[Flight]] = {}

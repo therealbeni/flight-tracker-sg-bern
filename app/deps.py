@@ -36,3 +36,8 @@ def back_url(request: Request, default: str) -> str:
     referer = request.headers.get("referer") or ""
     base = str(request.base_url)
     return "/" + referer[len(base):] if referer.startswith(base) else default
+
+
+def local_path(value: str) -> str | None:
+    """`value` if it's a path on this site (e.g. a form's "next" field), else None."""
+    return value if value.startswith("/") and not value.startswith("//") and "\\" not in value else None

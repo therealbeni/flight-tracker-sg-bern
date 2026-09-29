@@ -1,150 +1,83 @@
+"""One flight: view, correct, confirm, delete. The rules live in flight_form.py."""
+
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+import flight_form
 from database import get_db
-from deps import back_url, require_approved
-from models import Airfield, Flight, FlightAuditEntry, Pilot, PilotStatus
-
+from deps import back_url, local_path, require_approved
+from flight_form import FlightInput, can_edit, form_choices, read_form
+from models import Flight, FlightAuditEntry, Pilot
+from routers.flugbuch import render_flugbuch
 from templating import templates
+from timeutil import to_local, today_local
 
 router = APIRouter()
 
 
-def _get_flight_or_404(db: Session, flight_id: int) -> Flight:
+def get_flight(db: Session, flight_id: int) -> Flight:
     flight = db.get(Flight, flight_id)
-    if flight is None:
+    if flight is None or flight.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Diesen Flug gibt es nicht.")
     return flight
 
 
-def _can_edit(flight: Flight, pilot: Pilot) -> bool:
-    if flight.finalized_at is not None:
-        return False  # locked for everyone, including admins, until explicitly unlocked
-    if pilot.is_admin:
-        return True
-    return flight.pilot_id is None or flight.pilot_id == pilot.id
-
-
-def _audit(db: Session, flight: Flight, pilot: Pilot, field: str, old_value, new_value) -> None:
-    old_str = str(old_value) if old_value is not None else None
-    new_str = str(new_value) if new_value is not None else None
-    if old_str == new_str:
-        return
-    db.add(
-        FlightAuditEntry(
-            flight_id=flight.id,
-            changed_by_pilot_id=pilot.id,
-            field_name=field,
-            old_value=old_str,
-            new_value=new_str,
-        )
-    )
-
-
-@router.get("/flights/{flight_id}")
-def flight_detail(request: Request, flight_id: int, db: Session = Depends(get_db), pilot: Pilot = Depends(require_approved)):
-    flight = _get_flight_or_404(db, flight_id)
-    airfields = db.scalars(select(Airfield).order_by(Airfield.icao)).all()
-    pilots = db.scalars(
-        select(Pilot).where(Pilot.status == PilotStatus.APPROVED).order_by(Pilot.full_name)
-    ).all()
+def render_detail(request: Request, db: Session, flight: Flight, user: Pilot, form: FlightInput | None = None,
+                  status_code: int = 200):
     history = db.scalars(
         select(FlightAuditEntry).where(FlightAuditEntry.flight_id == flight.id).order_by(FlightAuditEntry.changed_at.desc())
     ).all()
-    return templates.TemplateResponse(
-        request,
-        "flights/detail.html",
-        {
-            "flight": flight,
-            "airfields": airfields,
-            "pilots": pilots,
-            "history": history,
-            "can_edit": _can_edit(flight, pilot),
-            "pilot": pilot,
-        },
-    )
+    return templates.TemplateResponse(request, "flights/detail.html", {
+        "flight": flight, "pilot": user, "form": form or FlightInput.from_flight(flight), "history": history,
+        "labels": flight_form.FIELD_LABELS, "can_edit": can_edit(flight, user), **form_choices(db),
+    }, status_code=status_code)
+
+
+@router.get("/flights/{flight_id}")
+def flight_detail(request: Request, flight_id: int, db: Session = Depends(get_db),
+                  user: Pilot = Depends(require_approved)):
+    return render_detail(request, db, get_flight(db, flight_id), user)
 
 
 @router.post("/flights/{flight_id}")
-def flight_update(
-    request: Request,
-    flight_id: int,
-    db: Session = Depends(get_db),
-    pilot: Pilot = Depends(require_approved),
-    pilot_id: str = Form(""),
-    takeoff_airfield_icao: str = Form(""),
-    landing_airfield_icao: str = Form(""),
-    notes: str = Form(""),
-):
-    flight = _get_flight_or_404(db, flight_id)
-    if not _can_edit(flight, pilot):
-        raise HTTPException(status_code=403, detail="Dieser Flug kann nicht mehr geändert werden.")
-
-    new_pilot_id = int(pilot_id) if pilot_id else None
-    # A non-admin can only assign the flight to themselves, not to anyone else.
-    if not pilot.is_admin and new_pilot_id is not None and new_pilot_id != pilot.id:
-        raise HTTPException(status_code=403, detail="Du kannst einen Flug nur dir selbst zuweisen.")
-
-    new_takeoff_icao = takeoff_airfield_icao.strip().upper() or None
-    new_landing_icao = landing_airfield_icao.strip().upper() or None
-    # Both are foreign keys into `airfields` - an unrecognised code would otherwise
-    # fail as a raw 500 on commit instead of a message the pilot can act on.
-    for icao in (new_takeoff_icao, new_landing_icao):
-        if icao is not None and db.get(Airfield, icao) is None:
-            airfields = db.scalars(select(Airfield).order_by(Airfield.icao)).all()
-            pilots = db.scalars(
-                select(Pilot).where(Pilot.status == PilotStatus.APPROVED).order_by(Pilot.full_name)
-            ).all()
-            history = db.scalars(
-                select(FlightAuditEntry).where(FlightAuditEntry.flight_id == flight.id).order_by(FlightAuditEntry.changed_at.desc())
-            ).all()
-            return templates.TemplateResponse(
-                request,
-                "flights/detail.html",
-                {
-                    "flight": flight,
-                    "airfields": airfields,
-                    "pilots": pilots,
-                    "history": history,
-                    "can_edit": True,
-                    "pilot": pilot,
-                    "error": f"Den Flugplatz «{icao}» kennen wir noch nicht. Ein Admin kann ihn unter Verwaltung > Flugplätze erfassen.",
-                },
-                status_code=400,
-            )
-
-    _audit(db, flight, pilot, "pilot_id", flight.pilot_id, new_pilot_id)
-    flight.pilot_id = new_pilot_id
-
-    _audit(db, flight, pilot, "takeoff_airfield_icao", flight.takeoff_airfield_icao, new_takeoff_icao)
-    flight.takeoff_airfield_icao = new_takeoff_icao
-
-    _audit(db, flight, pilot, "landing_airfield_icao", flight.landing_airfield_icao, new_landing_icao)
-    flight.landing_airfield_icao = new_landing_icao
-    if new_landing_icao is not None:
-        # A real airfield has now been identified for what may have been a
-        # candidate outlanding - the raw coordinates have served their purpose.
-        flight.landing_latitude = None
-        flight.landing_longitude = None
-
-    _audit(db, flight, pilot, "notes", flight.notes, notes.strip() or None)
-    flight.notes = notes.strip() or None
-
+async def flight_update(request: Request, flight_id: int, next: str = Form(""), db: Session = Depends(get_db),
+                        user: Pilot = Depends(require_approved)):
+    flight = get_flight(db, flight_id)
+    if not can_edit(flight, user):
+        raise HTTPException(status_code=403, detail="Diesen Flug kannst du nicht ändern.")
+    form = await read_form(request)
+    day = to_local(flight.takeoff_time).date() if flight.takeoff_time else today_local()
+    if flight_form.save(db, user, form, day, flight) is None:
+        db.rollback()
+        if next.startswith("/flugbuch"):
+            return render_flugbuch(request, db, user, day, form=form, editing=flight, status_code=400)
+        return render_detail(request, db, flight, user, form, status_code=400)
     flight.verified_by_pilot = True
     db.commit()
-
-    return RedirectResponse(f"/flights/{flight.id}", status_code=303)
+    return RedirectResponse(local_path(next) or f"/flights/{flight.id}", status_code=303)
 
 
 @router.post("/flights/{flight_id}/verify")
-def flight_verify(
-    request: Request, flight_id: int, db: Session = Depends(get_db), pilot: Pilot = Depends(require_approved)
-):
-    flight = _get_flight_or_404(db, flight_id)
-    if not _can_edit(flight, pilot):
-        raise HTTPException(status_code=403, detail="Dieser Flug kann nicht mehr geändert werden.")
+def flight_verify(request: Request, flight_id: int, db: Session = Depends(get_db),
+                  user: Pilot = Depends(require_approved)):
+    flight = get_flight(db, flight_id)
+    if not can_edit(flight, user):
+        raise HTTPException(status_code=403, detail="Diesen Flug kannst du nicht ändern.")
     flight.verified_by_pilot = True
     db.commit()
     return RedirectResponse(back_url(request, "/dashboard"), status_code=303)
+
+
+@router.post("/flights/{flight_id}/delete")
+def flight_delete(request: Request, flight_id: int, db: Session = Depends(get_db),
+                  user: Pilot = Depends(require_approved)):
+    """For false detections and duplicates. Startstelle and admins only."""
+    flight = get_flight(db, flight_id)
+    if not (user.edits_all_flights and can_edit(flight, user)):
+        raise HTTPException(status_code=403, detail="Flüge löschen kann nur die Startstelle oder ein Admin.")
+    day = to_local(flight.takeoff_time).date() if flight.takeoff_time else today_local()
+    flight_form.delete(db, user, flight)
+    db.commit()
+    return RedirectResponse(f"/flugbuch?datum={day}", status_code=303)

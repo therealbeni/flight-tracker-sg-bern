@@ -26,6 +26,10 @@ def _utcnow() -> datetime:
 class PilotRole(str, enum.Enum):
     PILOT = "pilot"
     ADMIN = "admin"
+    # Shared account of the club PC at the launch point ("Startstelle"): may
+    # edit and add all flights of open days, like the Vereinsflieger
+    # Flugdatenerfassung on the club PC - but no user/aircraft management.
+    FLIGHTDESK = "flightdesk"
 
 
 class PilotStatus(str, enum.Enum):
@@ -88,6 +92,10 @@ class Pilot(Base):
     @property
     def is_admin(self) -> bool:
         return self.role == PilotRole.ADMIN
+
+    @property
+    def edits_all_flights(self) -> bool:
+        return self.role in (PilotRole.ADMIN, PilotRole.FLIGHTDESK)
 
 
 class PasswordResetToken(Base):
@@ -173,6 +181,12 @@ class Flight(Base):
 
     glider_id: Mapped[int | None] = mapped_column(ForeignKey("gliders.id"), nullable=True)
     pilot_id: Mapped[int | None] = mapped_column(ForeignKey("pilots.id"), nullable=True)
+    # Pilot without an account (guest, trial flight): name as free text.
+    pilot_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Begleiter / second seat (instructor, student, passenger): member or free text.
+    companion_id: Mapped[int | None] = mapped_column(ForeignKey("pilots.id"), nullable=True)
+    companion_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    landings: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
 
     takeoff_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     landing_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -210,13 +224,39 @@ class Flight(Base):
         DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False
     )
 
+    # Soft delete (false detection, duplicate): hidden everywhere, history kept.
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     glider: Mapped["Glider | None"] = relationship()
-    pilot: Mapped["Pilot | None"] = relationship()
+    pilot: Mapped["Pilot | None"] = relationship(foreign_keys=[pilot_id])
+    companion: Mapped["Pilot | None"] = relationship(foreign_keys=[companion_id])
     tow_flight: Mapped["Flight | None"] = relationship(remote_side="Flight.id", foreign_keys=[tow_flight_id])
 
     @property
     def is_possible_outlanding(self) -> bool:
         return self.landing_time is not None and self.landing_airfield_icao is None
+
+    @property
+    def pilot_display(self) -> str | None:
+        return self.pilot.full_name if self.pilot else self.pilot_name
+
+    @property
+    def companion_display(self) -> str | None:
+        return self.companion.full_name if self.companion else self.companion_name
+
+    @property
+    def needs_attention(self) -> list[str]:
+        """What someone should check before this flight is correct (German)."""
+        issues = []
+        if self.landing_time is None:
+            issues.append("keine Landung")
+        if self.pilot_display is None:
+            issues.append("Pilot fehlt")
+        if self.takeoff_estimated or self.landing_estimated:
+            issues.append("Zeit geschätzt")
+        if self.is_possible_outlanding:
+            issues.append("Landeort fehlt")
+        return issues
 
 
 class FlightAuditEntry(Base):
@@ -231,3 +271,5 @@ class FlightAuditEntry(Base):
     old_value: Mapped[str | None] = mapped_column(String(255), nullable=True)
     new_value: Mapped[str | None] = mapped_column(String(255), nullable=True)
     changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, nullable=False)
+
+    changed_by: Mapped["Pilot"] = relationship()

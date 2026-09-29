@@ -1,0 +1,74 @@
+{# The fields of a flight, shared by the Flugbuch and the flight page.
+   Laid out like Vereinsflieger's Flugdatenerfassung. #}
+{% macro flight_fields(form, gliders, members, airfields, launch_methods) %}
+{% if form.errors %}
+<div class="error" role="alert">{% for e in form.errors %}<p>{{ e }}</p>{% endfor %}</div>
+{% endif %}
+<div class="form-grid">
+    <label class="span-2">Flugzeug
+        <select name="glider_id" required>
+            <option value="">-- wählen --</option>
+            {% for g in gliders %}<option value="{{ g.id }}" {{ "selected" if form.glider_id == g.id|string }}>{{ g.registration }}{% if g.model %} ({{ g.model }}){% endif %}</option>{% endfor %}
+        </select>
+    </label>
+    <label class="span-2">Startart
+        <select name="launch_method">
+            <option value="">-- unbekannt --</option>
+            {% for m in launch_methods %}<option value="{{ m.value }}" {{ "selected" if form.launch_method == m.value }}>{{ m.value }} - {{ m.label }}</option>{% endfor %}
+        </select>
+    </label>
+
+    <label class="span-2">Pilot
+        <select name="pilot_id">
+            <option value="">-- Gast / unbekannt --</option>
+            {% for p in members %}<option value="{{ p.id }}" {{ "selected" if form.pilot_id == p.id|string }}>{{ p.full_name }}</option>{% endfor %}
+        </select>
+    </label>
+    <label class="span-2">Name, falls Gast
+        <input type="text" name="pilot_name" value="{{ form.pilot_name }}" placeholder="Vorname Name" maxlength="255">
+    </label>
+
+    <label class="span-2">Begleiter
+        <select name="companion_id">
+            <option value="">-- keiner / Gast --</option>
+            {% for p in members %}<option value="{{ p.id }}" {{ "selected" if form.companion_id == p.id|string }}>{{ p.full_name }}</option>{% endfor %}
+        </select>
+    </label>
+    <label class="span-2">Name, falls Gast
+        <input type="text" name="companion_name" value="{{ form.companion_name }}" placeholder="Vorname Name" maxlength="255">
+    </label>
+
+    <label>Startort
+        <input type="text" name="takeoff_airfield_icao" value="{{ form.takeoff_airfield_icao }}" list="airfield-list" maxlength="16" autocapitalize="characters">
+    </label>
+    <label>Startzeit
+        <input type="time" name="takeoff_time" value="{{ form.takeoff_time }}" required>
+    </label>
+    <label>Landeort
+        <input type="text" name="landing_airfield_icao" value="{{ form.landing_airfield_icao }}" list="airfield-list" maxlength="16" autocapitalize="characters">
+    </label>
+    <label>Landezeit
+        <input type="time" name="landing_time" value="{{ form.landing_time }}">
+    </label>
+
+    <label>Landungen
+        <input type="number" name="landings" value="{{ form.landings }}" min="0" max="99" inputmode="numeric">
+    </label>
+    <label class="span-3">Bemerkung
+        <input type="text" name="notes" value="{{ form.notes }}" maxlength="1000">
+    </label>
+</div>
+<datalist id="airfield-list">
+    {% for a in airfields %}<option value="{{ a.icao }}">{{ a.name }}</option>{% endfor %}
+</datalist>
+{% endmacro %}
+
+{# Compact status for a flight row / card. #}
+{% macro status_badge(f) %}
+{% if f.deleted_at %}<span class="badge badge-rejected">gelöscht</span>
+{% elif not f.landing_time %}<span class="badge badge-sky">in der Luft</span>
+{% elif f.needs_attention %}<span class="badge badge-pending">{{ f.needs_attention | join(", ") }}</span>
+{% elif f.finalized_at %}<span class="badge badge-approved">abgeschlossen</span>
+{% elif f.verified_by_pilot %}<span class="badge badge-approved">bestätigt</span>
+{% else %}<span class="badge badge-pending">offen</span>{% endif %}
+{% endmacro %}

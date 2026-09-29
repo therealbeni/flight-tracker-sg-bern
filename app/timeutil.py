@@ -12,12 +12,15 @@ from zoneinfo import ZoneInfo
 LOCAL_TZ = ZoneInfo("Europe/Zurich")
 
 
+def as_utc(dt: Optional[datetime]) -> Optional[datetime]:
+    """Timezone-aware UTC. SQLite (tests) drops tzinfo on the way back."""
+    if dt is None or dt.tzinfo is not None:
+        return dt
+    return dt.replace(tzinfo=timezone.utc)
+
+
 def to_local(dt: Optional[datetime]) -> Optional[datetime]:
-    if dt is None:
-        return None
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)  # SQLite (tests) drops tzinfo
-    return dt.astimezone(LOCAL_TZ)
+    return as_utc(dt).astimezone(LOCAL_TZ) if dt is not None else None
 
 
 def today_local() -> date:

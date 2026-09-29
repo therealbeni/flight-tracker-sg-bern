@@ -208,3 +208,12 @@ def test_end_to_end_simulated_flight_lands_in_the_database(db_session, glider, p
     assert row.pilot_id == pilot.id
     assert (row.takeoff_airfield_icao, row.landing_airfield_icao) == ("LSZB", "LSZB")
     assert row.duration_min == pytest.approx((touchdown - takeoff_roll).total_seconds() / 60, abs=0.5)
+
+
+def test_deleted_open_flight_is_not_restored(db_session, glider):
+    sink = DbSink(SessionLocal)
+    takeoff, _ = flight()
+    sink.handle(takeoff)
+    db_session.scalar(select(Flight)).deleted_at = datetime.now(timezone.utc)
+    db_session.commit()
+    assert sink.open_flights(timedelta(hours=5), {"LSZB": LSZB}.get) == []

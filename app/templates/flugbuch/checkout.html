@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% from "flights/_fields.html" import status_badge %}
+{% block title %}Auschecken {{ target.full_name }}{% endblock %}
+{% block content %}
+<h1>Auschecken: {{ target.full_name }}</h1>
+<p class="subline">{{ day|wochentag }}, {{ day|datum }}</p>
+
+{% set open_issues = flights | selectattr("needs_attention") | list %}
+<div class="record-list">
+    {% for f in flights %}
+    <a class="record {{ 'needs-attention' if f.needs_attention }}" href="/flights/{{ f.id }}">
+        <div class="record-top">
+            <span class="record-title">{{ f.glider.registration if f.glider else "?" }}</span>
+            {{ status_badge(f) }}
+        </div>
+        <div class="record-meta">
+            {% if f.companion_id == target.id %}als Begleiter von {{ f.pilot_display or "?" }}{% elif f.companion_display %}mit {{ f.companion_display }}{% else %}allein{% endif %}
+            {% if f.launch_method %}&middot; {{ f.launch_method.label }}{% endif %}
+        </div>
+        <div class="record-times">
+            <span>{{ f.takeoff_airfield_icao or "?" }} {{ f.takeoff_time|hhmm }}</span>
+            <span class="arrow">&rarr;</span>
+            <span>{% if f.landing_time %}{{ f.landing_airfield_icao or "?" }} {{ f.landing_time|hhmm }}{% else %}-{% endif %}</span>
+            {% if f.duration_min %}<span class="hint">&middot; {{ f.duration_min|flugzeit }} h</span>{% endif %}
+        </div>
+    </a>
+    {% else %}
+    <p class="record-empty">Keine Flüge an diesem Tag. Fehlt einer? Im Flugbuch kannst du ihn hinzufügen.</p>
+    {% endfor %}
+</div>
+
+{% if open_issues %}
+<p class="warning">Bei {{ open_issues|length }} Flug{{ "en" if open_issues|length != 1 }} fehlt noch etwas. Tippe auf den Flug, um ihn zu korrigieren - oder checke trotzdem aus, die Startstelle kann es später nachtragen.</p>
+{% endif %}
+
+<form method="post" action="/auschecken/{{ target.id }}" class="card confirm-card">
+    <input type="hidden" name="day" value="{{ day }}">
+    <p>
+        {% if flights %}Sind alle Flüge richtig?{% endif %}
+        {% if claims %}Deine Check-ins ({{ claims | map(attribute="glider.registration") | join(", ") }}) werden beendet.{% endif %}
+    </p>
+    <button type="submit">{% if flights %}Flüge bestätigen und auschecken{% else %}Auschecken{% endif %}</button>
+</form>
+<p><a href="/flugbuch?datum={{ day }}">Zurück zum Flugbuch</a></p>
+{% endblock %}

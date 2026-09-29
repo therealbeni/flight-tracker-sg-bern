@@ -1,88 +1,75 @@
 {% extends "base.html" %}
+{% from "flights/_fields.html" import flight_fields, status_badge %}
 {% block title %}Flug {{ flight.glider.registration if flight.glider else "" }}{% endblock %}
 {% block content %}
-<h1>{{ flight.glider.registration if flight.glider else "Unbekanntes Flugzeug" }} &middot; {{ flight.takeoff_time|datum_zeit }}</h1>
-
-<div class="card">
-    {% if error %}<p class="error">{{ error }}</p>{% endif %}
-    {% if flight.finalized_at %}<p class="badge badge-approved">Abgeschlossen</p>{% endif %}
-    {% if flight.is_possible_outlanding %}
-    <p class="badge badge-pending">
-        Mögliche Aussenlandung
-        {% if flight.landing_latitude is not none and flight.landing_longitude is not none %}
-        bei {{ "%.4f"|format(flight.landing_latitude) }}, {{ "%.4f"|format(flight.landing_longitude) }}
-        {% endif %}
-        - trage unten den Landeort ein, falls bekannt.
-    </p>
-    {% endif %}
-
-    {% if not can_edit %}
-    <p class="hint">
-        {% if flight.finalized_at %}Dieser Tag ist abgeschlossen. Für Änderungen muss ihn ein Admin wieder öffnen.
-        {% else %}Dieser Flug gehört einem anderen Piloten, du kannst ihn nicht ändern.{% endif %}
-    </p>
-    {% endif %}
-
-    <form method="post" action="/flights/{{ flight.id }}">
-        <label>Pilot
-            <select name="pilot_id" {% if not can_edit %}disabled{% endif %}>
-                <option value="">-- unbekannt --</option>
-                {% for p in pilots %}
-                <option value="{{ p.id }}" {% if flight.pilot_id == p.id %}selected{% endif %}
-                    {% if not pilot.is_admin and flight.pilot_id and flight.pilot_id != pilot.id %}disabled{% endif %}>
-                    {{ p.full_name }}
-                </option>
-                {% endfor %}
-            </select>
-        </label>
-
-        <label>Startort (ICAO)
-            <input type="text" name="takeoff_airfield_icao" maxlength="16" value="{{ flight.takeoff_airfield_icao or '' }}" {% if not can_edit %}disabled{% endif %}>
-        </label>
-
-        <label>Landeort (ICAO, leer lassen bei Aussenlandung)
-            <input type="text" name="landing_airfield_icao" maxlength="16" value="{{ flight.landing_airfield_icao or '' }}" {% if not can_edit %}disabled{% endif %}>
-        </label>
-
-        <label>Bemerkung
-            <input type="text" name="notes" value="{{ flight.notes or '' }}" {% if not can_edit %}disabled{% endif %}>
-        </label>
-
-        {% if can_edit %}<button type="submit">Speichern und bestätigen</button>{% endif %}
-    </form>
-
-    {% if can_edit and not flight.verified_by_pilot %}
-    <form method="post" action="/flights/{{ flight.id }}/verify" style="margin-top: 0.5rem;">
-        <button type="submit" class="secondary">Stimmt so - bestätigen</button>
-    </form>
-    {% endif %}
+<div class="flight-head">
+    <h1>{{ flight.glider.registration if flight.glider else "Unbekanntes Flugzeug" }}</h1>
+    {{ status_badge(flight) }}
 </div>
+<p class="subline">{{ flight.takeoff_time|datum }}{% if flight.pilot_display %} &middot; {{ flight.pilot_display }}{% endif %}{% if flight.companion_display %} mit {{ flight.companion_display }}{% endif %}</p>
 
-<table class="data-table">
-    <tr><th>Startzeit</th><td>{{ flight.takeoff_time|hhmm }}{% if flight.takeoff_estimated %} <span class="hint">(geschätzt)</span>{% endif %}</td></tr>
-    <tr><th>Landezeit</th><td>{% if flight.landing_time %}{{ flight.landing_time|hhmm }}{% if flight.landing_estimated %} <span class="hint">(geschätzt)</span>{% endif %}{% else %}in der Luft{% endif %}</td></tr>
-    <tr><th>Flugzeit</th><td>{{ flight.duration_min|flugzeit }}</td></tr>
+<table class="data-table facts">
+    <tr><th>Start</th><td>{{ flight.takeoff_airfield_icao or "?" }} {{ flight.takeoff_time|hhmm }}{% if flight.takeoff_estimated %} <span class="hint">(geschätzt - Start nicht gesehen)</span>{% endif %}</td></tr>
+    <tr><th>Landung</th><td>
+        {% if flight.landing_time %}{{ flight.landing_airfield_icao or "" }} {{ flight.landing_time|hhmm }}{% if flight.landing_estimated %} <span class="hint">(geschätzt - Landung nicht gesehen)</span>{% endif %}
+        {% else %}noch in der Luft{% endif %}
+        {% if flight.is_possible_outlanding %}<br><span class="badge badge-pending">Aussenlandung?</span>
+            {% if flight.landing_latitude is not none %}<a href="https://www.google.com/maps?q={{ flight.landing_latitude }},{{ flight.landing_longitude }}" target="_blank" rel="noopener">zuletzt gesehen hier</a>{% endif %}
+        {% endif %}
+    </td></tr>
+    <tr><th>Flugzeit</th><td>{{ flight.duration_min|flugzeit or "-" }}</td></tr>
     <tr><th>Startart</th><td>{{ flight.launch_method.label if flight.launch_method else "unbekannt" }}</td></tr>
     {% if flight.tow_flight %}
     <tr><th>Schlepp</th><td>
         <a href="/flights/{{ flight.tow_flight.id }}">{{ flight.tow_flight.glider.registration }}</a>,
-        {{ flight.tow_flight.pilot.full_name if flight.tow_flight.pilot else "Schlepppilot unbekannt" }},
+        {{ flight.tow_flight.pilot_display or "Schlepppilot unbekannt" }},
         {{ flight.tow_flight.duration_min|flugzeit or "noch in der Luft" }}
     </td></tr>
     {% endif %}
+    <tr><th>Landungen</th><td>{{ flight.landings }}</td></tr>
+    {% if flight.notes %}<tr><th>Bemerkung</th><td>{{ flight.notes }}</td></tr>{% endif %}
     <tr><th>Erfasst</th><td>{{ "automatisch (OGN)" if flight.source.value == "auto" else "von Hand" }}</td></tr>
-    <tr><th>Bestätigt</th><td>{{ "ja" if flight.verified_by_pilot else "nein" }}</td></tr>
 </table>
+
+{% if can_edit %}
+    {% if not flight.verified_by_pilot and not form.errors %}
+    <form method="post" action="/flights/{{ flight.id }}/verify" class="card confirm-card">
+        <p>Stimmt alles?</p>
+        <button type="submit">Ja, Flug bestätigen</button>
+    </form>
+    {% endif %}
+
+    <details class="card" {{ "open" if form.errors }}>
+        <summary><h2>Korrigieren</h2></summary>
+        <form method="post" action="/flights/{{ flight.id }}">
+            {{ flight_fields(form, gliders, members, airfields, launch_methods) }}
+            <div class="form-actions"><button type="submit">Speichern und bestätigen</button></div>
+        </form>
+    </details>
+
+    {% if pilot.edits_all_flights %}
+    <form method="post" action="/flights/{{ flight.id }}/delete"
+          onsubmit="return confirm('Diesen Flug wirklich löschen? Das ist für Fehlerkennungen und doppelte Einträge gedacht.');">
+        <button type="submit" class="danger secondary compact">Flug löschen</button>
+    </form>
+    {% endif %}
+{% else %}
+    <p class="hint">
+        {% if flight.finalized_at %}Dieser Tag ist abgeschlossen. Für Änderungen muss ihn ein Admin wieder öffnen.
+        {% else %}Dieser Flug gehört einem anderen Piloten, du kannst ihn nicht ändern.{% endif %}
+    </p>
+{% endif %}
 
 {% if history %}
 <h2>Änderungen</h2>
 <table class="data-table">
-    <thead><tr><th>Wann</th><th>Feld</th><th>Vorher</th><th>Nachher</th></tr></thead>
+    <thead><tr><th>Wann</th><th>Wer</th><th>Was</th><th>Vorher</th><th>Nachher</th></tr></thead>
     <tbody>
     {% for h in history %}
         <tr>
             <td>{{ h.changed_at|datum_zeit }}</td>
-            <td>{{ h.field_name }}</td>
+            <td>{{ h.changed_by.full_name if h.changed_by else "" }}</td>
+            <td>{{ labels.get(h.field_name, h.field_name) }}</td>
             <td>{{ h.old_value or "" }}</td>
             <td>{{ h.new_value or "" }}</td>
         </tr>

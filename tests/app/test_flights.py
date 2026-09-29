@@ -42,6 +42,14 @@ def make_glider(db_session, registration="HB-1811"):
     return glider
 
 
+def form_for(flight, **overrides):
+    """What the browser submits: the flight's current values, plus changes."""
+    from flight_form import FlightInput
+    data = {k: v for k, v in vars(FlightInput.from_flight(flight)).items() if k != "errors"}
+    data.update(overrides)
+    return data
+
+
 def make_airfields(db_session, *icaos):
     for icao in icaos:
         if db_session.get(Airfield, icao) is None:
@@ -57,7 +65,7 @@ def test_pilot_can_claim_an_unclaimed_flight_as_their_own(client, db_session):
 
     resp = client.post(
         f"/flights/{flight.id}",
-        data={"pilot_id": "", "takeoff_airfield_icao": "LSZB", "landing_airfield_icao": "LSZB", "notes": ""},
+        data=form_for(flight, takeoff_airfield_icao="LSZB", landing_airfield_icao="LSZB"),
         follow_redirects=False,
     )
     assert resp.status_code == 303
@@ -84,10 +92,7 @@ def test_pilot_cannot_edit_someone_elses_flight(client, db_session):
     assert detail.status_code == 200
     assert "gehört einem anderen piloten" in detail.text.lower()
 
-    resp = client.post(
-        f"/flights/{flight.id}",
-        data={"pilot_id": "", "takeoff_airfield_icao": "LSZB", "landing_airfield_icao": "LSZB", "notes": ""},
-    )
+    resp = client.post(f"/flights/{flight.id}", data=form_for(flight, takeoff_airfield_icao="LSZB"))
     assert resp.status_code == 403
 
 
@@ -103,11 +108,10 @@ def test_non_admin_cannot_reassign_flight_to_someone_else(client, db_session):
     flight = make_flight(db_session, glider, pilot_id=None)
 
     other_pilot_id = bob.id + 999  # doesn't matter if it exists, should be rejected either way
-    resp = client.post(
-        f"/flights/{flight.id}",
-        data={"pilot_id": str(other_pilot_id), "takeoff_airfield_icao": "", "landing_airfield_icao": "", "notes": ""},
-    )
-    assert resp.status_code == 403
+    resp = client.post(f"/flights/{flight.id}", data=form_for(flight, pilot_id=str(other_pilot_id)))
+    assert resp.status_code == 400
+    db_session.refresh(flight)
+    assert flight.pilot_id is None
 
 
 def test_verify_without_changes_sets_verified_flag(client, db_session):
@@ -164,7 +168,7 @@ def test_unknown_airfield_code_is_rejected_with_a_friendly_error(client, db_sess
 
     resp = client.post(
         f"/flights/{flight.id}",
-        data={"pilot_id": "", "takeoff_airfield_icao": "ZZZZ", "landing_airfield_icao": "", "notes": ""},
+        data=form_for(flight, takeoff_airfield_icao="ZZZZ"),
     )
     assert resp.status_code == 400
     assert "kennen wir noch nicht" in resp.text
@@ -182,10 +186,11 @@ def test_editing_records_audit_history(client, db_session):
 
     client.post(
         f"/flights/{flight.id}",
-        data={"pilot_id": "", "takeoff_airfield_icao": "LSZB", "landing_airfield_icao": "LSTZ", "notes": "outlanding, retrieved by car"},
+        data=form_for(flight, takeoff_airfield_icao="LSZB", landing_airfield_icao="LSTZ",
+                      notes="outlanding, retrieved by car"),
     )
 
     detail = client.get(f"/flights/{flight.id}")
-    assert "takeoff_airfield_icao" in detail.text
+    assert "Landeort" in detail.text and "Alice Admin" in detail.text
     assert "LSTZ" in detail.text
     assert "outlanding, retrieved by car" in detail.text

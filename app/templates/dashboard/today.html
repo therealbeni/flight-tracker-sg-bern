@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "claim/_my_claims.html" import my_claims as my_claims_list %}
+{% from "flights/_fields.html" import status_badge %}
 {% block title %}Heute{% endblock %}
 {% block content %}
 
@@ -24,24 +25,17 @@
 
 <div class="section-title">
     <h2>Flüge heute</h2>
+    <a href="/flugbuch">Flugbuch &rarr;</a>
 </div>
 <div class="record-list">
     {% for f in flights %}
     <a class="record" href="/flights/{{ f.id }}">
         <div class="record-top">
             <span class="record-title">{{ f.glider.registration if f.glider else "?" }}</span>
-            {% if f.is_possible_outlanding %}
-                <span class="badge badge-pending">Aussenlandung?</span>
-            {% elif not f.landing_time %}
-                <span class="badge badge-sky">in der Luft</span>
-            {% elif f.verified_by_pilot %}
-                <span class="badge badge-approved">bestätigt</span>
-            {% else %}
-                <span class="badge badge-pending">offen</span>
-            {% endif %}
+            {{ status_badge(f) }}
         </div>
         <div class="record-meta">
-            {{ f.pilot.full_name if f.pilot else "Pilot unbekannt" }}
+            {{ f.pilot_display or "Pilot unbekannt" }}{% if f.companion_display %} mit {{ f.companion_display }}{% endif %}
             {% if f.tow_flight %}&middot; Schlepp {{ f.tow_flight.glider.registration }}{% endif %}
         </div>
         <div class="record-times">
@@ -55,4 +49,11 @@
     <p class="record-empty">Heute noch keine Flüge.</p>
     {% endfor %}
 </div>
+
+{% if my_flight_count or my_claims %}
+<div class="card checkout-card">
+    <p style="margin: 0 0 0.75rem;">Fertig für heute? Prüfe deine Flüge und checke aus.</p>
+    <a href="/auschecken/{{ pilot.id }}" class="btn secondary">Auschecken</a>
+</div>
+{% endif %}
 {% endblock %}

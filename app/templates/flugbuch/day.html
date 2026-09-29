@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% from "flights/_fields.html" import flight_fields, status_badge %}
+{% block title %}Flugbuch {{ day|datum }}{% endblock %}
+{% block page_class %}wide{% endblock %}
+{% block content %}
+<div class="flugbuch">
+
+<div class="day-nav">
+    <a class="btn secondary compact" href="/flugbuch?datum={{ prev_day }}" aria-label="Vorheriger Tag">&larr;</a>
+    <h1>Flugbuch {{ day|wochentag }}, {{ day|datum }}</h1>
+    <a class="btn secondary compact" href="/flugbuch?datum={{ next_day }}" aria-label="Nächster Tag">&rarr;</a>
+    {% if day != today %}<a class="btn secondary compact" href="/flugbuch">Heute</a>{% endif %}
+</div>
+
+{% if day_finalized %}
+<p class="hint">Dieser Tag ist abgeschlossen. Für Änderungen muss ihn ein Admin wieder öffnen.</p>
+{% else %}
+<form method="post" action="{{ '/flights/%d' % editing.id if editing else '/flugbuch' }}" class="card flight-entry" id="erfassen">
+    <div class="card-head">
+        <h2>{% if editing %}Flug bearbeiten: {{ editing.glider.registration if editing.glider else "" }} {{ editing.takeoff_time|hhmm }}{% else %}Flug hinzufügen{% endif %}</h2>
+        {% if not editing %}<span class="hint">für Flüge, die der Tracker nicht sieht (ohne FLARM, Gastflugzeug)</span>{% endif %}
+    </div>
+    <input type="hidden" name="day" value="{{ day }}">
+    <input type="hidden" name="next" value="/flugbuch?datum={{ day }}">
+    {{ flight_fields(form, gliders, members, airfields, launch_methods) }}
+    <div class="form-actions">
+        <button type="submit">{% if editing %}Speichern{% else %}Flug hinzufügen{% endif %}</button>
+        {% if editing %}<a class="btn secondary" href="/flugbuch?datum={{ day }}">Abbrechen</a>{% endif %}
+    </div>
+</form>
+{% endif %}
+
+<div class="table-scroll">
+<table class="data-table flugbuch-table">
+    <thead>
+        <tr>
+            <th>Nr</th><th>Kennzeichen</th><th>Pilot</th><th>Begleiter</th><th title="Startart">SA</th>
+            <th>Start</th><th>Landung</th><th>Flugzeit</th><th title="Landungen">Ldg</th>
+            <th>Schlepp</th><th>Bemerkung</th><th>Status</th><th></th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for f in flights %}
+        <tr class="{{ 'is-editing' if editing and editing.id == f.id }} {{ 'needs-attention' if f.needs_attention }}">
+            <td>{{ loop.index }}</td>
+            <td><strong>{{ f.glider.registration if f.glider else "?" }}</strong></td>
+            <td>{{ f.pilot_display or "" }}{% if not f.pilot_display %}<span class="missing">fehlt</span>{% endif %}</td>
+            <td>{{ f.companion_display or "" }}</td>
+            <td title="{{ f.launch_method.label if f.launch_method else '' }}">{{ f.launch_method.value if f.launch_method else "" }}</td>
+            <td>{{ f.takeoff_airfield_icao or "?" }} {{ f.takeoff_time|hhmm }}{% if f.takeoff_estimated %}<span class="estimated" title="geschätzt">~</span>{% endif %}</td>
+            <td>{% if f.landing_time %}{{ f.landing_airfield_icao or "Aussenlandung?" }} {{ f.landing_time|hhmm }}{% if f.landing_estimated %}<span class="estimated" title="geschätzt">~</span>{% endif %}{% else %}-{% endif %}</td>
+            <td class="num">{{ f.duration_min|flugzeit }}</td>
+            <td class="num">{{ f.landings }}</td>
+            <td>{% if f.tow_flight %}{{ f.tow_flight.glider.registration }}, {{ f.tow_flight.pilot_display or "?" }}, {{ f.tow_flight.duration_min|flugzeit }}{% endif %}</td>
+            <td class="notes">{{ f.notes or "" }}</td>
+            <td>{{ status_badge(f) }}</td>
+            <td class="actions">
+                {% if can_edit[f.id] %}<a class="btn compact secondary" href="/flugbuch?datum={{ day }}&bearbeiten={{ f.id }}#erfassen">Bearbeiten</a>
+                {% else %}<a class="btn compact secondary" href="/flights/{{ f.id }}">Ansehen</a>{% endif %}
+            </td>
+        </tr>
+    {% else %}
+        <tr><td colspan="13" class="record-empty">An diesem Tag keine Flüge.</td></tr>
+    {% endfor %}
+    </tbody>
+    {% if flights %}
+    <tfoot>
+        <tr><td colspan="7">{{ flights|length }} Flüge</td><td class="num">{{ total_minutes|flugzeit }}</td><td colspan="5"></td></tr>
+    </tfoot>
+    {% endif %}
+</table>
+</div>
+<p class="hint"><span class="estimated">~</span> = geschätzte Zeit (Start oder Landung nicht gesehen) &middot; SA = Startart: F = F-Schlepp, W = Winde, E = Eigenstart</p>
+
+{% if pilots_today %}
+<div class="card checkout-card">
+    <h2>Auschecken</h2>
+    <p class="hint">Am Ende des Tages: wähle deinen Namen, prüfe deine Flüge und bestätige sie.</p>
+    <div class="checkout-names">
+        {% for p in pilots_today %}
+        {% if p.id == pilot.id or pilot.edits_all_flights %}
+        <a class="btn secondary" href="/auschecken/{{ p.id }}?datum={{ day }}">{{ p.full_name }}</a>
+        {% endif %}
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+</div>
+{% endblock %}

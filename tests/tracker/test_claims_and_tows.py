@@ -159,3 +159,11 @@ def test_dropping_a_too_short_tow_flight_unlinks_the_glider(db_session, fleet):
     fly(sink, fleet["tow"], T + timedelta(seconds=2), minutes=0.4)  # aborted takeoff
     g = row(db_session, glider)
     assert g.tow_flight_id is None and g.launch_method is None
+
+
+def test_deleted_tow_flight_is_not_linked(db_session, fleet):
+    sink = DbSink(SessionLocal)
+    tow = fly(sink, fleet["tow"], T, minutes=8)
+    row(db_session, tow).deleted_at = T
+    db_session.commit()
+    assert row(db_session, fly(sink, fleet["glider"], T)).tow_flight_id is None

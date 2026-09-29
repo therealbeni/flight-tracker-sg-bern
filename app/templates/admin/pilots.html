@@ -4,6 +4,7 @@
 {% include "admin/_nav.html" %}
 <h1>Piloten</h1>
 <p class="hint">«Als Pilot ansehen» zeigt dir die App genau so, wie dieser Pilot sie sieht - zum Testen oder um jemandem zu helfen. Alles, was du dabei tust, geschieht in seinem Namen.</p>
+<p class="hint">Für den Vereins-PC an der Startstelle: ein eigenes Konto registrieren (z.B. «Startstelle LSZB») und ihm hier die Rolle «Startstelle» geben. Es kann alle Flüge offener Tage bearbeiten und hinzufügen, aber keine Piloten oder Flugzeuge verwalten.</p>
 <table class="data-table">
     <thead><tr><th>Name</th><th>E-Mail</th><th>Rolle</th><th>Status</th><th>Aktionen</th></tr></thead>
     <tbody>
@@ -11,7 +12,17 @@
         <tr>
             <td>{{ p.full_name }}</td>
             <td>{{ p.email }}</td>
-            <td>{{ {"pilot": "Pilot", "admin": "Admin"}.get(p.role.value, p.role.value) }}</td>
+            <td>
+                {% if p.id == request.session.get("pilot_id") %}{{ roles[p.role] }}
+                {% else %}
+                <form method="post" action="/admin/pilots/{{ p.id }}/role" class="inline-form">
+                    <select name="role" onchange="this.form.submit()" aria-label="Rolle von {{ p.full_name }}">
+                        {% for role, label in roles.items() %}<option value="{{ role.value }}" {{ "selected" if p.role == role }}>{{ label }}</option>{% endfor %}
+                    </select>
+                    <noscript><button type="submit" class="compact">OK</button></noscript>
+                </form>
+                {% endif %}
+            </td>
             <td><span class="badge badge-{{ p.status.value }}">{{ {"pending": "ausstehend", "approved": "freigeschaltet", "rejected": "abgelehnt"}[p.status.value] }}</span></td>
             <td>
                 {% if p.status.value != "approved" %}

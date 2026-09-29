@@ -116,7 +116,7 @@ class DbSink:
             return
         candidates = db.scalars(
             select(Flight).join(Glider, Flight.glider_id == Glider.id)
-            .where(Glider.kind == wanted, Flight.id != flight.id)
+            .where(Glider.kind == wanted, Flight.id != flight.id, Flight.deleted_at.is_(None))
             .where(Flight.takeoff_airfield_icao == flight.takeoff_airfield_icao,
                    Flight.takeoff_estimated.is_(False))
             .where(Flight.takeoff_time.between(flight.takeoff_time - TOW_WINDOW, flight.takeoff_time + TOW_WINDOW))
@@ -179,7 +179,7 @@ class DbSink:
             rows = db.execute(
                 select(Flight, Glider)
                 .join(Glider, Flight.glider_id == Glider.id)
-                .where(Flight.source == FlightSource.AUTO, Flight.landing_time.is_(None))
+                .where(Flight.source == FlightSource.AUTO, Flight.landing_time.is_(None), Flight.deleted_at.is_(None))
                 .where(Flight.takeoff_time > since, Glider.ogn_device_id.is_not(None))
             ).all()
             return [

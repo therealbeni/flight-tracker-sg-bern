@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Request
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -14,7 +14,9 @@ router = APIRouter()
 @router.get("/logbook")
 def logbook(request: Request, db: Session = Depends(get_db), pilot: Pilot = Depends(require_approved)):
     flights = db.scalars(
-        select(Flight).where(Flight.pilot_id == pilot.id).order_by(Flight.takeoff_time.desc())
+        select(Flight)
+        .where(or_(Flight.pilot_id == pilot.id, Flight.companion_id == pilot.id), Flight.deleted_at.is_(None))
+        .order_by(Flight.takeoff_time.desc())
     ).all()
     total_minutes = sum(f.duration_min or 0 for f in flights)
     return templates.TemplateResponse(
