@@ -106,9 +106,11 @@ def process_line(raw_message: str) -> None:
 
     if time.monotonic() >= next_stats:
         next_stats = time.monotonic() + STATS_EVERY_S
-        airborne = ", ".join(sorted(f.registration or f.address for f in detector.active_flights()))
+        airborne = detector.active_flights()
+        ours = ", ".join(sorted(f.registration or f.address for f in airborne if is_ours(f)))
         log(f"Last {STATS_EVERY_S // 60} min: {stats['beacons']} position beacons, "
-            f"{stats['parse_errors']} unparseable lines. In the air: {airborne or 'nobody'}")
+            f"{stats['parse_errors']} unparseable lines. {len(airborne)} aircraft in the air, "
+            f"ours: {ours or 'none'}")
         stats.update(beacons=0, parse_errors=0)
 
 
