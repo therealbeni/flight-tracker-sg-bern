@@ -19,3 +19,15 @@ docker compose up -d
 ```
 
 See the [documentation](https://flight-tracker-sg-bern.readthedocs.io/en/latest/) for configuration, output format, and how it works.
+
+## Development
+
+Run all tests (in Docker, nothing to install on the host):
+
+```bash
+dev/test.sh
+```
+
+Takeoff/landing detection lives in `tracker/src/detection.py` and is tested scenario by
+scenario in `tests/tracker/test_detection.py` plus a randomised stress test over hundreds
+of simulated flying days (`tests/tracker/test_detection_stress.py`).
