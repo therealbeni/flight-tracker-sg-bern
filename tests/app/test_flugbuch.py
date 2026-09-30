@@ -4,10 +4,10 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from models import (Airfield, Flight, FlightAuditEntry, FlightSource, Glider, GliderClaim, Pilot, PilotRole,
-                    PilotStatus)
+from models import (AircraftKind, Airfield, Flight, FlightAuditEntry, FlightSource, Glider, GliderClaim,
+                    LaunchMethod, Pilot, PilotRole, PilotStatus)
 from security import hash_password
-from timeutil import combine_local, today_local
+from timeutil import combine_local, fmt_date, today_local
 
 PASSWORD = "password123"
 
@@ -24,9 +24,10 @@ def world(db_session):
     db_session.add_all([Airfield(icao="LSZB", name="Bern", latitude=46.9, longitude=7.5, elevation_m=510),
                         Airfield(icao="LSTZ", name="Zweisimmen", latitude=46.5, longitude=7.4, elevation_m=935)])
     glider = Glider(registration="HB-1811", ogn_device_id="4B4BBA")
-    db_session.add(glider)
+    tow = Glider(registration="D-EDUY", ogn_device_id="3D0EB4", kind=AircraftKind.TOWPLANE)
+    db_session.add_all([glider, tow])
     db_session.commit()
-    return {**people, "glider": glider}
+    return {**people, "glider": glider, "tow": tow}
 
 
 def login(client, who):
@@ -51,10 +52,12 @@ def add_flight(db, glider, pilot=None, start="11:00", end="11:45", **kwargs):
 
 
 def new_flight_form(glider, **overrides):
-    data = {"day": str(today_local()), "glider_id": str(glider.id), "pilot_id": "", "pilot_name": "",
-            "companion_id": "", "companion_name": "", "launch_method": "F", "takeoff_airfield_icao": "LSZB",
-            "takeoff_time": "14:00", "landing_airfield_icao": "LSZB", "landing_time": "14:35", "landings": "1",
-            "notes": ""}
+    """A self-launched flight today, as "Flug hinzufügen" submits it."""
+    data = {"day": str(today_local()), "glider_id": str(glider.id), "launch_method": "E", "flight_type": "N",
+            "pilot_id": "", "pilot_name": "", "companion_id": "", "companion_name": "",
+            "flight_date": fmt_date(today_local()), "takeoff_time": "14:00", "landing_time": "14:35",
+            "takeoff_airfield_icao": "LSZB", "landing_airfield_icao": "LSZB", "billing": "pilot",
+            "billing_member_id": "", "tow_glider_id": "", "tow_pilot_id": "", "notes": ""}
     data.update(overrides)
     return data
 
@@ -66,7 +69,7 @@ def test_flugbuch_lists_the_days_flights_in_order(client, db_session, world):
     login(client, "pia")
     page = client.get("/flugbuch").text
     assert page.index("Bob Brunner") < page.index("Pia Pilot")
-    assert "3 Flüge" in page
+    assert "Anz. Flüge: 3" in page
     assert "Pilot fehlt" in page or "fehlt" in page
     assert "in der Luft" in page
 
@@ -99,9 +102,12 @@ def test_pilot_can_add_own_flight_but_not_someone_elses(client, db_session, worl
 
 def test_instructor_logs_a_guest_flight_as_companion(client, db_session, world):
     login(client, "pia")
-    resp = client.post("/flugbuch", data=new_flight_form(world["glider"], pilot_name="Schnupperflug Eva",
-                                                         companion_id=str(world["pia"].id)), follow_redirects=False)
+    resp = client.post("/flugbuch", data=new_flight_form(world["glider"], pilot_name="Eva Schnupper",
+                                                         companion_id=str(world["pia"].id), flight_type="SF",
+                                                         billing="guest"), follow_redirects=False)
     assert resp.status_code == 303
+    f = db_session.query(Flight).one()
+    assert (f.pilot_name, f.companion_id, f.flight_type, f.billing) == ("Eva Schnupper", world["pia"].id, "SF", "guest")
 
 
 @pytest.mark.parametrize("overrides, message", [
@@ -111,12 +117,21 @@ def test_instructor_logs_a_guest_flight_as_companion(client, db_session, world):
     ({"takeoff_airfield_icao": "XXXX"}, "«XXXX» kennen wir noch nicht"),
     ({"glider_id": ""}, "Bitte ein Flugzeug wählen."),
     ({"glider_id": "abc"}, "Bitte ein Flugzeug wählen."),
-    ({"landings": "viele"}, "Anzahl Landungen"),
+    ({"flight_date": "31.02.2026"}, "Tag.Monat.Jahr"),
+    ({"flight_date": "gestern"}, "Tag.Monat.Jahr"),
     ({"launch_method": "Z"}, "Unbekannte Startart."),
-    ({"pilot_id": "99999"}, "Diesen Piloten gibt es nicht."),
+    ({"flight_type": "X"}, "Unbekannte Flugart."),
+    ({"billing": "gratis"}, "Unbekannte Abrechnungsart."),
+    ({"billing": "other_member"}, "welches Mitglied bezahlt"),
+    ({"pilot_id": "99999"}, "Pilot: diese Person gibt es nicht."),
+    ({"pilot_id": "abc"}, "Pilot: diese Person gibt es nicht."),
+    ({"companion_id": "gast"}, "Namen des Gasts"),
+    ({"launch_method": "F"}, "Bitte das Schleppflugzeug wählen."),
+    ({"launch_method": "F", "tow_glider_id": "TOW", "tow_pilot_id": "99999"}, "Schlepppilot: diese Person"),
 ])
 def test_bad_input_gives_a_message_not_an_error(client, db_session, world, overrides, message):
     login(client, "desk")
+    overrides = {k: str(world["tow"].id) if v == "TOW" else v for k, v in overrides.items()}
     resp = client.post("/flugbuch", data=new_flight_form(world["glider"], **overrides))
     assert resp.status_code == 400
     assert message in resp.text
@@ -140,7 +155,7 @@ def test_correcting_times_recomputes_duration_and_clears_estimate(client, db_ses
     assert f.duration_min == pytest.approx(70)
     assert not f.landing_estimated
     history = client.get(f"/flights/{f.id}").text
-    assert "Landezeit" in history and "11:45" in history and "12:10" in history
+    assert "Landung" in history and "11:45" in history and "12:10" in history
 
 
 def test_saving_without_changes_keeps_the_trackers_seconds(client, db_session, world):
@@ -158,10 +173,10 @@ def test_club_pc_edits_anyones_flight_and_edit_error_returns_to_flugbuch(client,
     f = add_flight(db_session, world["glider"], world["pia"])
     login(client, "desk")
     from test_flights import form_for
-    ok = client.post(f"/flights/{f.id}", data=form_for(f, landings="3", next="/flugbuch"), follow_redirects=False)
+    ok = client.post(f"/flights/{f.id}", data=form_for(f, flight_type="S", next="/flugbuch"), follow_redirects=False)
     assert ok.headers["location"] == "/flugbuch"
     db_session.refresh(f)
-    assert f.landings == 3
+    assert f.flight_type == "S"
     bad = client.post(f"/flights/{f.id}", data=form_for(f, landing_time="09:00", next="/flugbuch"))
     assert bad.status_code == 400 and "Flug bearbeiten" in bad.text
 
@@ -195,7 +210,7 @@ def test_finalized_day_cannot_be_edited(client, db_session, world):
     page = client.get("/flugbuch").text
     assert "abgeschlossen" in page and "Flug hinzufügen</button>" not in page
     from test_flights import form_for
-    assert client.post(f"/flights/{f.id}", data=form_for(f, landings="2")).status_code == 403
+    assert client.post(f"/flights/{f.id}", data=form_for(f, notes="nachträglich")).status_code == 403
 
 
 def test_checkout_confirms_flights_and_ends_check_ins(client, db_session, world):
@@ -247,3 +262,141 @@ def test_admin_sets_roles_but_not_their_own(client, db_session, world):
 def test_club_pc_account_is_not_offered_as_pilot(client, db_session, world):
     login(client, "desk")
     assert "Startstelle LSZB</option>" not in client.get("/flugbuch").text
+
+
+# ---------------------------------------------------- Vereinsflieger fields
+
+
+def test_times_can_be_typed_without_colon(client, db_session, world):
+    # Phone number pads have no ":" - "1405", "14.05" and "14,05" all work.
+    login(client, "desk")
+    resp = client.post("/flugbuch", data=new_flight_form(world["glider"], takeoff_time="1405", landing_time="14,50"),
+                       follow_redirects=False)
+    assert resp.status_code == 303
+    f = db_session.query(Flight).one()
+    assert f.takeoff_time.replace(tzinfo=timezone.utc) == today_at("14:05")
+    assert f.duration_min == pytest.approx(45)
+
+
+def test_flight_date_can_be_corrected(client, db_session, world):
+    yesterday = today_local() - timedelta(days=1)
+    f = add_flight(db_session, world["glider"], world["pia"], "11:00", "11:45")
+    login(client, "desk")
+    from test_flights import form_for
+    client.post(f"/flights/{f.id}", data=form_for(f, flight_date=yesterday.strftime("%d.%m.%y")))
+    db_session.refresh(f)
+    assert f.takeoff_time.replace(tzinfo=timezone.utc) == combine_local(yesterday, "11:00")
+    assert f.landing_time.replace(tzinfo=timezone.utc) == combine_local(yesterday, "11:45")
+    assert f.duration_min == pytest.approx(45)
+    # Adding a flight for another day shows that day afterwards.
+    resp = client.post("/flugbuch", data=new_flight_form(world["glider"], flight_date=fmt_date(yesterday)),
+                       follow_redirects=False)
+    assert resp.headers["location"] == f"/flugbuch?datum={yesterday}"
+
+
+def test_guest_companion_and_unknown_pilot(client, db_session, world):
+    login(client, "desk")
+    client.post("/flugbuch", data=new_flight_form(world["glider"], pilot_name="Hans Gast", companion_id="gast",
+                                                  companion_name="Eva Gast"))
+    f = db_session.query(Flight).one()
+    assert (f.pilot_id, f.pilot_name, f.companion_id, f.companion_name) == (None, "Hans Gast", None, "Eva Gast")
+    # "Keiner" as Begleiter drops a name typed before.
+    from test_flights import form_for
+    client.post(f"/flights/{f.id}", data=form_for(f, companion_id=""))
+    db_session.refresh(f)
+    assert f.companion_name is None
+    # Picking a member as pilot drops the typed name.
+    client.post(f"/flights/{f.id}", data=form_for(f, pilot_id=str(world["bob"].id)))
+    db_session.refresh(f)
+    assert (f.pilot_id, f.pilot_name) == (world["bob"].id, None)
+
+
+def test_another_member_pays(client, db_session, world):
+    login(client, "desk")
+    client.post("/flugbuch", data=new_flight_form(world["glider"], pilot_id=str(world["pia"].id),
+                                                  billing="other_member", billing_member_id=str(world["bob"].id)))
+    f = db_session.query(Flight).one()
+    assert (f.billing, f.billing_member_id) == ("other_member", world["bob"].id)
+    assert "Anderes Mitglied (Bob Brunner)" in client.get(f"/flights/{f.id}").text
+
+
+def test_aerotow_form_defaults_to_the_tow_plane_and_its_checked_in_pilot(client, db_session, world):
+    # The tow pilot of the day checked in on D-EDUY earlier.
+    now = datetime.now(timezone.utc)
+    db_session.add(GliderClaim(glider_id=world["tow"].id, pilot_id=world["bob"].id, whole_day=True,
+                               claimed_at=now - timedelta(hours=1), expires_at=now + timedelta(hours=1)))
+    db_session.commit()
+    login(client, "desk")
+    page = client.get("/flugbuch").text
+    tow_section = page[page.index('name="tow_glider_id"'):page.index("</fieldset>")]
+    assert f'<option value="{world["tow"].id}" selected>D-EDUY' in tow_section
+    assert f'<option value="{world["bob"].id}" selected>Bob Brunner' in tow_section
+
+    resp = client.post("/flugbuch", data=new_flight_form(world["glider"], launch_method="F",
+                                                         tow_glider_id=str(world["tow"].id),
+                                                         tow_pilot_id=str(world["bob"].id)), follow_redirects=False)
+    assert resp.status_code == 303
+    f = db_session.query(Flight).filter_by(glider_id=world["glider"].id).one()
+    assert (f.tow_glider_id, f.tow_pilot_id) == (world["tow"].id, world["bob"].id)
+    assert "D-EDUY, Bob Brunner" in client.get("/flugbuch").text
+
+
+def test_tow_data_is_only_kept_for_aerotows(client, db_session, world):
+    login(client, "desk")
+    client.post("/flugbuch", data=new_flight_form(world["glider"], launch_method="W",
+                                                  tow_glider_id=str(world["tow"].id),
+                                                  tow_pilot_id=str(world["bob"].id)))
+    f = db_session.query(Flight).one()
+    assert f.launch_method is LaunchMethod.WINCH
+    assert f.tow_glider_id is None and f.tow_pilot_id is None
+
+
+def tracked_aerotow(db, world, tow_pilot=None):
+    """A glider flight the tracker linked to the tow plane's own flight."""
+    tow = add_flight(db, world["tow"], tow_pilot, "10:00", "10:08", launch_method=LaunchMethod.SELF,
+                     flight_type="F", billing="none")
+    glider = add_flight(db, world["glider"], world["pia"], "10:00", "11:00", launch_method=LaunchMethod.AEROTOW,
+                        tow_flight_id=tow.id, tow_glider_id=world["tow"].id)
+    return glider, tow
+
+
+def test_tow_pilot_entered_on_the_glider_flight_also_goes_to_the_tow_flight(client, db_session, world):
+    glider, tow = tracked_aerotow(db_session, world)
+    login(client, "desk")
+    from test_flights import form_for
+    form = form_for(glider)
+    assert form["tow_glider_id"] == str(world["tow"].id) and form["tow_pilot_id"] == ""
+    client.post(f"/flights/{glider.id}", data={**form, "tow_pilot_id": str(world["bob"].id)})
+    db_session.refresh(tow)
+    assert tow.pilot_id == world["bob"].id
+
+
+def test_switching_away_from_aerotow_unlinks_the_tow_flight(client, db_session, world):
+    glider, tow = tracked_aerotow(db_session, world, tow_pilot=world["bob"])
+    login(client, "desk")
+    from test_flights import form_for
+    assert form_for(glider)["tow_pilot_id"] == str(world["bob"].id)  # read from the tow flight
+    client.post(f"/flights/{glider.id}", data=form_for(glider, launch_method="W"))
+    db_session.refresh(glider)
+    assert glider.tow_flight_id is None and glider.tow_glider_id is None
+
+
+def test_aircraft_of_a_logged_flight_cannot_be_changed(client, db_session, world):
+    f = add_flight(db_session, world["glider"], world["pia"])
+    login(client, "desk")
+    page = client.get(f"/flights/{f.id}").text
+    assert 'name="glider_id" value="' in page and '<select name="glider_id"' not in page
+    from test_flights import form_for
+    client.post(f"/flights/{f.id}", data=form_for(f, glider_id=str(world["tow"].id)))
+    db_session.refresh(f)
+    assert f.glider_id == world["glider"].id
+
+
+def test_pilot_opening_a_flight_without_pilot_gets_themselves_preselected(client, db_session, world):
+    f = add_flight(db_session, world["glider"], None)
+    login(client, "pia")
+    page = client.get(f"/flights/{f.id}").text
+    assert f'<option value="{world["pia"].id}" selected>Pia Pilot' in page
+    login(client, "desk")
+    page = client.get(f"/flights/{f.id}").text
+    assert "selected>Pia Pilot" not in page

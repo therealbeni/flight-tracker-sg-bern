@@ -22,7 +22,7 @@
     </div>
     <input type="hidden" name="day" value="{{ day }}">
     <input type="hidden" name="next" value="/flugbuch?datum={{ day }}">
-    {{ flight_fields(form, gliders, members, airfields, launch_methods) }}
+    {{ flight_fields(form, choices, aircraft=editing.glider if editing else none) }}
     <div class="form-actions">
         <button type="submit">{% if editing %}Speichern{% else %}Flug hinzufügen{% endif %}</button>
         {% if editing %}<a class="btn secondary" href="/flugbuch?datum={{ day }}">Abbrechen</a>{% endif %}
@@ -34,9 +34,9 @@
 <table class="data-table flugbuch-table">
     <thead>
         <tr>
-            <th>Nr</th><th>Kennzeichen</th><th>Pilot</th><th>Begleiter</th><th title="Startart">SA</th>
-            <th>Start</th><th>Landung</th><th>Flugzeit</th><th title="Landungen">Ldg</th>
-            <th>Schlepp</th><th>Bemerkung</th><th>Status</th><th></th>
+            <th>Nr</th><th>Lfz.</th><th>Pilot</th><th>Begleiter/FI</th><th>Start</th><th>Landung</th>
+            <th>Zeit</th><th>Startort</th><th>Landeort</th><th title="Startart">S.-Art</th>
+            <th>Flugart</th><th title="Abrechnungsart">Abr.</th><th>Schlepp</th><th>Bemerkung</th><th>Status</th><th></th>
         </tr>
     </thead>
     <tbody>
@@ -46,12 +46,15 @@
             <td><strong>{{ f.glider.registration if f.glider else "?" }}</strong></td>
             <td>{{ f.pilot_display or "" }}{% if not f.pilot_display %}<span class="missing">fehlt</span>{% endif %}</td>
             <td>{{ f.companion_display or "" }}</td>
+            <td class="num">{{ f.takeoff_time|hhmm }}{% if f.takeoff_estimated %}<span class="estimated" title="geschätzt">~</span>{% endif %}</td>
+            <td class="num">{% if f.landing_time %}{{ f.landing_time|hhmm }}{% if f.landing_estimated %}<span class="estimated" title="geschätzt">~</span>{% endif %}{% else %}-{% endif %}</td>
+            <td class="num">{{ f.duration_min|round|int if f.duration_min is not none else "" }}</td>
+            <td>{{ f.takeoff_airfield_icao or "?" }}</td>
+            <td>{% if f.landing_time %}{{ f.landing_airfield_icao or "Aussenlandung?" }}{% endif %}</td>
             <td title="{{ f.launch_method.label if f.launch_method else '' }}">{{ f.launch_method.value if f.launch_method else "" }}</td>
-            <td>{{ f.takeoff_airfield_icao or "?" }} {{ f.takeoff_time|hhmm }}{% if f.takeoff_estimated %}<span class="estimated" title="geschätzt">~</span>{% endif %}</td>
-            <td>{% if f.landing_time %}{{ f.landing_airfield_icao or "Aussenlandung?" }} {{ f.landing_time|hhmm }}{% if f.landing_estimated %}<span class="estimated" title="geschätzt">~</span>{% endif %}{% else %}-{% endif %}</td>
-            <td class="num">{{ f.duration_min|flugzeit }}</td>
-            <td class="num">{{ f.landings }}</td>
-            <td>{% if f.tow_flight %}{{ f.tow_flight.glider.registration }}, {{ f.tow_flight.pilot_display or "?" }}, {{ f.tow_flight.duration_min|flugzeit }}{% endif %}</td>
+            <td title="{{ f.flight_type_label }}">{{ f.flight_type }}</td>
+            <td title="{{ f.billing_label }}">{{ f.billing_label }}</td>
+            <td>{% if f.tow_aircraft %}{{ f.tow_aircraft.registration }}, {{ f.tow_pilot_display or "?" }}{% if f.tow_flight and f.tow_flight.duration_min %}, {{ f.tow_flight.duration_min|round|int }} Min.{% endif %}{% endif %}</td>
             <td class="notes">{{ f.notes or "" }}</td>
             <td>{{ status_badge(f) }}</td>
             <td class="actions">
@@ -60,17 +63,15 @@
             </td>
         </tr>
     {% else %}
-        <tr><td colspan="13" class="record-empty">An diesem Tag keine Flüge.</td></tr>
+        <tr><td colspan="16" class="record-empty">An diesem Tag keine Flüge.</td></tr>
     {% endfor %}
     </tbody>
-    {% if flights %}
-    <tfoot>
-        <tr><td colspan="7">{{ flights|length }} Flüge</td><td class="num">{{ total_minutes|flugzeit }}</td><td colspan="5"></td></tr>
-    </tfoot>
-    {% endif %}
 </table>
 </div>
-<p class="hint"><span class="estimated">~</span> = geschätzte Zeit (Start oder Landung nicht gesehen) &middot; SA = Startart: F = F-Schlepp, W = Winde, E = Eigenstart</p>
+{% if flights %}
+<p class="day-summary">Anz. Flüge: {{ flights|length }}, Flugzeit: {{ total_minutes|flugzeit }}</p>
+{% endif %}
+<p class="hint"><span class="estimated">~</span> = geschätzte Zeit (Start oder Landung nicht gesehen) &middot; Zeit in Minuten &middot; S.-Art: F = F-Schlepp, W = Winde, E = Eigenstart</p>
 
 {% if pilots_today %}
 <div class="card checkout-card">

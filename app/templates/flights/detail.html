@@ -19,14 +19,14 @@
     </td></tr>
     <tr><th>Flugzeit</th><td>{{ flight.duration_min|flugzeit or "-" }}</td></tr>
     <tr><th>Startart</th><td>{{ flight.launch_method.label if flight.launch_method else "unbekannt" }}</td></tr>
-    {% if flight.tow_flight %}
+    {% if flight.tow_aircraft %}
     <tr><th>Schlepp</th><td>
-        <a href="/flights/{{ flight.tow_flight.id }}">{{ flight.tow_flight.glider.registration }}</a>,
-        {{ flight.tow_flight.pilot_display or "Schlepppilot unbekannt" }},
-        {{ flight.tow_flight.duration_min|flugzeit or "noch in der Luft" }}
+        {% if flight.tow_flight %}<a href="/flights/{{ flight.tow_flight.id }}">{{ flight.tow_aircraft.registration }}</a>{% else %}{{ flight.tow_aircraft.registration }}{% endif %},
+        {{ flight.tow_pilot_display or "Schlepppilot unbekannt" }}{% if flight.tow_flight and flight.tow_flight.duration_min %}, {{ flight.tow_flight.duration_min|round|int }} Min.{% endif %}
     </td></tr>
     {% endif %}
-    <tr><th>Landungen</th><td>{{ flight.landings }}</td></tr>
+    <tr><th>Flugart</th><td>{{ flight.flight_type }} - {{ flight.flight_type_label }}</td></tr>
+    <tr><th>Abrechnung</th><td>{{ flight.billing_label }}{% if flight.billing_member %} ({{ flight.billing_member.full_name }}){% endif %}</td></tr>
     {% if flight.notes %}<tr><th>Bemerkung</th><td>{{ flight.notes }}</td></tr>{% endif %}
     <tr><th>Erfasst</th><td>{{ "automatisch (OGN)" if flight.source.value == "auto" else "von Hand" }}</td></tr>
 </table>
@@ -42,7 +42,7 @@
     <details class="card" {{ "open" if form.errors }}>
         <summary><h2>Korrigieren</h2></summary>
         <form method="post" action="/flights/{{ flight.id }}">
-            {{ flight_fields(form, gliders, members, airfields, launch_methods) }}
+            {{ flight_fields(form, choices, aircraft=flight.glider) }}
             <div class="form-actions"><button type="submit">Speichern und bestätigen</button></div>
         </form>
     </details>

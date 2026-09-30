@@ -40,8 +40,12 @@ def local_end_of_day(dt: datetime) -> datetime:
 
 
 def combine_local(day: date, hhmm: str) -> datetime:
-    """"14:05" on a local day -> UTC datetime. Raises ValueError on bad input."""
-    hours, minutes = hhmm.strip().replace(".", ":").split(":")
+    """"14:05" (also "14.05", "14,05" or "1405": phone keypads have no colon)
+    on a local day -> UTC datetime. Raises ValueError on bad input."""
+    text = hhmm.strip().replace(".", ":").replace(",", ":")
+    if ":" not in text and text.isdigit() and len(text) in (3, 4):
+        text = f"{text[:-2]}:{text[-2:]}"
+    hours, minutes = text.split(":")
     t = time(int(hours), int(minutes))
     return datetime.combine(day, t, tzinfo=LOCAL_TZ).astimezone(timezone.utc)
 
@@ -80,3 +84,12 @@ WEEKDAYS = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"
 
 def fmt_weekday(day: date) -> str:
     return WEEKDAYS[day.weekday()]
+
+
+def parse_date(text: str) -> date:
+    """"29.09.2026", "29.9.26" or "2026-09-29" -> date. Raises ValueError."""
+    text = text.strip()
+    if "-" in text:
+        return date.fromisoformat(text)
+    day, month, year = (int(part) for part in text.split("."))
+    return date(year + 2000 if year < 100 else year, month, day)

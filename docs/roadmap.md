@@ -107,6 +107,12 @@ automatically, raw beacon recording + replay. See [How it works](how-it-works.md
    per-pilot *Abmelden* (check out): confirm your flights of the day and end your day
    claims. Runs on the club PC under a "Startstelle" account (may edit all open flights
    of the day). Times become editable (manual flights, estimated times).
+   *Revised 2026-09-30 after comparing with the real Vereinsflieger screens:* the form
+   has Vereinsflieger's fields and codes - Startart, Flugart, Pilot/Begleiter (searchable;
+   "Unbekannt" or "Gast" opens a name field), Flugdatum, Start/Landung, Start-/Landeort,
+   Abrechnungsart, Bemerkungen; no Landungen. The aircraft of a logged flight is fixed.
+   F-Schlepp asks for Schleppflugzeug and Schlepppilot (default: the tow plane and whoever
+   is checked in on it); tow plane flights are Flugart F, Abrechnungsart Keine.
 6. **Misuse + usability.** CSRF protection, login rate limiting, input validation (no
    500s on bad input), authorization tests for every route; a Playwright walk-through of
    every flow on a phone-sized screen (tap targets, wording, no dead ends).

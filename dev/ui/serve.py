@@ -62,7 +62,8 @@ def seed() -> None:
     t = now - timedelta(hours=2)
     tow = Flight(record_id="tow1", glider_id=fleet["D-EDUY"].id, pilot_id=people["tow"].id, takeoff_time=t,
                  landing_time=t + timedelta(minutes=9), duration_min=9, takeoff_airfield_icao="LSZB",
-                 landing_airfield_icao="LSZB", launch_method=LaunchMethod.SELF, source=FlightSource.AUTO)
+                 landing_airfield_icao="LSZB", launch_method=LaunchMethod.SELF, flight_type="F", billing="none",
+                 source=FlightSource.AUTO)
     db.add(tow)
     db.flush()
     db.add_all([

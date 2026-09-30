@@ -42,10 +42,17 @@ def make_glider(db_session, registration="HB-1811"):
     return glider
 
 
-def form_for(flight, **overrides):
-    """What the browser submits: the flight's current values, plus changes."""
+def form_for(flight, user=None, **overrides):
+    """What the browser submits: the flight's current values, plus changes.
+    `user` is who opens the form (default: the club PC, which sees it as is)."""
+    from types import SimpleNamespace
+
+    from sqlalchemy.orm import object_session
+
     from flight_form import FlightInput
-    data = {k: v for k, v in vars(FlightInput.from_flight(flight)).items() if k != "errors"}
+    viewer = user or SimpleNamespace(id=0, edits_all_flights=True)
+    form = FlightInput.from_flight(object_session(flight), flight, viewer)
+    data = {k: v for k, v in vars(form).items() if k != "errors"}
     data.update(overrides)
     return data
 

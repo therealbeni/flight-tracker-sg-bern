@@ -84,6 +84,9 @@ class DbSink:
         )
         if glider.kind is not AircraftKind.GLIDER:
             flight.launch_method = LaunchMethod.SELF
+        if glider.kind is AircraftKind.TOWPLANE:
+            # Vereinsflieger: tow flights are Flugart F, billed with the towed glider.
+            flight.flight_type, flight.billing = "F", "none"
         # The most recent check-in wins: someone checking in for one flight on
         # the tow plane takes precedence over the tow pilot's whole-day claim,
         # which applies again afterwards.
@@ -132,6 +135,8 @@ class DbSink:
         towed, tow = (other, flight) if wanted is AircraftKind.GLIDER else (flight, other)
         towed.tow_flight_id = tow.id
         towed.launch_method = LaunchMethod.AEROTOW
+        if towed.tow_glider_id is None:
+            towed.tow_glider_id = tow.glider_id
 
     def _record_landing(self, db: Session, flight: Flight, record: FlightRecord) -> None:
         if is_too_short(record, self._min_duration):
@@ -142,7 +147,7 @@ class DbSink:
                 claim.consumed_at = None
                 claim.flight_id = None
             for towed in db.scalars(select(Flight).where(Flight.tow_flight_id == flight.id)).all():
-                towed.tow_flight_id = None
+                towed.tow_flight_id = towed.tow_glider_id = None
                 towed.launch_method = None
             db.delete(flight)
             return

@@ -30,8 +30,8 @@ def render_detail(request: Request, db: Session, flight: Flight, user: Pilot, fo
         select(FlightAuditEntry).where(FlightAuditEntry.flight_id == flight.id).order_by(FlightAuditEntry.changed_at.desc())
     ).all()
     return templates.TemplateResponse(request, "flights/detail.html", {
-        "flight": flight, "pilot": user, "form": form or FlightInput.from_flight(flight), "history": history,
-        "labels": flight_form.FIELD_LABELS, "can_edit": can_edit(flight, user), **form_choices(db),
+        "flight": flight, "pilot": user, "form": form or FlightInput.from_flight(db, flight, user), "history": history,
+        "labels": flight_form.FIELD_LABELS, "can_edit": can_edit(flight, user), "choices": form_choices(db),
     }, status_code=status_code)
 
 
@@ -49,7 +49,7 @@ async def flight_update(request: Request, flight_id: int, next: str = Form(""), 
         raise HTTPException(status_code=403, detail="Diesen Flug kannst du nicht ändern.")
     form = await read_form(request)
     day = to_local(flight.takeoff_time).date() if flight.takeoff_time else today_local()
-    if flight_form.save(db, user, form, day, flight) is None:
+    if flight_form.save(db, user, form, flight) is None:
         db.rollback()
         if next.startswith("/flugbuch"):
             return render_flugbuch(request, db, user, day, form=form, editing=flight, status_code=400)

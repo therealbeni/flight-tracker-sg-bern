@@ -120,7 +120,11 @@ def test_glider_is_linked_to_its_tow_plane(db_session, fleet, tow_detected_first
     assert g.tow_flight.record_id == tow
     assert g.tow_flight.pilot_id == toni.id
     assert g.tow_flight.duration_min == pytest.approx(9)
-    assert row(db_session, tow).launch_method is LaunchMethod.SELF
+    assert g.tow_glider_id == fleet["tow"].id
+    t = row(db_session, tow)
+    assert t.launch_method is LaunchMethod.SELF
+    assert (t.flight_type, t.billing) == ("F", "none")  # Vereinsflieger: billed with the towed glider
+    assert (g.flight_type, g.billing) == ("N", "pilot")
 
 
 def test_two_gliders_towed_one_after_another(db_session, fleet):
@@ -158,7 +162,7 @@ def test_dropping_a_too_short_tow_flight_unlinks_the_glider(db_session, fleet):
     glider = fly(sink, fleet["glider"], T, minutes=50)
     fly(sink, fleet["tow"], T + timedelta(seconds=2), minutes=0.4)  # aborted takeoff
     g = row(db_session, glider)
-    assert g.tow_flight_id is None and g.launch_method is None
+    assert g.tow_flight_id is None and g.tow_glider_id is None and g.launch_method is None
 
 
 def test_deleted_tow_flight_is_not_linked(db_session, fleet):

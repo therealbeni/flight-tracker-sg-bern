@@ -23,6 +23,21 @@ def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
+# Flugart, with Vereinsflieger's codes (incl. the SG Bern specific ones).
+FLIGHT_TYPES = {  # in Vereinsflieger's order
+    "C": "Checkflug", "F": "F-Schlepp", "P": "Passagierflug", "L": "Leistungseinweisung", "V": "Werkverkehr",
+    "S": "Schulflug", "N": "Privatflug", "B": "Befähigungsüberprüfung", "Ü": "Auffrischungsschulung",
+    "E": "Einweisung", "ES": "Einweisung Startart", "EF": "Einfliegen", "PF": "Prüfungsflug",
+    "SF": "Schnupperflug", "FS": "F-Schlepp-Schulung",
+}
+
+# Abrechnungsart: who pays, as in Vereinsflieger.
+BILLING_TYPES = {
+    "none": "Keine", "pilot": "Pilot", "companion": "Begleiter", "pilot_companion": "Pilot + Begleiter",
+    "guest": "Gastflug", "guest_pilot_pays": "Gastflug (Pilot zahlt)", "other_member": "Anderes Mitglied",
+}
+
+
 class PilotRole(str, enum.Enum):
     PILOT = "pilot"
     ADMIN = "admin"
@@ -187,6 +202,14 @@ class Flight(Base):
     companion_id: Mapped[int | None] = mapped_column(ForeignKey("pilots.id"), nullable=True)
     companion_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     landings: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
+    flight_type: Mapped[str] = mapped_column(String(4), default="N", server_default="N", nullable=False)
+    billing: Mapped[str] = mapped_column(String(24), default="pilot", server_default="pilot", nullable=False)
+    # With billing "other_member": who pays.
+    billing_member_id: Mapped[int | None] = mapped_column(ForeignKey("pilots.id"), nullable=True)
+    # Tow of an aerotow launch as entered/confirmed by a person. The tracker's
+    # link to the tow plane's own flight (tow_flight_id) fills in what's missing.
+    tow_glider_id: Mapped[int | None] = mapped_column(ForeignKey("gliders.id"), nullable=True)
+    tow_pilot_id: Mapped[int | None] = mapped_column(ForeignKey("pilots.id"), nullable=True)
 
     takeoff_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     landing_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -227,9 +250,12 @@ class Flight(Base):
     # Soft delete (false detection, duplicate): hidden everywhere, history kept.
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    glider: Mapped["Glider | None"] = relationship()
+    glider: Mapped["Glider | None"] = relationship(foreign_keys=[glider_id])
     pilot: Mapped["Pilot | None"] = relationship(foreign_keys=[pilot_id])
     companion: Mapped["Pilot | None"] = relationship(foreign_keys=[companion_id])
+    billing_member: Mapped["Pilot | None"] = relationship(foreign_keys=[billing_member_id])
+    tow_glider: Mapped["Glider | None"] = relationship(foreign_keys=[tow_glider_id])
+    tow_pilot: Mapped["Pilot | None"] = relationship(foreign_keys=[tow_pilot_id])
     tow_flight: Mapped["Flight | None"] = relationship(remote_side="Flight.id", foreign_keys=[tow_flight_id])
 
     @property
@@ -243,6 +269,24 @@ class Flight(Base):
     @property
     def companion_display(self) -> str | None:
         return self.companion.full_name if self.companion else self.companion_name
+
+    @property
+    def tow_aircraft(self) -> "Glider | None":
+        return self.tow_glider or (self.tow_flight.glider if self.tow_flight else None)
+
+    @property
+    def tow_pilot_display(self) -> str | None:
+        if self.tow_pilot:
+            return self.tow_pilot.full_name
+        return self.tow_flight.pilot_display if self.tow_flight else None
+
+    @property
+    def flight_type_label(self) -> str:
+        return FLIGHT_TYPES.get(self.flight_type, self.flight_type)
+
+    @property
+    def billing_label(self) -> str:
+        return BILLING_TYPES.get(self.billing, self.billing)
 
     @property
     def needs_attention(self) -> list[str]:

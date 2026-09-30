@@ -58,6 +58,16 @@ def login(page: Page, email: str) -> None:
     expect(page).to_have_url(re.compile(r"/(dashboard|flugbuch)$"))
 
 
+def pick(form, name: str, typed: str, enter: bool = True) -> None:
+    """Chooses in a searchable dropdown like a person: type, then Enter."""
+    combo = form.locator(f".combo:has(select[name={name}]) .combo-input")
+    combo.click()
+    combo.fill(typed)
+    expect(form.locator(f".combo:has(select[name={name}]) .combo-list")).to_be_visible()
+    if enter:
+        combo.press("Enter")
+
+
 def pilot_flow(page: Page) -> None:
     page.goto(f"{BASE}/login")
     check_page(page, "01-login")
@@ -92,6 +102,9 @@ def pilot_flow(page: Page) -> None:
     page.click(".record >> text=HB-1811")
     expect(page.locator("body")).to_contain_text("F-Schlepp")
     check_page(page, "07-flug")
+    page.click("text=Korrigieren")
+    expect(page.locator("fieldset.tow-fields")).to_be_visible()
+    check_page(page, "07b-flug-korrigieren")
 
 
 def tow_pilot_flow(page: Page) -> None:
@@ -123,25 +136,50 @@ def club_pc_flow(page: Page) -> None:
 
     # A guest flight the tracker couldn't see.
     form = page.locator("form#erfassen")
-    form.locator("select[name=glider_id]").select_option(label="HB-3131 (LS 4)")
+    pick(form, "glider_id", "3131")
     form.locator("select[name=launch_method]").select_option("F")
+    # F-Schlepp: tow plane and the tow pilot checked in on it are filled in.
+    tow = form.locator("fieldset.tow-fields")
+    expect(tow).to_be_visible()
+    expect(tow.locator("select[name=tow_glider_id]")).to_have_value(re.compile(r"\d+"))
+    expect(tow.locator(".combo-input")).to_have_value("Toni Schlepp")
+    form.locator("select[name=launch_method]").select_option("W")
+    expect(tow).to_be_hidden()
+    form.locator("select[name=launch_method]").select_option("F")
+    form.locator("select[name=flight_type]").select_option("SF")
+    # Pilot "Unbekannt" shows the name field; a guest Begleiter too, "Keiner" hides it.
+    expect(form.locator("input[name=pilot_name]")).to_be_visible()
     form.locator("input[name=pilot_name]").fill("Gast Hans Muster")
-    form.locator("select[name=companion_id]").select_option(label="Pia Pilot")
-    form.locator("input[name=takeoff_time]").fill("09:15")
-    form.locator("input[name=landing_time]").fill("09:05")  # typo: before takeoff
+    expect(form.locator("input[name=companion_name]")).to_be_hidden()
+    pick(form, "companion_id", "gast", enter=False)
+    check_page(page, "34-suche")
+    page.keyboard.press("Enter")
+    expect(form.locator("input[name=companion_name]")).to_be_visible()
+    pick(form, "companion_id", "pia")
+    expect(form.locator("input[name=companion_name]")).to_be_hidden()
+    expect(form.locator("select[name=companion_id]")).to_have_value(re.compile(r"\d+"))
+    form.locator("select[name=billing]").select_option("guest")
+    form.locator("input[name=takeoff_time]").fill("0915")  # no colon on a number pad
+    form.locator("input[name=landing_time]").fill("09.05")  # typo: before takeoff
     form.locator("button[type=submit]").click()
     expect(page.locator(".error")).to_contain_text("Die Landung muss nach dem Start sein.")
     expect(form.locator("input[name=pilot_name]")).to_have_value("Gast Hans Muster")  # nothing lost
+    expect(form.locator("fieldset.tow-fields")).to_be_visible()
     check_page(page, "31-fehler")
     page.locator("form#erfassen input[name=landing_time]").fill("09:55")
     page.locator("form#erfassen button[type=submit]").click()
     row = page.locator("tbody tr", has_text="Gast Hans Muster")
-    expect(row).to_contain_text("0:40")
+    expect(row).to_contain_text("Pia Pilot")
+    expect(row).to_contain_text("SF")
+    expect(row).to_contain_text("Gastflug")
+    expect(row).to_contain_text("D-EDUY, Toni Schlepp")
+    expect(row.locator("td.num").nth(2)).to_have_text("40")
 
     # Fill in the missing pilot of HB-3131's tracked flight.
     page.locator("tbody tr", has_text="in der Luft").locator("text=Bearbeiten").click()
     expect(page.locator("form#erfassen h2")).to_contain_text("Flug bearbeiten")
-    page.locator("form#erfassen select[name=pilot_id]").select_option(label="Toni Schlepp")
+    expect(page.locator("form#erfassen select[name=glider_id]")).to_have_count(0)  # the aircraft is fixed
+    pick(page.locator("form#erfassen"), "pilot_id", "toni")
     page.locator("form#erfassen button[type=submit]").click()
     expect(page.locator("tbody tr", has_text="in der Luft")).to_contain_text("Toni Schlepp")
     check_page(page, "32-flugbuch-bearbeitet")

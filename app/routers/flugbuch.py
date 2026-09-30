@@ -21,7 +21,7 @@ from flight_form import FlightInput, can_edit, form_choices, read_form
 from models import Flight, Pilot
 from routers.claim import active_claims
 from templating import templates
-from timeutil import local_day_bounds, today_local
+from timeutil import local_day_bounds, to_local, today_local
 
 router = APIRouter()
 
@@ -39,8 +39,7 @@ def render_flugbuch(request: Request, db: Session, user: Pilot, day: date, form:
                     editing: Optional[Flight] = None, status_code: int = 200):
     flights = flights_of_day(db, day)
     if form is None:
-        form = FlightInput.from_flight(editing) if editing else FlightInput(takeoff_airfield_icao="LSZB",
-                                                                            landing_airfield_icao="LSZB")
+        form = FlightInput.from_flight(db, editing, user) if editing else FlightInput.new(db, user, day)
     pilots_today = sorted({f.pilot for f in flights if f.pilot} | {f.companion for f in flights if f.companion},
                           key=lambda p: p.full_name)
     return templates.TemplateResponse(request, "flugbuch/day.html", {
@@ -48,7 +47,7 @@ def render_flugbuch(request: Request, db: Session, user: Pilot, day: date, form:
         "can_edit": {f.id: can_edit(f, user) for f in flights}, "pilots_today": pilots_today,
         "day_finalized": bool(flights) and all(f.finalized_at for f in flights if f.landing_time),
         "total_minutes": sum(f.duration_min or 0 for f in flights),
-        "prev_day": day - timedelta(days=1), "next_day": day + timedelta(days=1), **form_choices(db),
+        "prev_day": day - timedelta(days=1), "next_day": day + timedelta(days=1), "choices": form_choices(db),
     }, status_code=status_code)
 
 
@@ -70,13 +69,14 @@ async def flugbuch_add(request: Request, day: date = Form(...), db: Session = De
     """Flug hinzufügen: a flight the tracker couldn't see (no FLARM, out of
     coverage, visiting aircraft)."""
     form = await read_form(request)
-    flight = flight_form.save(db, user, form, day)
+    flight = flight_form.save(db, user, form)
     if flight is None:
         db.rollback()
         return render_flugbuch(request, db, user, day, form=form, status_code=400)
     flight.verified_by_pilot = True
     db.commit()
-    return RedirectResponse(f"/flugbuch?datum={day}", status_code=303)
+    flown_on = to_local(flight.takeoff_time).date()  # the date field may have moved it
+    return RedirectResponse(f"/flugbuch?datum={flown_on}", status_code=303)
 
 
 def _checkout_target(db: Session, user: Pilot, pilot_id: int) -> Pilot:

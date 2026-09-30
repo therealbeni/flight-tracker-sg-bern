@@ -1,65 +1,115 @@
-{# The fields of a flight, shared by the Flugbuch and the flight page.
-   Laid out like Vereinsflieger's Flugdatenerfassung. #}
-{% macro flight_fields(form, gliders, members, airfields, launch_methods) %}
+{% macro member_options(members, selected) %}
+{% for p in members %}<option value="{{ p.id }}" {{ "selected" if selected == p.id|string }}>{{ p.full_name }}</option>{% endfor %}
+{% endmacro %}
+
+{# The fields of a flight, shared by the Flugbuch and the flight page, in the
+   order of Vereinsflieger's Flugdatenerfassung. `aircraft` is set when editing
+   a logged flight: its aircraft is fixed, not a field. Fields with
+   data-show-if only appear for the matching choice (static/flight-form.js). #}
+{% macro flight_fields(form, c, aircraft=none) %}
 {% if form.errors %}
 <div class="error" role="alert">{% for e in form.errors %}<p>{{ e }}</p>{% endfor %}</div>
 {% endif %}
 <div class="form-grid">
-    <label class="span-2">Flugzeug
-        <select name="glider_id" required>
+    {% if aircraft %}
+    <input type="hidden" name="glider_id" value="{{ aircraft.id }}">
+    {% else %}
+    <label class="span-2">Luftfahrzeug
+        <select name="glider_id" required data-search>
             <option value="">-- wählen --</option>
-            {% for g in gliders %}<option value="{{ g.id }}" {{ "selected" if form.glider_id == g.id|string }}>{{ g.registration }}{% if g.model %} ({{ g.model }}){% endif %}</option>{% endfor %}
+            {% for g in c.gliders %}<option value="{{ g.id }}" {{ "selected" if form.glider_id == g.id|string }}>{{ g.registration }}{% if g.model %} ({{ g.model }}){% endif %}</option>{% endfor %}
         </select>
     </label>
+    <div class="span-2 grid-spacer"></div>
+    {% endif %}
+
     <label class="span-2">Startart
         <select name="launch_method">
             <option value="">-- unbekannt --</option>
-            {% for m in launch_methods %}<option value="{{ m.value }}" {{ "selected" if form.launch_method == m.value }}>{{ m.value }} - {{ m.label }}</option>{% endfor %}
+            {% for m in c.launch_methods %}<option value="{{ m.value }}" {{ "selected" if form.launch_method == m.value }}>{{ m.label }}</option>{% endfor %}
+        </select>
+    </label>
+    <label class="span-2">Flugart
+        <select name="flight_type">
+            {% for code, label in c.flight_types.items() %}<option value="{{ code }}" {{ "selected" if form.flight_type == code }}>{{ code }} - {{ label }}</option>{% endfor %}
         </select>
     </label>
 
     <label class="span-2">Pilot
-        <select name="pilot_id">
-            <option value="">-- Gast / unbekannt --</option>
-            {% for p in members %}<option value="{{ p.id }}" {{ "selected" if form.pilot_id == p.id|string }}>{{ p.full_name }}</option>{% endfor %}
+        <select name="pilot_id" data-search>
+            <option value="">Unbekannt / Gast - Name eingeben</option>
+            {{ member_options(c.members, form.pilot_id) }}
         </select>
     </label>
-    <label class="span-2">Name, falls Gast
+    <label class="span-2" data-show-if="pilot_id=">Name des Piloten (falls kein Mitglied)
         <input type="text" name="pilot_name" value="{{ form.pilot_name }}" placeholder="Vorname Name" maxlength="255">
     </label>
 
     <label class="span-2">Begleiter
-        <select name="companion_id">
-            <option value="">-- keiner / Gast --</option>
-            {% for p in members %}<option value="{{ p.id }}" {{ "selected" if form.companion_id == p.id|string }}>{{ p.full_name }}</option>{% endfor %}
+        <select name="companion_id" data-search>
+            <option value="">Keiner</option>
+            <option value="{{ c.guest }}" {{ "selected" if form.companion_id == c.guest }}>Gast - Name eingeben</option>
+            {{ member_options(c.members, form.companion_id) }}
         </select>
     </label>
-    <label class="span-2">Name, falls Gast
+    <label class="span-2" data-show-if="companion_id={{ c.guest }}">Name des Gasts
         <input type="text" name="companion_name" value="{{ form.companion_name }}" placeholder="Vorname Name" maxlength="255">
     </label>
 
-    <label>Startort
+    <label>Flugdatum
+        <input type="text" name="flight_date" value="{{ form.flight_date }}" placeholder="TT.MM.JJJJ" inputmode="decimal" maxlength="10" required>
+    </label>
+    <label>Start
+        <input type="text" name="takeoff_time" value="{{ form.takeoff_time }}" placeholder="hh:mm" inputmode="decimal" maxlength="5" required class="time">
+    </label>
+    <label>Landung
+        <input type="text" name="landing_time" value="{{ form.landing_time }}" placeholder="hh:mm" inputmode="decimal" maxlength="5" class="time">
+    </label>
+    <div class="grid-spacer"></div>
+
+    <label class="span-2">Gestartet von
         <input type="text" name="takeoff_airfield_icao" value="{{ form.takeoff_airfield_icao }}" list="airfield-list" maxlength="16" autocapitalize="characters">
     </label>
-    <label>Startzeit
-        <input type="time" name="takeoff_time" value="{{ form.takeoff_time }}" required>
-    </label>
-    <label>Landeort
-        <input type="text" name="landing_airfield_icao" value="{{ form.landing_airfield_icao }}" list="airfield-list" maxlength="16" autocapitalize="characters">
-    </label>
-    <label>Landezeit
-        <input type="time" name="landing_time" value="{{ form.landing_time }}">
+    <label class="span-2">Gelandet in
+        <input type="text" name="landing_airfield_icao" value="{{ form.landing_airfield_icao }}" list="airfield-list" maxlength="16" autocapitalize="characters" placeholder="leer = Aussenlandung">
     </label>
 
-    <label>Landungen
-        <input type="number" name="landings" value="{{ form.landings }}" min="0" max="99" inputmode="numeric">
+    <label class="span-2">Abrechnungsart
+        <select name="billing">
+            {% for code, label in c.billing_types.items() %}<option value="{{ code }}" {{ "selected" if form.billing == code }}>{{ label }}</option>{% endfor %}
+        </select>
     </label>
-    <label class="span-3">Bemerkung
+    <label class="span-2" data-show-if="billing=other_member">Zahlt
+        <select name="billing_member_id" data-search>
+            <option value="">-- Mitglied wählen --</option>
+            {{ member_options(c.members, form.billing_member_id) }}
+        </select>
+    </label>
+
+    <fieldset class="tow-fields" data-show-if="launch_method=F">
+        <legend>Schleppflugdaten</legend>
+        <div class="form-grid">
+            <label class="span-2">Schleppflugzeug
+                <select name="tow_glider_id">
+                    <option value="">-- wählen --</option>
+                    {% for g in c.towplanes %}<option value="{{ g.id }}" {{ "selected" if form.tow_glider_id == g.id|string }}>{{ g.registration }}{% if g.model %} ({{ g.model }}){% endif %}</option>{% endfor %}
+                </select>
+            </label>
+            <label class="span-2">Schlepppilot
+                <select name="tow_pilot_id" data-search>
+                    <option value="">-- unbekannt --</option>
+                    {{ member_options(c.members, form.tow_pilot_id) }}
+                </select>
+            </label>
+        </div>
+    </fieldset>
+
+    <label class="full">Bemerkungen
         <input type="text" name="notes" value="{{ form.notes }}" maxlength="1000">
     </label>
 </div>
 <datalist id="airfield-list">
-    {% for a in airfields %}<option value="{{ a.icao }}">{{ a.name }}</option>{% endfor %}
+    {% for a in c.airfields %}<option value="{{ a.icao }}">{{ a.name }}</option>{% endfor %}
 </datalist>
 {% endmacro %}
 
