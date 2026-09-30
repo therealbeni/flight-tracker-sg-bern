@@ -67,6 +67,29 @@ def test_short_circuit_of_three_minutes_is_a_real_flight():
         assert 2 <= f.duration.total_seconds() / 60 <= 5
 
 
+@pytest.mark.parametrize("seed", range(40))
+def test_tight_motor_glider_circuit_with_dirty_beacons(seed):
+    # Real case, 29.09.: HB-2377 (Dimona) flew a training circuit at LSZB,
+    # 2.8 minutes from roll to touchdown, touching down at ~60 km/h. It must be
+    # found even with lost, noisy and late beacons.
+    import random
+    from test_detection_stress import dirty
+
+    rng = random.Random(seed)
+    sim = Sim(interval=rng.choice([2.0, 4.0])).park(300)
+    start = sim.t
+    sim.accelerate(0, 90, 10).climb(to_height=150, speed=120, rate=4)
+    sim.cruise(40, speed=140).fly_to(LSZB.lat, LSZB.lon, speed=130).descend(0, speed=100, rate=4)
+    touchdown = sim.t
+    sim.decelerate(60, 0, 20).park(600)
+    events = run(make_detector(), dirty(sim.beacons, rng))
+    [flight] = landings(events)
+    assert flight.takeoff_airport == LSZB and flight.landing_airport == LSZB
+    assert abs((flight.takeoff_time - start).total_seconds()) <= 30
+    assert abs((flight.landing_time - touchdown).total_seconds()) <= 45
+    assert (touchdown - start).total_seconds() / 60 < 4  # really that short
+
+
 def test_cross_country_to_another_airfield():
     # Real data (2026-09-28): HB-2377 Bern -> Kaegiswil.
     sim = Sim().park(120).accelerate(0, 90, 15).climb(1500, speed=150, rate=3)
