@@ -83,10 +83,12 @@ Restore a backup: `docker compose exec -T db pg_restore -U flighttracker -d flig
 - **Pilot**: checks in, sees and corrects own flights, checks out.
 - **Admin**: everything, incl. approving pilots, aircraft, airfields, closing days, and
   "Als Pilot ansehen" (see the app exactly as a given pilot does, to test or help).
-- **Startstelle** (club PC at the launch point): register an account for the PC (e.g.
-  "Startstelle LSZB"), then give it this role on Verwaltung > Piloten. It opens on the
-  Flugbuch, can edit/add/delete all flights of open days and check out any pilot, but
-  can't manage pilots or aircraft.
+- **Flugdienstleiter (FDL)** (laptop at the launch point): register an account for it (e.g.
+  "Flugdienstleiter LSZB"), then give it this role on Verwaltung > Piloten. It opens on
+  an overview of the day (aircraft in the air / checked in / free, pilots present and
+  checked out, flights to check), refreshing itself every 30 s. It can edit/add/delete
+  all flights of open days, release check-ins and check out any pilot, but can't check
+  in itself or manage pilots or aircraft.
 
 Aircraft kinds (Verwaltung > Flugzeuge) matter: tow planes and motor gliders default to
 "check in for the whole day", and tows are linked to the glider they towed.

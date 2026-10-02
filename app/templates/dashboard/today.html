@@ -16,6 +16,10 @@
 
 {% if my_claims %}
 {{ my_claims_list(my_claims) }}
+{% elif checked_out_at %}
+<div class="card">
+    <p style="margin: 0;"><strong>Du bist ausgecheckt</strong> (seit {{ checked_out_at|hhmm }} Uhr). Danke und bis zum nächsten Mal! Fliegst du doch nochmals, checke einfach wieder ein.</p>
+</div>
 {% else %}
 <div class="card">
     <p style="margin: 0 0 0.75rem;">Fliegst du heute? Checke vor dem Start auf dein Flugzeug ein.</p>
@@ -50,7 +54,7 @@
     {% endfor %}
 </div>
 
-{% if my_flight_count or my_claims %}
+{% if (my_flight_count or my_claims) and not checked_out_at %}
 <div class="card checkout-card">
     <p style="margin: 0 0 0.75rem;">Fertig für heute? Prüfe deine Flüge und checke aus.</p>
     <a href="/auschecken/{{ pilot.id }}" class="btn secondary">Auschecken</a>

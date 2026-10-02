@@ -663,3 +663,72 @@ details.card[open] > summary { margin-bottom: 0.75rem; }
 }
 
 .day-summary { font-weight: 600; color: var(--ink); margin: 0.25rem 0 0.5rem; }
+
+/* ---------- Flugdienstleiter (FDL) overview, made for a laptop ---------- */
+
+.fdl-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+.fdl-head h1 { margin: 0; }
+.fdl-summary { margin: 0.2rem 0 0; color: var(--ink-muted); font-size: 1rem; }
+.fdl-actions { display: flex; gap: 0.5rem; }
+.fdl-grid { display: grid; gap: 0 2rem; }
+@media (min-width: 1000px) {
+    .fdl-grid { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+}
+.fdl h2 { margin: 0 0 0.6rem; }
+.fdl section > h2:not(:first-child) { margin-top: 1.5rem; }
+
+/* Aircraft as flight progress strips: the status edge reads from across the room. */
+.strips, .people { list-style: none; margin: 0 0 1rem; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.strip {
+    display: grid;
+    grid-template-columns: 9.5rem minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.55rem 0.8rem 0.55rem 1rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 6px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+.strip-air { border-left-color: var(--sky); background: var(--sky-100); }
+.strip-claimed { border-left-color: var(--brand-700); }
+.strip-free { border-left-color: var(--success); }
+.strip-reg { display: block; font-size: 1.25rem; font-weight: 800; color: var(--brand-900); font-variant-numeric: tabular-nums; letter-spacing: 0.01em; }
+.strip-model { display: block; font-size: 0.8rem; color: var(--ink-muted); }
+.strip-state { display: flex; flex-direction: column; min-width: 0; }
+.strip-status { font-weight: 700; }
+.strip-free .strip-status { color: var(--success); }
+.strip-who { color: var(--ink-muted); font-size: 0.9rem; }
+.strip-side { display: flex; align-items: center; gap: 0.5rem; }
+.strip-side form { margin: 0; }
+.strip-count { color: var(--ink-faint); font-size: 0.85rem; white-space: nowrap; }
+
+.person {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.6rem 0.5rem 0.9rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+.person-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.person-name { font-weight: 700; }
+.person-status { color: var(--ink-muted); font-size: 0.88rem; }
+.person-air .person-status { color: var(--brand-700); font-weight: 600; }
+.person-flights { color: var(--ink-muted); font-size: 0.85rem; white-space: nowrap; }
+.person .btn { flex: none; }
+.people-gone-title { font-size: 0.95rem; color: var(--ink-muted); margin: 1.25rem 0 0.5rem; }
+.people-gone .person { background: transparent; }
+.people-gone .person-name { font-weight: 600; color: var(--ink-muted); }
+
+@media (max-width: 640px) {
+    .strip { grid-template-columns: minmax(0, 1fr) auto; }
+    .strip-state { grid-column: 1 / -1; grid-row: 2; }
+    .person { flex-wrap: wrap; }
+}
+.btn.disabled { opacity: 0.35; pointer-events: none; }
+.day-jump { margin-left: auto; display: flex; align-items: center; gap: 0.4rem; }
+.day-jump label { display: flex; align-items: center; gap: 0.5rem; margin: 0; }
+.day-jump input { margin: 0; width: auto; min-height: 40px; padding: 0.4rem 0.6rem; }
+a.day-link { font-weight: 600; }

@@ -17,7 +17,7 @@ def world(db_session):
     """Two pilots, the club PC account, an admin, a glider and a tow plane."""
     people = {}
     for key, name, role in [("admin", "Anna Admin", PilotRole.ADMIN), ("pia", "Pia Pilot", PilotRole.PILOT),
-                            ("bob", "Bob Brunner", PilotRole.PILOT), ("desk", "Startstelle LSZB", PilotRole.FLIGHTDESK)]:
+                            ("bob", "Bob Brunner", PilotRole.PILOT), ("desk", "Flugdienstleiter LSZB", PilotRole.FDL)]:
         people[key] = Pilot(full_name=name, email=f"{key}@example.com", password_hash=hash_password(PASSWORD),
                             role=role, status=PilotStatus.APPROVED)
     db_session.add_all(people.values())
@@ -243,25 +243,24 @@ def test_only_yourself_or_the_club_pc_can_check_out(client, db_session, world):
     assert client.get(f"/auschecken/{world['bob'].id}").status_code == 200
 
 
-def test_club_pc_lands_on_the_flugbuch_and_is_not_an_admin(client, db_session, world):
+def test_fdl_is_not_an_admin(client, db_session, world):
     login(client, "desk")
-    assert client.get("/dashboard", follow_redirects=False).headers["location"] == "/flugbuch"
     assert client.get("/admin/pilots").status_code == 403
 
 
 def test_admin_sets_roles_but_not_their_own(client, db_session, world):
     login(client, "admin")
-    client.post(f"/admin/pilots/{world['bob'].id}/role", data={"role": "flightdesk"})
+    client.post(f"/admin/pilots/{world['bob'].id}/role", data={"role": "fdl"})
     client.post(f"/admin/pilots/{world['admin'].id}/role", data={"role": "pilot"})
     db_session.refresh(world["bob"])
     db_session.refresh(world["admin"])
-    assert world["bob"].role is PilotRole.FLIGHTDESK
+    assert world["bob"].role is PilotRole.FDL
     assert world["admin"].role is PilotRole.ADMIN
 
 
 def test_club_pc_account_is_not_offered_as_pilot(client, db_session, world):
     login(client, "desk")
-    assert "Startstelle LSZB</option>" not in client.get("/flugbuch").text
+    assert "Flugdienstleiter LSZB</option>" not in client.get("/flugbuch").text
 
 
 # ---------------------------------------------------- Vereinsflieger fields
@@ -400,3 +399,28 @@ def test_pilot_opening_a_flight_without_pilot_gets_themselves_preselected(client
     login(client, "desk")
     page = client.get(f"/flights/{f.id}").text
     assert "selected>Pia Pilot" not in page
+
+
+def test_day_arrows_skip_days_without_flights(client, db_session, world):
+    from datetime import timedelta
+
+    today = today_local()
+    for days_ago in (30, 9):
+        day = today - timedelta(days=days_ago)
+        db_session.add(Flight(record_id=f"r-{days_ago}", glider_id=world["glider"].id, source=FlightSource.AUTO,
+                              takeoff_time=combine_local(day, "12:00")))
+    db_session.commit()
+    login(client, "pia")
+    page = client.get("/flugbuch").text  # today, no flights
+    assert f'href="/flugbuch?datum={today - timedelta(days=9)}" title="Vorheriger Flugtag' in page
+    page = client.get(f"/flugbuch?datum={today - timedelta(days=9)}").text
+    assert f'href="/flugbuch?datum={today - timedelta(days=30)}" title="Vorheriger' in page
+    assert f'href="/flugbuch?datum={today}" title="Nächster' in page  # nothing in between: back to today
+    page = client.get(f"/flugbuch?datum={today - timedelta(days=30)}").text
+    assert "Vorheriger Flugtag" not in page  # the first flying day
+
+
+def test_closing_days_links_each_day_to_its_flugbuch(client, db_session, world):
+    add_flight(db_session, world["glider"], world["pia"])
+    login(client, "admin")
+    assert f'href="/flugbuch?datum={today_local()}"' in client.get("/admin/finalize").text

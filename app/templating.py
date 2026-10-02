@@ -12,6 +12,15 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 # cached copy for however long its cache-control max-age says.
 templates.env.globals["asset_version"] = str(int(time.time()))
 
+
+
+def current_user(request):
+    """The logged-in account, if the page looked it up (deps.get_current_pilot)."""
+    return getattr(request.state, "user", None)
+
+
+templates.env.globals["current_user"] = current_user
+
 # Times are stored in UTC and always shown in Swiss local time: {{ f.takeoff_time|hhmm }}
 templates.env.filters["hhmm"] = timeutil.fmt_time
 templates.env.filters["datum"] = timeutil.fmt_date

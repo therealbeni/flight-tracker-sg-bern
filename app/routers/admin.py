@@ -18,7 +18,7 @@ from templating import templates
 
 router = APIRouter(prefix="/admin", dependencies=[Depends(require_admin)])
 
-ROLE_LABELS = {PilotRole.PILOT: "Pilot", PilotRole.ADMIN: "Admin", PilotRole.FLIGHTDESK: "Startstelle (Vereins-PC)"}
+ROLE_LABELS = {PilotRole.PILOT: "Pilot", PilotRole.ADMIN: "Admin", PilotRole.FDL: "Flugdienstleiter (FDL)"}
 
 
 @router.get("/pilots")
@@ -38,7 +38,7 @@ def approve_pilot(pilot_id: int, db: Session = Depends(get_db)):
 
 @router.post("/pilots/{pilot_id}/role")
 def set_pilot_role(request: Request, pilot_id: int, role: PilotRole = Form(...), db: Session = Depends(get_db)):
-    """Pilot, Admin, or Startstelle (the shared club PC account)."""
+    """Pilot, Admin, or Flugdienstleiter (the account of the day's flight operations)."""
     pilot = db.get(Pilot, pilot_id)
     if pilot is not None and pilot.id != request.session.get("pilot_id"):  # never lock yourself out
         pilot.role = role
@@ -55,7 +55,6 @@ def view_as_pilot(request: Request, pilot_id: int, db: Session = Depends(get_db)
         raise HTTPException(status_code=404, detail="Diesen Piloten gibt es nicht, oder er ist nicht freigeschaltet.")
     request.session["viewing_as_admin_id"] = request.session["pilot_id"]
     request.session["pilot_id"] = target.id
-    request.session["is_admin"] = target.is_admin
     request.session["viewing_as_name"] = target.full_name
     return RedirectResponse("/dashboard", status_code=303)
 

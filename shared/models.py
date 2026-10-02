@@ -1,9 +1,10 @@
 import enum
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from sqlalchemy import (
     Boolean,
+    Date,
     DateTime,
     Enum,
     Float,
@@ -11,6 +12,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     and_,
     false,
 )
@@ -41,10 +43,11 @@ BILLING_TYPES = {
 class PilotRole(str, enum.Enum):
     PILOT = "pilot"
     ADMIN = "admin"
-    # Shared account of the club PC at the launch point ("Startstelle"): may
-    # edit and add all flights of open days, like the Vereinsflieger
-    # Flugdatenerfassung on the club PC - but no user/aircraft management.
-    FLIGHTDESK = "flightdesk"
+    # Flugdienstleiter: the account of whoever runs the day's flying (club
+    # laptop at the launch point). Sees who is checked in, flying and gone
+    # home; may edit and add all flights of open days and check pilots out.
+    # Never flies itself (no check-ins), no user/aircraft management.
+    FDL = "fdl"
 
 
 class PilotStatus(str, enum.Enum):
@@ -110,7 +113,11 @@ class Pilot(Base):
 
     @property
     def edits_all_flights(self) -> bool:
-        return self.role in (PilotRole.ADMIN, PilotRole.FLIGHTDESK)
+        return self.role in (PilotRole.ADMIN, PilotRole.FDL)
+
+    @property
+    def is_fdl(self) -> bool:
+        return self.role is PilotRole.FDL
 
 
 class PasswordResetToken(Base):
@@ -184,6 +191,25 @@ class GliderClaim(Base):
         """SQL condition: claim can still be matched to a takeoff at `when`."""
         return and_(cls.consumed_at.is_(None), cls.cancelled_at.is_(None),
                     cls.claimed_at <= when, cls.expires_at > when)
+
+
+class Checkout(Base):
+    """A pilot has checked out for the day: flights confirmed, going home.
+
+    Checking in again later that day makes them present again (a check-in
+    after `checked_out_at`); checking out again moves `checked_out_at`.
+    """
+
+    __tablename__ = "checkouts"
+    __table_args__ = (UniqueConstraint("pilot_id", "day", name="checkouts_pilot_day_key"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    pilot_id: Mapped[int] = mapped_column(ForeignKey("pilots.id"), nullable=False)
+    day: Mapped[date] = mapped_column(Date, nullable=False)  # local flying day
+    checked_out_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, nullable=False)
+    by_pilot_id: Mapped[int] = mapped_column(ForeignKey("pilots.id"), nullable=False)  # the pilot, or the FDL
+
+    pilot: Mapped["Pilot"] = relationship(foreign_keys=[pilot_id])
 
 
 class Flight(Base):

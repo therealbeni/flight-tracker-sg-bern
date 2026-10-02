@@ -5,11 +5,18 @@
 {% block content %}
 <div class="flugbuch">
 
+{# The arrows jump to the previous/next day with flights: most days nobody flies. #}
 <div class="day-nav">
-    <a class="btn secondary compact" href="/flugbuch?datum={{ prev_day }}" aria-label="Vorheriger Tag">&larr;</a>
+    {% if prev_day %}<a class="btn secondary compact" href="/flugbuch?datum={{ prev_day }}" title="Vorheriger Flugtag: {{ prev_day|datum }}" aria-label="Vorheriger Flugtag">&larr;</a>
+    {% else %}<span class="btn secondary compact disabled" aria-hidden="true">&larr;</span>{% endif %}
     <h1>Flugbuch {{ day|wochentag }}, {{ day|datum }}</h1>
-    <a class="btn secondary compact" href="/flugbuch?datum={{ next_day }}" aria-label="Nächster Tag">&rarr;</a>
+    {% if next_day %}<a class="btn secondary compact" href="/flugbuch?datum={{ next_day }}" title="Nächster Flugtag: {{ next_day|datum }}" aria-label="Nächster Flugtag">&rarr;</a>
+    {% else %}<span class="btn secondary compact disabled" aria-hidden="true">&rarr;</span>{% endif %}
     {% if day != today %}<a class="btn secondary compact" href="/flugbuch">Heute</a>{% endif %}
+    <form method="get" action="/flugbuch" class="day-jump">
+        <label>Datum <input type="date" name="datum" value="{{ day }}" max="{{ today }}" onchange="this.form.submit()"></label>
+        <noscript><button type="submit" class="compact">Zeigen</button></noscript>
+    </form>
 </div>
 
 {% if day_finalized %}

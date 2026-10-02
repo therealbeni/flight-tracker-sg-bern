@@ -6,7 +6,7 @@ the audit trail (FlightAuditEntry).
 
 Who may edit a flight (can_edit):
   - nobody, once its day is finalized (an admin must re-open the day);
-  - admins and the club PC account (Startstelle): every flight;
+  - admins and the Flugdienstleiter (FDL) account: every flight;
   - pilots: their own flights (as pilot or Begleiter) and flights without pilot.
 """
 
@@ -301,9 +301,9 @@ def _fit(text: Optional[str]) -> Optional[str]:
 
 
 def members(db: Session) -> list[Pilot]:
-    """Everyone who can be pilot or Begleiter (not the club PC account)."""
+    """Everyone who can be pilot or Begleiter (not the FDL account)."""
     return list(db.scalars(
-        select(Pilot).where(Pilot.status == PilotStatus.APPROVED, Pilot.role != PilotRole.FLIGHTDESK)
+        select(Pilot).where(Pilot.status == PilotStatus.APPROVED, Pilot.role != PilotRole.FDL)
         .order_by(Pilot.full_name)
     ).all())
 

@@ -7,9 +7,9 @@ from models import Pilot, PilotStatus
 
 def get_current_pilot(request: Request, db: Session = Depends(get_db)) -> Pilot | None:
     pilot_id = request.session.get("pilot_id")
-    if pilot_id is None:
-        return None
-    return db.get(Pilot, pilot_id)
+    pilot = db.get(Pilot, pilot_id) if pilot_id is not None else None
+    request.state.user = pilot  # for the navigation in base.html (templating.current_user)
+    return pilot
 
 
 def require_login(pilot: Pilot | None = Depends(get_current_pilot)) -> Pilot:
@@ -21,6 +21,15 @@ def require_login(pilot: Pilot | None = Depends(get_current_pilot)) -> Pilot:
 def require_approved(pilot: Pilot = Depends(require_login)) -> Pilot:
     if pilot.status != PilotStatus.APPROVED:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Dein Konto ist noch nicht freigeschaltet.")
+    return pilot
+
+
+def require_flying_member(pilot: Pilot = Depends(require_approved)) -> Pilot:
+    """A person who flies - not the Flugdienstleiter's account."""
+    if pilot.is_fdl:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Mit dem Flugdienstleiter-Konto kann man keine Flugzeuge einchecken. "
+                                   "Melde dich dafür mit deinem eigenen Konto an.")
     return pilot
 
 

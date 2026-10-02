@@ -24,7 +24,7 @@ def fresh_throttle():
 @pytest.fixture
 def people(db_session):
     made = {}
-    for key, role in [("admin", PilotRole.ADMIN), ("pilot", PilotRole.PILOT), ("desk", PilotRole.FLIGHTDESK)]:
+    for key, role in [("admin", PilotRole.ADMIN), ("pilot", PilotRole.PILOT), ("desk", PilotRole.FDL)]:
         made[key] = Pilot(full_name=f"{key.title()} Test", email=f"{key}@example.com",
                           password_hash=hash_password(PASSWORD), role=role, status=PilotStatus.APPROVED)
     db_session.add_all(made.values())

@@ -41,7 +41,7 @@ def seed() -> None:
         "admin": Pilot(full_name="Anna Admin", email="admin@test.ch", role=PilotRole.ADMIN),
         "pilot": Pilot(full_name="Pia Pilot", email="pilot@test.ch", role=PilotRole.PILOT),
         "tow": Pilot(full_name="Toni Schlepp", email="tow@test.ch", role=PilotRole.PILOT),
-        "desk": Pilot(full_name="Startstelle LSZB", email="desk@test.ch", role=PilotRole.FLIGHTDESK),
+        "desk": Pilot(full_name="Flugdienstleiter LSZB", email="desk@test.ch", role=PilotRole.FDL),
     }
     for p in people.values():
         p.password_hash, p.status = hash_password(PASSWORD), PilotStatus.APPROVED

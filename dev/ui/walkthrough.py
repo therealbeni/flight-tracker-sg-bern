@@ -130,7 +130,13 @@ def pilot_checkout_flow(page: Page) -> None:
 
 
 def club_pc_flow(page: Page) -> None:
-    login(page, "desk@test.ch")  # lands on the Flugbuch, not the dashboard
+    login(page, "desk@test.ch")  # the Flugdienstleiter's overview of the day
+    expect(page.locator("h1")).to_contain_text("Flugdienst")
+    expect(page.locator(".strip-air")).to_contain_text("HB-3131")
+    expect(page.locator(".strip-claimed")).to_contain_text("Toni Schlepp")
+    expect(page.locator(".topbar nav")).not_to_contain_text("Einchecken")
+    check_page(page, "29-fdl-uebersicht")
+    page.click(".topbar nav >> text=Flugbuch")
     expect(page.locator("h1")).to_contain_text("Flugbuch")
     check_page(page, "30-flugbuch")
 

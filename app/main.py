@@ -1,12 +1,14 @@
 from urllib.parse import urlsplit
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from config import settings
+from deps import get_current_pilot
+from models import Pilot
 from paths import STATIC_DIR
 from routers import admin, auth, claim, dashboard, flights, flugbuch, logbook
 from templating import templates
@@ -91,8 +93,8 @@ async def unexpected_error(request: Request, exc: Exception):
 
 
 @app.get("/hilfe")
-def help_page(request: Request):
-    return templates.TemplateResponse(request, "hilfe.html", {})
+def help_page(request: Request, user: Pilot | None = Depends(get_current_pilot)):
+    return templates.TemplateResponse(request, "hilfe.html", {"pilot": user})
 
 
 @app.get("/")

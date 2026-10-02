@@ -30,16 +30,21 @@
 </div>
 
 {% if open_issues %}
-<p class="warning">Bei {{ open_issues|length }} Flug{{ "en" if open_issues|length != 1 }} fehlt noch etwas. Tippe auf den Flug, um ihn zu korrigieren - oder checke trotzdem aus, die Startstelle kann es später nachtragen.</p>
+<p class="warning">Bei {{ open_issues|length }} Flug{{ "en" if open_issues|length != 1 }} fehlt noch etwas. Tippe auf den Flug, um ihn zu korrigieren - oder checke trotzdem aus, der Flugdienstleiter kann es später nachtragen.</p>
+{% endif %}
+
+{% if airborne %}
+<p class="warning">{{ "Du bist" if target.id == pilot.id else target.full_name ~ " ist" }} laut Tracker noch in der Luft ({{ airborne | map(attribute="glider.registration") | join(", ") }}). Erst nach der Landung auschecken - oder den Flug korrigieren, falls die Landung fehlt.</p>
 {% endif %}
 
 <form method="post" action="/auschecken/{{ target.id }}" class="card confirm-card">
     <input type="hidden" name="day" value="{{ day }}">
+    <input type="hidden" name="next" value="{{ next }}">
     <p>
         {% if flights %}Sind alle Flüge richtig?{% endif %}
-        {% if claims %}Deine Check-ins ({{ claims | map(attribute="glider.registration") | join(", ") }}) werden beendet.{% endif %}
+        {% if claims %}{{ "Deine" if target.id == pilot.id else "Die" }} Check-ins ({{ claims | map(attribute="glider.registration") | join(", ") }}) werden beendet.{% endif %}
     </p>
     <button type="submit">{% if flights %}Flüge bestätigen und auschecken{% else %}Auschecken{% endif %}</button>
 </form>
-<p><a href="/flugbuch?datum={{ day }}">Zurück zum Flugbuch</a></p>
+<p><a href="{{ next or '/flugbuch?datum=%s' % day }}">Zurück</a></p>
 {% endblock %}

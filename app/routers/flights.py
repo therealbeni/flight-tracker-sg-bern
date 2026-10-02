@@ -73,10 +73,10 @@ def flight_verify(request: Request, flight_id: int, db: Session = Depends(get_db
 @router.post("/flights/{flight_id}/delete")
 def flight_delete(request: Request, flight_id: int, db: Session = Depends(get_db),
                   user: Pilot = Depends(require_approved)):
-    """For false detections and duplicates. Startstelle and admins only."""
+    """For false detections and duplicates. FDL and admins only."""
     flight = get_flight(db, flight_id)
     if not (user.edits_all_flights and can_edit(flight, user)):
-        raise HTTPException(status_code=403, detail="Flüge löschen kann nur die Startstelle oder ein Admin.")
+        raise HTTPException(status_code=403, detail="Flüge löschen kann nur der Flugdienstleiter oder ein Admin.")
     day = to_local(flight.takeoff_time).date() if flight.takeoff_time else today_local()
     flight_form.delete(db, user, flight)
     db.commit()

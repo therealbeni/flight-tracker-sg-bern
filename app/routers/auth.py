@@ -58,7 +58,6 @@ def signup_submit(
 
     if is_first_account:
         request.session["pilot_id"] = pilot.id
-        request.session["is_admin"] = True
         return RedirectResponse("/dashboard", status_code=303)
 
     return templates.TemplateResponse(request, "auth/pending.html", {})
@@ -98,7 +97,6 @@ def login_submit(
 
     request.session.clear()
     request.session["pilot_id"] = pilot.id
-    request.session["is_admin"] = pilot.is_admin
     return RedirectResponse("/dashboard", status_code=303)
 
 
@@ -112,7 +110,6 @@ def view_as_end(request: Request, db: Session = Depends(get_db)):
         request.session.clear()
         return RedirectResponse("/login", status_code=303)
     request.session["pilot_id"] = admin.id
-    request.session["is_admin"] = True
     return RedirectResponse("/admin/pilots", status_code=303)
 
 

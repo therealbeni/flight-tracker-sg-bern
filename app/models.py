@@ -7,6 +7,7 @@ from shared.models import (  # noqa: F401
     FLIGHT_TYPES,
     AircraftKind,
     Airfield,
+    Checkout,
     Flight,
     FlightAuditEntry,
     FlightSource,

@@ -10,7 +10,7 @@
     <tbody>
     {% for d in days %}
         <tr>
-            <td>{{ d.date|wochentag }}, {{ d.date|datum }}</td>
+            <td><a class="day-link" href="/flugbuch?datum={{ d.date }}">{{ d.date|wochentag }}, {{ d.date|datum }}</a></td>
             <td>{{ d.total }}</td>
             <td>{{ d.landed }}</td>
             <td>{{ d.verified }} / {{ d.total }}</td>

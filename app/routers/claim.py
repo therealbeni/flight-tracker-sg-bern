@@ -12,7 +12,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from database import get_db
-from deps import back_url, require_approved
+from deps import back_url, require_approved, require_flying_member
 from models import Glider, GliderClaim, Pilot
 from templating import templates
 from timeutil import local_end_of_day
@@ -36,7 +36,7 @@ def _glider_for_token(db: Session, token: str) -> Glider:
 
 
 @router.get("/claim")
-def claim_picker(request: Request, db: Session = Depends(get_db), pilot: Pilot = Depends(require_approved)):
+def claim_picker(request: Request, db: Session = Depends(get_db), pilot: Pilot = Depends(require_flying_member)):
     gliders = db.scalars(select(Glider).where(Glider.active.is_(True)).order_by(Glider.kind, Glider.registration)).all()
     rows = [{"glider": g, "claims": active_claims(db, glider_id=g.id)} for g in gliders]
     return templates.TemplateResponse(request, "claim/picker.html", {
@@ -44,7 +44,8 @@ def claim_picker(request: Request, db: Session = Depends(get_db), pilot: Pilot =
 
 
 @router.get("/claim/{token}")
-def claim_form(request: Request, token: str, db: Session = Depends(get_db), pilot: Pilot = Depends(require_approved)):
+def claim_form(request: Request, token: str, db: Session = Depends(get_db),
+               pilot: Pilot = Depends(require_flying_member)):
     glider = _glider_for_token(db, token)
     return templates.TemplateResponse(request, "claim/claim.html", {
         "glider": glider, "token": token, "pilot": pilot, "claims": active_claims(db, glider_id=glider.id)})
@@ -52,7 +53,7 @@ def claim_form(request: Request, token: str, db: Session = Depends(get_db), pilo
 
 @router.post("/claim/{token}")
 def claim_submit(request: Request, token: str, mode: str = Form("next"),
-                 db: Session = Depends(get_db), pilot: Pilot = Depends(require_approved)):
+                 db: Session = Depends(get_db), pilot: Pilot = Depends(require_flying_member)):
     glider = _glider_for_token(db, token)
     whole_day = mode == "day"
     now = datetime.now(timezone.utc)
@@ -77,9 +78,9 @@ def claim_submit(request: Request, token: str, mode: str = Form("next"),
 @router.post("/claims/{claim_id}/release")
 def claim_release(request: Request, claim_id: int, db: Session = Depends(get_db),
                   pilot: Pilot = Depends(require_approved)):
-    """Freigeben: undo a check-in made by mistake (own claims; admins: any)."""
+    """Freigeben: undo a check-in made by mistake (own claims; FDL and admins: any)."""
     claim = db.get(GliderClaim, claim_id)
-    if claim is None or (claim.pilot_id != pilot.id and not pilot.is_admin):
+    if claim is None or (claim.pilot_id != pilot.id and not pilot.edits_all_flights):
         raise HTTPException(status_code=404, detail="Diesen Check-in gibt es nicht.")
     if claim.cancelled_at is None and claim.consumed_at is None:
         claim.cancelled_at = datetime.now(timezone.utc)
