@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 import flight_form
 from database import get_db
 from deps import back_url, local_path, require_approved
-from flight_form import FlightInput, can_edit, form_choices, read_form
+from flight_form import CHANGED_MEANWHILE, FlightInput, can_edit, changed_meanwhile, form_choices, read_form
 from models import Flight, FlightAuditEntry, Pilot
 from routers.flugbuch import render_flugbuch
 from templating import templates
@@ -17,8 +17,10 @@ from timeutil import to_local, today_local
 router = APIRouter()
 
 
-def get_flight(db: Session, flight_id: int) -> Flight:
-    flight = db.get(Flight, flight_id)
+def get_flight(db: Session, flight_id: int, lock: bool = False) -> Flight:
+    # lock: two saves of the same flight at the same moment run one after the
+    # other, so the second one sees the first (changed_meanwhile).
+    flight = db.get(Flight, flight_id, with_for_update=lock)
     if flight is None or flight.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Diesen Flug gibt es nicht.")
     return flight
@@ -44,11 +46,18 @@ def flight_detail(request: Request, flight_id: int, db: Session = Depends(get_db
 @router.post("/flights/{flight_id}")
 async def flight_update(request: Request, flight_id: int, next: str = Form(""), db: Session = Depends(get_db),
                         user: Pilot = Depends(require_approved)):
-    flight = get_flight(db, flight_id)
+    flight = get_flight(db, flight_id, lock=True)
     if not can_edit(flight, user):
         raise HTTPException(status_code=403, detail="Diesen Flug kannst du nicht ändern.")
     form = await read_form(request)
     day = to_local(flight.takeoff_time).date() if flight.takeoff_time else today_local()
+    if changed_meanwhile(flight, form):
+        db.rollback()
+        fresh = FlightInput.from_flight(db, flight, user)
+        fresh.errors.append(CHANGED_MEANWHILE)
+        if next.startswith("/flugbuch"):
+            return render_flugbuch(request, db, user, day, form=fresh, editing=flight, status_code=409)
+        return render_detail(request, db, flight, user, fresh, status_code=409)
     if flight_form.save(db, user, form, flight) is None:
         db.rollback()
         if next.startswith("/flugbuch"):

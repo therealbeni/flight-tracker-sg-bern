@@ -14,6 +14,10 @@
     </div>
 </div>
 
+{% for n in ended_by_others %}
+<div class="notice"><p>{{ n.claim.cancelled_by.full_name }} hat {{ n.claim.glider.registration }} {{ "übernommen" if n.took_over else "freigegeben" }} ({{ n.claim.cancelled_at|hhmm }} Uhr). Dein Check-in darauf ist beendet.</p></div>
+{% endfor %}
+
 {% if my_claims %}
 {{ my_claims_list(my_claims) }}
 {% elif checked_out_at %}

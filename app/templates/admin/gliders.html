@@ -6,8 +6,9 @@
 
 <form method="post" action="/admin/gliders" class="card narrow">
     <h2>Flugzeug hinzufügen</h2>
-    <label>Kennzeichen<input type="text" name="registration" placeholder="HB-1811" required></label>
-    <label>Typ<input type="text" name="model" placeholder="ASK 21"></label>
+    {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+    <label>Kennzeichen<input type="text" name="registration" placeholder="HB-1811" maxlength="32" required></label>
+    <label>Typ<input type="text" name="model" placeholder="ASK 21" maxlength="128"></label>
     <label>Art
         <select name="kind">{% for k in kinds %}<option value="{{ k.value }}">{{ k.label }}</option>{% endfor %}</select>
     </label>

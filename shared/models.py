@@ -187,9 +187,13 @@ class GliderClaim(Base):
     flight_id: Mapped[int | None] = mapped_column(ForeignKey("flights.id"), nullable=True)
     whole_day: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false(), nullable=False)
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Who ended it: the pilot themselves, someone taking the aircraft over,
+    # the FDL, an admin. Empty for older rows and automatic ends.
+    cancelled_by_id: Mapped[int | None] = mapped_column(ForeignKey("pilots.id"), nullable=True)
 
     glider: Mapped["Glider"] = relationship()
-    pilot: Mapped["Pilot"] = relationship()
+    pilot: Mapped["Pilot"] = relationship(foreign_keys=[pilot_id])
+    cancelled_by: Mapped["Pilot | None"] = relationship(foreign_keys=[cancelled_by_id])
 
     @classmethod
     def active_at(cls, when: datetime):

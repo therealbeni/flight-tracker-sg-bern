@@ -65,7 +65,7 @@ def test_unapproved_pilot_cannot_claim(client, db_session):
     # should redirect to login rather than error.
     resp = client.get(f"/claim/{glider.claim_token}", follow_redirects=False)
     assert resp.status_code == 303
-    assert resp.headers["location"] == "/login"
+    assert resp.headers["location"] == f"/login?next=/claim/{glider.claim_token}"
 
 
 def test_unknown_claim_token_is_404(client):

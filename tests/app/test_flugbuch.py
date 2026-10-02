@@ -186,6 +186,7 @@ def test_next_never_leaves_the_site(client, db_session, world):
     login(client, "desk")
     from test_flights import form_for
     for evil in ["https://evil.example/", "//evil.example/", "/\\evil.example"]:
+        db_session.refresh(f)  # the form as loaded now (each save changes the flight)
         resp = client.post(f"/flights/{f.id}", data=form_for(f, next=evil), follow_redirects=False)
         assert resp.headers["location"] == f"/flights/{f.id}"
 

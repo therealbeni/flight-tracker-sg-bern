@@ -1,11 +1,14 @@
 {% extends "base.html" %}
 {% block title %}Eingecheckt{% endblock %}
 {% block content %}
-<div class="card narrow" style="text-align:center;">
-    <span class="badge badge-approved" style="margin-bottom:0.75rem;">Eingecheckt</span>
+<div class="card narrow claim-confirm">
+    <span class="badge badge-approved">Eingecheckt</span>
     <h1>{{ glider.registration }} ist eingecheckt</h1>
     <p class="hint">{% if whole_day %}Alle deine Starts mit diesem Flugzeug werden heute dir zugeordnet.
     {% else %}Dein nächster Start mit diesem Flugzeug wird automatisch dir zugeordnet.{% endif %} Guten Flug!</p>
+    {% for c in ended_elsewhere %}
+    <p class="notice">Dein Check-in auf {{ c.glider.registration }} ist beendet - man fliegt nur ein Flugzeug aufs Mal.</p>
+    {% endfor %}
     <p class="hint">Falsches Flugzeug? Unter «Einchecken» kannst du es wieder freigeben.</p>
     <a href="/dashboard" class="btn secondary">Zur Übersicht</a>
 </div>

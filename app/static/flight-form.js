@@ -162,6 +162,20 @@
         });
     }
 
+    // A double tap must not send a form twice (two flights added, two
+    // check-ins). Once sent, further submits of that form are ignored until
+    // the next page shows; coming back with the browser's Back button resets it.
+    function sendOnce(form) {
+        form.addEventListener("submit", (event) => {
+            if (form.dataset.sent) event.preventDefault();
+            else form.dataset.sent = "1";
+        });
+    }
+    window.addEventListener("pageshow", () => {
+        document.querySelectorAll("form[data-sent]").forEach((form) => delete form.dataset.sent);
+    });
+
+    document.querySelectorAll("form").forEach(sendOnce);
     document.querySelectorAll("select[data-search]").forEach(makeSearchable);
     document.querySelectorAll("form").forEach(setUpShowIf);
     document.querySelectorAll("form").forEach(setUpTowPilot);

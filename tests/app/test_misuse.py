@@ -154,7 +154,7 @@ def test_anonymous_visitors_only_see_public_pages(people):
         if method != "GET" or path in public:
             continue
         resp = client.get(fill(path, "1"), follow_redirects=False)
-        assert resp.status_code in (303, 404) and resp.headers.get("location", "/login") == "/login", path
+        assert resp.status_code in (303, 404) and resp.headers.get("location", "/login").startswith("/login"), path
 
 
 def test_unexpected_errors_show_a_german_page(people, monkeypatch):

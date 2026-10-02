@@ -3,10 +3,12 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from config import settings
 from database import get_db
+from deps import local_path
 from email_sender import sender
 from models import Pilot, PilotRole, PilotStatus, PasswordResetToken
 from security import (client_ip, generate_token, hash_password, hash_token, login_throttle, password_problem,
@@ -54,7 +56,12 @@ def signup_submit(
         status=PilotStatus.APPROVED if is_first_account else PilotStatus.PENDING,
     )
     db.add(pilot)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:  # the same signup sent twice at once (double tap)
+        db.rollback()
+        return templates.TemplateResponse(request, "auth/signup.html", {
+            "error": "Mit dieser E-Mail-Adresse gibt es schon ein Konto."}, status_code=400)
 
     if is_first_account:
         request.session["pilot_id"] = pilot.id
@@ -64,8 +71,8 @@ def signup_submit(
 
 
 @router.get("/login")
-def login_form(request: Request):
-    return templates.TemplateResponse(request, "auth/login.html", {"error": None})
+def login_form(request: Request, next: str = ""):
+    return templates.TemplateResponse(request, "auth/login.html", {"error": None, "next": local_path(next) or ""})
 
 
 @router.post("/login")
@@ -73,31 +80,33 @@ def login_submit(
     request: Request,
     email: str = Form(...),
     password: str = Form(...),
+    next: str = Form(""),
     db: Session = Depends(get_db),
 ):
     email = email.strip().lower()
+    next = local_path(next) or ""
     ip = client_ip(request)
     if login_throttle.blocked(email, ip):
         return templates.TemplateResponse(request, "auth/login.html", {
-            "error": "Zu viele Versuche. Warte 15 Minuten, oder setze dein Passwort über «Passwort vergessen?» zurück."
-        }, status_code=429)
+            "error": "Zu viele Versuche. Warte 15 Minuten, oder setze dein Passwort über «Passwort vergessen?» zurück.",
+            "next": next}, status_code=429)
     pilot = db.scalar(select(Pilot).where(Pilot.email == email))
     if pilot is None or not verify_password(password, pilot.password_hash):
         login_throttle.failed(email, ip)
         return templates.TemplateResponse(
-            request, "auth/login.html", {"error": "E-Mail oder Passwort falsch."}, status_code=400
+            request, "auth/login.html", {"error": "E-Mail oder Passwort falsch.", "next": next}, status_code=400
         )
     login_throttle.succeeded(email)
     if pilot.status == PilotStatus.PENDING:
         return templates.TemplateResponse(request, "auth/pending.html", {})
     if pilot.status == PilotStatus.REJECTED:
         return templates.TemplateResponse(
-            request, "auth/login.html", {"error": "Dieses Konto ist deaktiviert. Bitte melde dich beim Vorstand."}
+            request, "auth/login.html", {"error": "Dieses Konto ist deaktiviert. Bitte melde dich beim Vorstand.", "next": next}
         )
 
     request.session.clear()
     request.session["pilot_id"] = pilot.id
-    return RedirectResponse("/dashboard", status_code=303)
+    return RedirectResponse(next or "/dashboard", status_code=303)
 
 
 @router.post("/view-as/end")

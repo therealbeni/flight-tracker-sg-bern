@@ -101,7 +101,7 @@
         <li class="person">
             <div class="person-main">
                 <span class="person-name">{{ f.glider.registration if f.glider else "?" }} {{ f.takeoff_time|hhmm }}</span>
-                <span class="person-status">{{ f.needs_attention | join(", ") }}</span>
+                <span class="person-status">{{ issues[f.id] | join(", ") }}</span>
             </div>
             <a class="btn secondary compact" href="/flugbuch?bearbeiten={{ f.id }}#erfassen">Bearbeiten</a>
         </li>

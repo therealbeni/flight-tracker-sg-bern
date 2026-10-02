@@ -1,4 +1,5 @@
-"""Flugdienstleiter (FDL) role replaces Startstelle; checkouts are recorded
+"""Flugdienstleiter (FDL) role replaces Startstelle; checkouts are recorded;
+who ended a check-in
 
 Revision ID: e8a1c4f2b7d3
 Revises: d2f6b8e4a1c9
@@ -29,9 +30,15 @@ def upgrade() -> None:
         sa.Column("by_pilot_id", sa.Integer(), sa.ForeignKey("pilots.id"), nullable=False),
         sa.UniqueConstraint("pilot_id", "day", name="checkouts_pilot_day_key"),
     )
+    with op.batch_alter_table("glider_claims") as batch:
+        batch.add_column(sa.Column("cancelled_by_id", sa.Integer(), nullable=True))
+        batch.create_foreign_key("glider_claims_cancelled_by_id_fkey", "pilots", ["cancelled_by_id"], ["id"])
 
 
 def downgrade() -> None:
+    with op.batch_alter_table("glider_claims") as batch:
+        batch.drop_constraint("glider_claims_cancelled_by_id_fkey", type_="foreignkey")
+        batch.drop_column("cancelled_by_id")
     op.drop_table("checkouts")
     if op.get_bind().dialect.name == "postgresql":
         op.execute("ALTER TYPE pilotrole RENAME VALUE 'FDL' TO 'FLIGHTDESK'")

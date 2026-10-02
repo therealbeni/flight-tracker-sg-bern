@@ -7,8 +7,9 @@
 
 <form method="post" action="/admin/airfields" class="card narrow">
     <h2>Flugplatz erfassen / ändern</h2>
+    {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
     <label>ICAO-Code<input type="text" name="icao" maxlength="16" placeholder="LSZB" required></label>
-    <label>Name<input type="text" name="name" placeholder="Bern Belp" required></label>
+    <label>Name<input type="text" name="name" placeholder="Bern Belp" maxlength="255" required></label>
     <label>Breitengrad<input type="number" step="any" name="latitude" required></label>
     <label>Längengrad<input type="number" step="any" name="longitude" required></label>
     <label>Höhe (m ü. M.)<input type="number" step="any" name="elevation_m" value="0"></label>

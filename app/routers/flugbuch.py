@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 import flight_form
 from database import get_db
-from day_board import flights_of_day, pilots_of_day, record_checkout
+from day_board import flights_of_day, pilots_of_day, possible_duplicates, record_checkout
 from deps import local_path, require_approved
 from flight_form import FlightInput, can_edit, form_choices, read_form
 from models import Flight, Pilot
@@ -56,7 +56,7 @@ def render_flugbuch(request: Request, db: Session, user: Pilot, day: date, form:
     return templates.TemplateResponse(request, "flugbuch/day.html", {
         "pilot": user, "day": day, "today": today_local(), "flights": flights, "form": form, "editing": editing,
         "can_edit": {f.id: can_edit(f, user) for f in flights},
-        "pilots_today": pilots_of_day(db, day, flights),
+        "pilots_today": pilots_of_day(db, day, flights), "duplicates": possible_duplicates(flights),
         "day_finalized": bool(flights) and all(f.finalized_at for f in flights if f.landing_time),
         "total_minutes": sum(f.duration_min or 0 for f in flights),
         "prev_day": flying_day_before(db, day), "next_day": flying_day_after(db, day), "choices": form_choices(db),

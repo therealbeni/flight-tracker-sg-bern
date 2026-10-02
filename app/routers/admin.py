@@ -1,4 +1,5 @@
 import io
+import re
 import uuid
 from datetime import date, datetime, timedelta, timezone
 from typing import Optional
@@ -13,6 +14,7 @@ from config import settings
 from database import get_db
 from deps import require_admin
 from models import AircraftKind, Airfield, Flight, Glider, Pilot, PilotRole, PilotStatus
+from routers.claim import active_claims, end_claims
 from timeutil import local_day_bounds, to_local, today_local
 
 from templating import templates
@@ -61,39 +63,51 @@ def view_as_pilot(request: Request, pilot_id: int, db: Session = Depends(get_db)
 
 
 @router.post("/pilots/{pilot_id}/reject")
-def reject_pilot(request: Request, pilot_id: int, db: Session = Depends(get_db)):
+def reject_pilot(pilot_id: int, db: Session = Depends(get_db), admin: Pilot = Depends(require_admin)):
     pilot = db.get(Pilot, pilot_id)
-    if pilot is not None and pilot.id != request.session.get("pilot_id"):  # never lock yourself out
+    if pilot is not None and pilot.id != admin.id:  # never lock yourself out
         pilot.status = PilotStatus.REJECTED
+        end_claims(active_claims(db, pilot_id=pilot.id), admin, datetime.now(timezone.utc))
         db.commit()
     return RedirectResponse("/admin/pilots", status_code=303)
 
 
+def render_gliders(request: Request, db: Session, error: Optional[str] = None):
+    gliders = db.scalars(select(Glider).order_by(Glider.registration)).all()
+    return templates.TemplateResponse(request, "admin/gliders.html", {
+        "gliders": gliders, "kinds": list(AircraftKind), "error": error}, status_code=400 if error else 200)
+
+
 @router.get("/gliders")
 def list_gliders(request: Request, db: Session = Depends(get_db)):
-    gliders = db.scalars(select(Glider).order_by(Glider.registration)).all()
-    return templates.TemplateResponse(
-        request, "admin/gliders.html", {"gliders": gliders, "kinds": list(AircraftKind)}
-    )
+    return render_gliders(request, db)
 
 
 @router.post("/gliders")
 def create_glider(
     request: Request,
-    registration: str = Form(...),
+    registration: str = Form(""),
     model: str = Form(""),
     ogn_device_id: str = Form(""),
     kind: AircraftKind = Form(AircraftKind.GLIDER),
     db: Session = Depends(get_db),
 ):
-    glider = Glider(
-        registration=registration.strip().upper(),
-        model=model.strip() or None,
-        ogn_device_id=ogn_device_id.strip().upper() or None,
-        kind=kind,
-        claim_token=str(uuid.uuid4()),
-    )
-    db.add(glider)
+    registration, model, ogn_device_id = registration.strip().upper(), model.strip(), ogn_device_id.strip().upper()
+    error = None
+    if not registration:
+        error = "Bitte das Kennzeichen eingeben."
+    elif len(registration) > 32 or len(model) > 128:
+        error = "Kennzeichen (höchstens 32 Zeichen) oder Typ (höchstens 128) ist zu lang."
+    elif ogn_device_id and not re.fullmatch(r"[0-9A-F]{6}", ogn_device_id):
+        error = "Die FLARM-/OGN-ID hat genau 6 Zeichen: Ziffern und A-F, z.B. 4B4BBA."
+    elif db.scalar(select(Glider).where(Glider.registration == registration)):
+        error = f"Ein Flugzeug {registration} gibt es schon."
+    elif ogn_device_id and db.scalar(select(Glider).where(Glider.ogn_device_id == ogn_device_id)):
+        error = f"Die OGN-ID {ogn_device_id} gehört schon einem anderen Flugzeug."
+    if error:
+        return render_gliders(request, db, error)
+    db.add(Glider(registration=registration, model=model or None, ogn_device_id=ogn_device_id or None, kind=kind,
+                  claim_token=str(uuid.uuid4())))
     db.commit()
     return RedirectResponse("/admin/gliders", status_code=303)
 
@@ -121,22 +135,30 @@ def set_glider_kind(glider_id: int, kind: AircraftKind = Form(...), db: Session 
 
 
 @router.post("/gliders/{glider_id}/toggle-active")
-def toggle_glider_active(glider_id: int, db: Session = Depends(get_db)):
+def toggle_glider_active(glider_id: int, db: Session = Depends(get_db), admin: Pilot = Depends(require_admin)):
     glider = db.get(Glider, glider_id)
     if glider is not None:
         glider.active = not glider.active
+        if not glider.active:  # out of service: nobody can be checked in on it
+            end_claims(active_claims(db, glider_id=glider.id), admin, datetime.now(timezone.utc))
         db.commit()
     return RedirectResponse("/admin/gliders", status_code=303)
 
 
+def render_airfields(request: Request, db: Session, error: Optional[str] = None):
+    airfields = db.scalars(select(Airfield).order_by(Airfield.icao)).all()
+    return templates.TemplateResponse(request, "admin/airfields.html", {"airfields": airfields, "error": error},
+                                      status_code=400 if error else 200)
+
+
 @router.get("/airfields")
 def list_airfields(request: Request, db: Session = Depends(get_db)):
-    airfields = db.scalars(select(Airfield).order_by(Airfield.icao)).all()
-    return templates.TemplateResponse(request, "admin/airfields.html", {"airfields": airfields})
+    return render_airfields(request, db)
 
 
 @router.post("/airfields")
 def create_airfield(
+    request: Request,
     icao: str = Form(...),
     name: str = Form(...),
     latitude: float = Form(...),
@@ -144,17 +166,18 @@ def create_airfield(
     elevation_m: float = Form(0.0),
     db: Session = Depends(get_db),
 ):
-    icao = icao.strip().upper()
+    icao, name = icao.strip().upper(), name.strip()
+    if not icao or not name:
+        return render_airfields(request, db, "Bitte Code und Name eingeben.")
+    if len(icao) > 16 or len(name) > 255:
+        return render_airfields(request, db, "Code (höchstens 16 Zeichen) oder Name ist zu lang.")
+    if not (-90 <= latitude <= 90 and -180 <= longitude <= 180):
+        return render_airfields(request, db, "Breitengrad (-90 bis 90) oder Längengrad (-180 bis 180) stimmt nicht.")
     existing = db.get(Airfield, icao)
     if existing is not None:
-        existing.name, existing.latitude, existing.longitude, existing.elevation_m = (
-            name.strip(),
-            latitude,
-            longitude,
-            elevation_m,
-        )
+        existing.name, existing.latitude, existing.longitude, existing.elevation_m = name, latitude, longitude, elevation_m
     else:
-        db.add(Airfield(icao=icao, name=name.strip(), latitude=latitude, longitude=longitude, elevation_m=elevation_m))
+        db.add(Airfield(icao=icao, name=name, latitude=latitude, longitude=longitude, elevation_m=elevation_m))
     db.commit()
     return RedirectResponse("/admin/airfields", status_code=303)
 

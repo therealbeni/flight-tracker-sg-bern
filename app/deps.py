@@ -1,3 +1,5 @@
+from urllib.parse import quote
+
 from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
@@ -12,9 +14,12 @@ def get_current_pilot(request: Request, db: Session = Depends(get_db)) -> Pilot 
     return pilot
 
 
-def require_login(pilot: Pilot | None = Depends(get_current_pilot)) -> Pilot:
+def require_login(request: Request, pilot: Pilot | None = Depends(get_current_pilot)) -> Pilot:
     if pilot is None:
-        raise HTTPException(status_code=status.HTTP_303_SEE_OTHER, headers={"Location": "/login"})
+        # After logging in, back to the page they wanted (e.g. a scanned QR code).
+        wanted = request.url.path + (f"?{request.url.query}" if request.url.query else "")
+        location = "/login" if request.method != "GET" or wanted == "/dashboard" else f"/login?next={quote(wanted, safe='/')}"
+        raise HTTPException(status_code=status.HTTP_303_SEE_OTHER, headers={"Location": location})
     return pilot
 
 

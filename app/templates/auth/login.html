@@ -9,6 +9,7 @@
         <p class="hint">Melde dich an, um vor dem Flug einzuchecken und deine Flüge zu sehen.</p>
         {% if error %}<p class="error">{{ error }}</p>{% endif %}
         <form method="post" action="/login">
+            <input type="hidden" name="next" value="{{ next }}">
             <label>E-Mail<input type="email" name="email" required autofocus autocomplete="username"></label>
             <label>Passwort<input type="password" name="password" required autocomplete="current-password"></label>
             <button type="submit">Anmelden</button>

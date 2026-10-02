@@ -62,7 +62,7 @@
     </thead>
     <tbody>
     {% for f in flights %}
-        <tr class="{{ 'is-editing' if editing and editing.id == f.id }} {{ 'needs-attention' if f.needs_attention }}">
+        <tr class="{{ 'is-editing' if editing and editing.id == f.id }} {{ 'needs-attention' if f.needs_attention or f.id in duplicates }}">
             <td>{{ loop.index }}</td>
             <td><strong>{{ f.glider.registration if f.glider else "?" }}</strong></td>
             <td>{{ f.pilot_display or "" }}{% if not f.pilot_display %}<span class="missing">fehlt</span>{% endif %}</td>
@@ -77,7 +77,7 @@
             <td title="{{ f.billing_label }}">{{ f.billing_label }}</td>
             <td>{% if f.tow_aircraft %}{{ f.tow_aircraft.registration }}, {{ f.tow_pilot_display or "?" }}{% if f.tow_flight and f.tow_flight.duration_min %}, {{ f.tow_flight.duration_min|round|int }} Min.{% endif %}{% endif %}</td>
             <td class="notes">{{ f.notes or "" }}</td>
-            <td>{{ status_badge(f) }}</td>
+            <td>{{ status_badge(f) }}{% if f.id in duplicates %} <span class="missing" title="Gleiches Flugzeug, gleiche Zeit wie ein anderer Flug - einer davon ist wohl zu löschen">doppelt?</span>{% endif %}</td>
             <td class="actions">
                 {% if can_edit[f.id] %}<a class="btn compact secondary" href="/flugbuch?datum={{ day }}&bearbeiten={{ f.id }}#erfassen">Bearbeiten</a>
                 {% else %}<a class="btn compact secondary" href="/flights/{{ f.id }}">Ansehen</a>{% endif %}

@@ -1,29 +1,40 @@
 {% extends "base.html" %}
 {% block title %}{{ glider.registration }} einchecken{% endblock %}
 {% block content %}
-<div class="card narrow" style="text-align:center;">
-    <span class="badge badge-sky" style="margin-bottom:0.75rem;">{{ glider.kind.label }}</span>
-    <h1 style="font-size:2rem;">{{ glider.registration }}</h1>
-    {% if glider.model %}<p class="hint" style="margin-top:-0.5rem;">{{ glider.model }}</p>{% endif %}
+<div class="card narrow claim-confirm">
+    <span class="badge badge-sky">{{ glider.kind.label }}</span>
+    <h1>{{ glider.registration }}</h1>
+    {% if glider.model %}<p class="hint model">{{ glider.model }}</p>{% endif %}
 
-    {% for c in claims %}
-        <p class="hint">
-            {% if c.pilot_id == pilot.id %}Du bist schon eingecheckt{% else %}Eingecheckt: <strong>{{ c.pilot.full_name }}</strong>{% endif %}
-            ({{ "ganzer Tag" if c.whole_day else "nächster Start" }}, seit {{ c.claimed_at|hhmm }} Uhr)
-        </p>
+    {% if airborne %}
+    <p class="hint">Gerade in der Luft{% if airborne.pilot_display %} mit {{ airborne.pilot_display }}{% endif %}, seit {{ airborne.takeoff_time|hhmm }} Uhr. Dein Check-in gilt für den nächsten Start.</p>
+    {% endif %}
+    {% for c in claims if c.pilot_id == pilot.id %}
+    <p class="hint">Du bist schon eingecheckt ({{ "ganzer Tag" if c.whole_day else "nächster Start" }}, seit {{ c.claimed_at|hhmm }} Uhr).</p>
     {% endfor %}
 
     {% set day_first = glider.kind.flies_all_day %}
     <form method="post" action="/claim/{{ token }}" class="stack">
+        {% if others %}
+        <div class="warning takeover">
+            {% for c in others %}
+            <p>{{ c.pilot.full_name }} ist schon eingecheckt ({{ "ganzer Tag" if c.whole_day else "nächster Start" }}, seit {{ c.claimed_at|hhmm }} Uhr).</p>
+            {% endfor %}
+            <p>Fliegst du stattdessen? Dann übernimm das Flugzeug. {{ others | map(attribute="pilot.full_name") | join(" und ") }} sieht das unter «Heute».{% if others | selectattr("whole_day") | list %} Übernimmst du nur für den nächsten Start, gilt der Check-in für den ganzen Tag danach wieder.{% endif %}</p>
+        </div>
+        <input type="hidden" name="takeover" value="1">
+        {% endif %}
+        {% set verb = "übernehmen" if others else "einchecken" %}
         {% if day_first %}
-        <button type="submit" name="mode" value="day">Für den ganzen Tag einchecken</button>
+        <button type="submit" name="mode" value="day">Für den ganzen Tag {{ verb }}</button>
         <button type="submit" name="mode" value="next" class="secondary">Nur für den nächsten Start</button>
         {% else %}
-        <button type="submit" name="mode" value="next">Für den nächsten Start einchecken</button>
+        <button type="submit" name="mode" value="next">Für den nächsten Start {{ verb }}</button>
         <button type="submit" name="mode" value="day" class="secondary">Für den ganzen Tag</button>
         {% endif %}
     </form>
     <p class="hint">{% if day_first %}Ganzer Tag: alle Starts von heute werden dir zugeordnet, bis du freigibst oder auscheckst.
     {% else %}Der nächste Start mit diesem Flugzeug wird dir zugeordnet.{% endif %}</p>
+    {% if others %}<p><a href="/claim">Anderes Flugzeug wählen</a></p>{% endif %}
 </div>
 {% endblock %}

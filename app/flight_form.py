@@ -35,6 +35,9 @@ FIELD_LABELS = {
     "created": "Flug erfasst", "deleted": "Flug gelöscht",
 }
 
+MAX_NAME = 100  # a guest's name typed in
+MAX_NOTES = 1000
+
 # Special values of the pilot/companion dropdowns, next to member ids.
 GUEST = "gast"  # Begleiter: a guest, name typed in
 
@@ -73,6 +76,8 @@ class FlightInput:
     tow_glider_id: str = ""
     tow_pilot_id: str = ""
     notes: str = ""
+    # The flight as it was when the form was loaded (see changed_meanwhile).
+    version: str = ""
     errors: list[str] = field(default_factory=list)
 
     @classmethod
@@ -96,7 +101,7 @@ class FlightInput:
             billing=f.billing, billing_member_id=str(f.billing_member_id or ""),
             tow_glider_id=str(f.tow_aircraft.id) if f.tow_aircraft else "",
             tow_pilot_id=str(f.tow_pilot_id or (f.tow_flight.pilot_id if f.tow_flight else None) or ""),
-            notes=f.notes or "",
+            notes=f.notes or "", version=version_of(f),
         )
         if f.pilot_id is None and f.pilot_name is None and not user.edits_all_flights:
             form.pilot_id = str(user.id)  # opening a flight without pilot: most likely it was yours
@@ -116,6 +121,20 @@ class FlightInput:
                                      GliderClaim.active_at(as_utc(when) or datetime.now(timezone.utc)))
                               .order_by(GliderClaim.claimed_at.desc()))
             self.tow_pilot_id = str(claim.pilot_id) if claim else ""
+
+
+def version_of(flight: Flight) -> str:
+    return as_utc(flight.updated_at).isoformat()
+
+
+def changed_meanwhile(flight: Flight, form: FlightInput) -> bool:
+    """True if someone (or the tracker, e.g. recording the landing) changed
+    the flight after this form was loaded: saving would overwrite that."""
+    return bool(form.version) and form.version != version_of(flight)
+
+
+CHANGED_MEANWHILE = ("Dieser Flug wurde inzwischen geändert (vom Tracker oder von jemand anderem). Das Formular "
+                     "zeigt jetzt den aktuellen Stand - bitte prüfe ihn und trage deine Änderung nochmals ein.")
 
 
 def _int_or_none(value: str) -> Optional[int]:
@@ -145,6 +164,10 @@ def save(db: Session, user: Pilot, form: FlightInput, flight: Optional[Flight] =
     pilot_name = (form.pilot_name.strip() or None) if pilot_id is None else None
     companion_id = member(form.companion_id, "Begleiter")
     companion_name = (form.companion_name.strip() or None) if form.companion_id == GUEST else None
+    if any(len(name or "") > MAX_NAME for name in (pilot_name, companion_name)):
+        errors.append(f"Der Name ist zu lang (höchstens {MAX_NAME} Zeichen).")
+    if len(form.notes.strip()) > MAX_NOTES:
+        errors.append(f"Die Bemerkung ist zu lang (höchstens {MAX_NOTES} Zeichen).")
     if form.companion_id == GUEST and companion_name is None:
         errors.append("Bitte den Namen des Gasts (Begleiter) eingeben.")
     if pilot_id is not None and pilot_id == companion_id:

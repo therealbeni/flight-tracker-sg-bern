@@ -10,6 +10,7 @@
 {% if form.errors %}
 <div class="error" role="alert">{% for e in form.errors %}<p>{{ e }}</p>{% endfor %}</div>
 {% endif %}
+<input type="hidden" name="version" value="{{ form.version }}">
 <div class="form-grid">
     {% if aircraft %}
     <input type="hidden" name="glider_id" value="{{ aircraft.id }}">
@@ -42,7 +43,7 @@
         </select>
     </label>
     <label class="span-2" data-show-if="pilot_id=">Name des Piloten (falls kein Mitglied)
-        <input type="text" name="pilot_name" value="{{ form.pilot_name }}" placeholder="Vorname Name" maxlength="255">
+        <input type="text" name="pilot_name" value="{{ form.pilot_name }}" placeholder="Vorname Name" maxlength="100">
     </label>
 
     <label class="span-2">Begleiter
@@ -53,7 +54,7 @@
         </select>
     </label>
     <label class="span-2" data-show-if="companion_id={{ c.guest }}">Name des Gasts
-        <input type="text" name="companion_name" value="{{ form.companion_name }}" placeholder="Vorname Name" maxlength="255">
+        <input type="text" name="companion_name" value="{{ form.companion_name }}" placeholder="Vorname Name" maxlength="100">
     </label>
 
     <label>Flugdatum

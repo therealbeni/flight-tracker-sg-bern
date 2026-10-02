@@ -11,7 +11,7 @@ active check-in on it) or *frei*.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
 from sqlalchemy import or_, select
@@ -84,6 +84,31 @@ def flights_of_day(db: Session, day: date, pilot_id: Optional[int] = None) -> li
     if pilot_id is not None:
         query = query.where(or_(Flight.pilot_id == pilot_id, Flight.companion_id == pilot_id))
     return list(db.scalars(query.order_by(Flight.takeoff_time)).all())
+
+
+def possible_duplicates(flights: list[Flight]) -> set[int]:
+    """Flights of the same aircraft whose times overlap - one aircraft can't
+    fly twice at once. Typically a flight added by hand that the tracker saw
+    after all (or the other way round)."""
+    def span(f: Flight) -> tuple[datetime, datetime]:
+        start = as_utc(f.takeoff_time)
+        return start, as_utc(f.landing_time) or start + timedelta(minutes=1)
+
+    found = set()
+    for i, a in enumerate(flights):
+        for b in flights[i + 1:]:
+            if a.glider_id is not None and a.glider_id == b.glider_id and a.takeoff_time and b.takeoff_time:
+                (a0, a1), (b0, b1) = span(a), span(b)
+                if a0 < b1 and b0 < a1:
+                    found |= {a.id, b.id}
+    return found
+
+
+def issues(flights: list[Flight]) -> dict[int, list[str]]:
+    """What's wrong with each flight that needs a look (German), by flight id."""
+    duplicates = possible_duplicates(flights)
+    found = {f.id: f.needs_attention + (["doppelt?"] if f.id in duplicates else []) for f in flights}
+    return {fid: problems for fid, problems in found.items() if problems}
 
 
 def pilots_of_day(db: Session, day: date, flights: Optional[list[Flight]] = None) -> list[PilotDay]:
