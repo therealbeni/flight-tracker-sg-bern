@@ -796,3 +796,8 @@ details.add-flight > summary .hint { display: block; margin: 0.2rem 0 0 1.1rem; 
 details.add-flight[open] > summary { margin-bottom: 1rem; }
 .year-title { margin: 0.75rem 0 0.1rem; font-size: 1rem; color: var(--ink-muted); }
 .record.mine { border-left: 4px solid var(--brand-700); }  /* your own flights among everyone's */
+.card-text { margin: 0 0 0.75rem; }
+.card-text.last { margin: 0; }
+.pending-title { margin-top: 0.5rem; }
+img.qr { display: block; }
+.qr-link { white-space: normal; max-width: 120px; overflow-wrap: break-word; }

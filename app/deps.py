@@ -1,3 +1,4 @@
+import hashlib
 from urllib.parse import quote
 
 from fastapi import Depends, HTTPException, Request, status
@@ -7,9 +8,23 @@ from database import get_db
 from models import Pilot, PilotStatus
 
 
+def session_stamp(pilot: Pilot) -> str:
+    """Changes when the password changes - which ends all other sessions
+    (a lost phone, a password someone else knew)."""
+    return hashlib.sha256(pilot.password_hash.encode()).hexdigest()[:20]
+
+
+def start_session(request: Request, pilot: Pilot) -> None:
+    request.session["pilot_id"] = pilot.id
+    request.session["stamp"] = session_stamp(pilot)
+
+
 def get_current_pilot(request: Request, db: Session = Depends(get_db)) -> Pilot | None:
     pilot_id = request.session.get("pilot_id")
     pilot = db.get(Pilot, pilot_id) if pilot_id is not None else None
+    if pilot is not None and request.session.get("stamp") != session_stamp(pilot):
+        request.session.clear()  # the password changed since this login
+        pilot = None
     request.state.user = pilot  # for the navigation in base.html (templating.current_user)
     return pilot
 
@@ -49,7 +64,7 @@ def back_url(request: Request, default: str) -> str:
     can return the pilot to where they were. Never redirects off-site."""
     referer = request.headers.get("referer") or ""
     base = str(request.base_url)
-    return "/" + referer[len(base):] if referer.startswith(base) else default
+    return (local_path("/" + referer[len(base):]) if referer.startswith(base) else None) or default
 
 
 def local_path(value: str) -> str | None:

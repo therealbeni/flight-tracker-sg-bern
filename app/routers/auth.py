@@ -1,3 +1,4 @@
+import re
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Form, Request
@@ -8,15 +9,22 @@ from sqlalchemy.orm import Session
 
 from config import settings
 from database import get_db
-from deps import local_path
+from deps import local_path, session_stamp, start_session
 from email_sender import sender
 from models import Pilot, PilotRole, PilotStatus, PasswordResetToken
 from security import (client_ip, generate_token, hash_password, hash_token, login_throttle, password_problem,
-                      verify_password)
+                      reset_throttle, signup_throttle, verify_password)
 
 from templating import templates
 
 router = APIRouter()
+
+# Something@something.something, no spaces or line breaks (which would let an
+# address smuggle extra headers into an e-mail).
+EMAIL = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
+# Compared against when the e-mail is unknown, so a login takes as long for an
+# unknown address as for a wrong password (no telling which addresses exist).
+_DUMMY_HASH = hash_password("not a real password")
 
 
 @router.get("/signup")
@@ -34,12 +42,19 @@ def signup_submit(
 ):
     email = email.strip().lower()
     full_name = " ".join(full_name.split())
+    ip = client_ip(request)
+    if signup_throttle.blocked(f"ip:{ip}"):
+        return templates.TemplateResponse(request, "auth/signup.html", {
+            "error": "Von hier wurden gerade viele Konten erstellt. Bitte versuche es später nochmals."}, status_code=429)
+    signup_throttle.record(f"ip:{ip}")
     error = None
-    if db.scalar(select(Pilot).where(Pilot.email == email)):
+    if not EMAIL.fullmatch(email):
+        error = "Bitte gib eine gültige E-Mail-Adresse ein."
+    elif db.scalar(select(Pilot).where(Pilot.email == email)):
         error = "Mit dieser E-Mail-Adresse gibt es schon ein Konto."
     elif not full_name or len(full_name) > 100:
         error = "Bitte gib deinen Vor- und Nachnamen ein (höchstens 100 Zeichen)."
-    elif len(email) > 254 or "@" not in email:
+    elif len(email) > 254:
         error = "Bitte gib eine gültige E-Mail-Adresse ein."
     else:
         error = password_problem(password)
@@ -64,7 +79,7 @@ def signup_submit(
             "error": "Mit dieser E-Mail-Adresse gibt es schon ein Konto."}, status_code=400)
 
     if is_first_account:
-        request.session["pilot_id"] = pilot.id
+        start_session(request, pilot)
         return RedirectResponse("/dashboard", status_code=303)
 
     return templates.TemplateResponse(request, "auth/pending.html", {})
@@ -91,7 +106,7 @@ def login_submit(
             "error": "Zu viele Versuche. Warte 15 Minuten, oder setze dein Passwort über «Passwort vergessen?» zurück.",
             "next": next}, status_code=429)
     pilot = db.scalar(select(Pilot).where(Pilot.email == email))
-    if pilot is None or not verify_password(password, pilot.password_hash):
+    if not verify_password(password, pilot.password_hash if pilot else _DUMMY_HASH) or pilot is None:
         login_throttle.failed(email, ip)
         return templates.TemplateResponse(
             request, "auth/login.html", {"error": "E-Mail oder Passwort falsch.", "next": next}, status_code=400
@@ -105,7 +120,7 @@ def login_submit(
         )
 
     request.session.clear()
-    request.session["pilot_id"] = pilot.id
+    start_session(request, pilot)
     return RedirectResponse(next or "/dashboard", status_code=303)
 
 
@@ -113,12 +128,14 @@ def login_submit(
 def view_as_end(request: Request, db: Session = Depends(get_db)):
     """Back to the admin's own account after "Als Pilot ansehen"."""
     admin_id = request.session.pop("viewing_as_admin_id", None)
+    admin_stamp = request.session.pop("viewing_as_admin_stamp", None)
     request.session.pop("viewing_as_name", None)
     admin = db.get(Pilot, admin_id) if admin_id is not None else None
-    if admin is None or not admin.is_admin:
+    # Still an admin, with the same password as when "Als Pilot ansehen" started.
+    if admin is None or not admin.is_admin or admin_stamp != session_stamp(admin):
         request.session.clear()
         return RedirectResponse("/login", status_code=303)
-    request.session["pilot_id"] = admin.id
+    start_session(request, admin)
     return RedirectResponse("/admin/pilots", status_code=303)
 
 
@@ -139,7 +156,10 @@ def forgot_password_submit(request: Request, email: str = Form(...), db: Session
     pilot = db.scalar(select(Pilot).where(Pilot.email == email))
     # Always show the same "sent" response regardless of whether the account exists,
     # so this endpoint can't be used to discover which emails are registered.
-    if pilot is not None:
+    # At most a few mails an hour, so nobody can flood a pilot's mailbox.
+    keys = (f"mail:{email}", f"ip:{client_ip(request)}")
+    if pilot is not None and not reset_throttle.blocked(*keys):
+        reset_throttle.record(*keys)
         raw_token, token_hash = generate_token()
         expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.reset_token_ttl_minutes)
         db.add(PasswordResetToken(pilot_id=pilot.id, token_hash=token_hash, expires_at=expires_at))
@@ -194,8 +214,10 @@ def reset_password_submit(
         )
 
     pilot = db.get(Pilot, reset_token.pilot_id)
-    pilot.password_hash = hash_password(password)
-    reset_token.used_at = now
+    pilot.password_hash = hash_password(password)  # also ends all sessions (deps.session_stamp)
+    for other in db.scalars(select(PasswordResetToken).where(PasswordResetToken.pilot_id == pilot.id,
+                                                             PasswordResetToken.used_at.is_(None))).all():
+        other.used_at = now  # every other link sent earlier is void now too
     db.commit()
 
     return RedirectResponse("/login", status_code=303)

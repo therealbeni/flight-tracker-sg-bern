@@ -49,7 +49,7 @@
 
     {% if pilot.edits_all_flights %}
     <form method="post" action="/flights/{{ flight.id }}/delete"
-          onsubmit="return confirm('Diesen Flug wirklich löschen? Das ist für Fehlerkennungen und doppelte Einträge gedacht.');">
+          data-confirm="Diesen Flug wirklich löschen? Das ist für Fehlerkennungen und doppelte Einträge gedacht.">
         <button type="submit" class="danger secondary compact">Flug löschen</button>
     </form>
     {% endif %}

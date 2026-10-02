@@ -16,7 +16,7 @@
                 {% if p.id == request.session.get("pilot_id") %}{{ roles[p.role] }}
                 {% else %}
                 <form method="post" action="/admin/pilots/{{ p.id }}/role" class="inline-form">
-                    <select name="role" onchange="this.form.submit()" aria-label="Rolle von {{ p.full_name }}">
+                    <select name="role" data-autosubmit aria-label="Rolle von {{ p.full_name }}">
                         {% for role, label in roles.items() %}<option value="{{ role.value }}" {{ "selected" if p.role == role }}>{{ label }}</option>{% endfor %}
                     </select>
                     <noscript><button type="submit" class="compact">OK</button></noscript>

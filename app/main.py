@@ -14,7 +14,18 @@ from paths import STATIC_DIR
 from routers import admin, auth, claim, dashboard, flights, flugbuch, logbook
 from templating import templates
 
-app = FastAPI(title="Flight Tracker SG Bern")
+# No automatic API docs (/docs, /openapi.json): they'd list every endpoint and
+# parameter to anyone, and nobody uses them - the app is HTML pages only.
+app = FastAPI(title="Flight Tracker SG Bern", docs_url=None, redoc_url=None, openapi_url=None)
+
+# Only our own scripts and styles run on our pages: an injected <script> or
+# onclick="" is ignored by the browser. 'inline-speculation-rules' allows the
+# prefetch hints in base.html, which are data, not code.
+CONTENT_SECURITY_POLICY = "; ".join([
+    "default-src 'self'", "script-src 'self' 'inline-speculation-rules'", "style-src 'self'",
+    "img-src 'self' data:", "media-src 'self' blob:", "connect-src 'self'", "object-src 'none'",
+    "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'",
+])
 
 
 # Registered before SessionMiddleware, so it runs inside it (Starlette wraps
@@ -33,6 +44,11 @@ async def protect(request: Request, call_next):
     response.headers.setdefault("X-Frame-Options", "DENY")  # no embedding in other sites (clickjacking)
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("Referrer-Policy", "same-origin")
+    response.headers.setdefault("Content-Security-Policy", CONTENT_SECURITY_POLICY)
+    # The QR scanner needs the camera; nothing needs location or microphone.
+    response.headers.setdefault("Permissions-Policy", "camera=(self), geolocation=(), microphone=(), payment=()")
+    if settings.base_url.startswith("https://"):
+        response.headers.setdefault("Strict-Transport-Security", "max-age=31536000")  # HTTPS only from now on
     return response
 
 
@@ -99,9 +115,9 @@ async def unexpected_error(request: Request, exc: Exception):
     traceback.print_exception(exc)
     return HTMLResponse(
         '<!DOCTYPE html><html lang="de-CH"><meta charset="utf-8"><meta name="viewport" content="width=device-width">'
-        '<title>Fehler - SG Bern</title><body style="font-family:sans-serif;max-width:30rem;margin:3rem auto;padding:1rem">'
+        '<title>Fehler - SG Bern</title><link rel="stylesheet" href="/static/style.css"><body><main class="content">'
         "<h1>Da ist etwas schiefgelaufen</h1><p>Bitte versuche es nochmals. Falls es wieder passiert, "
-        'melde dich beim Vorstand.</p><p><a href="/dashboard">Zur Startseite</a></p></body></html>',
+        'melde dich beim Vorstand.</p><p><a href="/dashboard">Zur Startseite</a></p></main></body></html>',
         status_code=500,
     )
 

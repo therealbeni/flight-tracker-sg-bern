@@ -6,6 +6,8 @@
 //    JavaScript the plain dropdown still works.
 //  - data-show-if="name=value": the element is only shown while the form
 //    field `name` has that value (e.g. the guest's name field for "Gast").
+//  - Every form: sent only once however often it's tapped; data-confirm asks
+//    before sending, data-autosubmit sends it when a field is changed.
 //  - Schleppflugzeug: picking another tow aircraft suggests whoever is
 //    checked in on it as tow pilot, unless a tow pilot was chosen by hand.
 (function () {
@@ -167,10 +169,20 @@
     // the next page shows; coming back with the browser's Back button resets it.
     function sendOnce(form) {
         form.addEventListener("submit", (event) => {
+            // data-confirm: ask first (deleting a flight).
+            if (form.dataset.confirm && !form.dataset.sent && !window.confirm(form.dataset.confirm)) {
+                event.preventDefault();
+                return;
+            }
             if (form.dataset.sent) event.preventDefault();
             else form.dataset.sent = "1";
         });
     }
+
+    // data-autosubmit: choosing a value sends the form (role, aircraft kind, date).
+    document.querySelectorAll("[data-autosubmit]").forEach((field) => {
+        field.addEventListener("change", () => field.form.requestSubmit());
+    });
     window.addEventListener("pageshow", () => {
         document.querySelectorAll("form[data-sent]").forEach((form) => delete form.dataset.sent);
     });

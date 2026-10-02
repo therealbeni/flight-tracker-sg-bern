@@ -1,11 +1,15 @@
-fastapi
-uvicorn[standard]
-sqlalchemy>=2.0
-psycopg[binary]
-itsdangerous
-bcrypt
-jinja2
-python-multipart
-qrcode[pil]
-alembic
-tzdata
+# Exact versions, so the club server builds what was tested. To update: bump,
+# run dev/test.sh and dev/ui/run.sh, then check with pip-audit (see docs/deployment.md).
+fastapi==0.141.1
+starlette==1.7.0
+uvicorn[standard]==0.54.0
+sqlalchemy==2.1.1
+psycopg[binary]==3.3.6
+itsdangerous==2.2.0
+bcrypt==5.0.0
+jinja2==3.1.6
+python-multipart==0.0.32
+qrcode[pil]==8.2
+pillow==12.3.0
+alembic==1.20.0
+tzdata==2026.4

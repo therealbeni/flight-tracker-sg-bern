@@ -44,6 +44,9 @@ services:
       # python3 -c "import secrets; print(secrets.token_hex(32))"
       - SESSION_SECRET=${SESSION_SECRET:-}
       - BASE_URL=${BASE_URL:-http://localhost:8000}
+      # Header with the visitor's IP from the proxy in front (for the login
+      # throttle). Behind Cloudflare: cf-connecting-ip. See .env.example.
+      - CLIENT_IP_HEADER=${CLIENT_IP_HEADER:-}
 
   caddy:
     image: caddy:2

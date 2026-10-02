@@ -99,7 +99,36 @@ Aircraft kinds (Verwaltung > Flugzeuge) matter: tow planes and motor gliders def
 - Password reset e-mails are only printed to the app log until an SMTP account is wired
   up in `app/email_sender.py`.
 - The staging server has test accounts (`testpilot@flight.clanker.ch`,
-  `startstelle@flight.clanker.ch`) - don't carry them over.
+  `startstelle@flight.clanker.ch`, now the FDL account) - don't carry them over.
+- `SESSION_SECRET` and `POSTGRES_PASSWORD`: real random values in `.env`.
+- `CLIENT_IP_HEADER`: set it only if the app is reachable exclusively through a proxy
+  that sets that header (see `.env.example`); the login throttle relies on it.
+
+## Security
+
+Checked in October 2026 (tests: `tests/app/test_security.py`, `test_misuse.py`):
+
+- Passwords: bcrypt; logins, password-reset mails and signups are rate-limited.
+  Changing the password ends all other sessions.
+- Every page checks the account's current role in the database (not a value stored
+  at login); every form is protected against cross-site posting (SameSite cookie and
+  Origin check); a Content-Security-Policy lets only the app's own scripts run.
+- No API docs, no server version, no error details are shown to visitors.
+- Library versions are pinned (`app/requirements.txt`, `tracker/requirements.txt`).
+  Before updating, check them for known vulnerabilities:
+  `docker run --rm flight-tracker-test sh -c "pip install -q pip-audit && pip-audit"`.
+
+Known and accepted:
+
+- Until SMTP is set up, reset links are printed to the app log: whoever can read the
+  logs can reset any password.
+- Signing up with an address that has an account says so (lets someone find out who
+  is a member; normal for a club).
+- Every approved member sees all flights (like the Flugbuch at the launch point), and
+  a pilot may choose another member as payer ("Anderes Mitglied"); every change is in
+  the flight's history.
+- The tracker container runs as root because it writes into the bind-mounted `data/`
+  folder; it accepts no connections from outside.
 
 ## Checks
 

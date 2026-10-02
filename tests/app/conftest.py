@@ -27,6 +27,8 @@ templates.env.undefined = StrictUndefined
 
 @pytest.fixture(autouse=True)
 def _reset_db():
+    from security import reset_all_throttles
+    reset_all_throttles()
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
     engine.dispose()  # Postgres: pooled connections cache plans of the old tables

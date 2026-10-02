@@ -1,5 +1,6 @@
-ogn-client
-ogn-parser
-srtm.py
-sqlalchemy>=2.0
-psycopg[binary]
+# Exact versions, so the club server builds what was tested (see app/requirements.txt).
+ogn-client==2.0.0
+ogn-parser==0.3.15
+srtm.py==0.3.7
+sqlalchemy==2.1.1
+psycopg[binary]==3.3.6

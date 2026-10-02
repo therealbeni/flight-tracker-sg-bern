@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from config import settings
 from database import get_db
-from deps import require_admin
+from deps import require_admin, start_session
 from models import AircraftKind, Airfield, Flight, Glider, Pilot, PilotRole, PilotStatus
 from routers.claim import active_claims, end_claims
 from timeutil import local_day_bounds, to_local, today_local
@@ -57,7 +57,8 @@ def view_as_pilot(request: Request, pilot_id: int, db: Session = Depends(get_db)
     if target is None or target.status != PilotStatus.APPROVED:
         raise HTTPException(status_code=404, detail="Diesen Piloten gibt es nicht, oder er ist nicht freigeschaltet.")
     request.session["viewing_as_admin_id"] = request.session["pilot_id"]
-    request.session["pilot_id"] = target.id
+    request.session["viewing_as_admin_stamp"] = request.session["stamp"]
+    start_session(request, target)
     request.session["viewing_as_name"] = target.full_name
     return RedirectResponse("/dashboard", status_code=303)
 

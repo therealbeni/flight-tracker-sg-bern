@@ -14,7 +14,7 @@
     {% else %}<span class="btn secondary compact disabled" aria-hidden="true">&rarr;</span>{% endif %}
     {% if day != today %}<a class="btn secondary compact" href="/flugbuch">Heute</a>{% endif %}
     <form method="get" action="/flugbuch" class="day-jump">
-        <label>Datum <input type="date" name="datum" value="{{ day }}" max="{{ today }}" onchange="this.form.submit()"></label>
+        <label>Datum <input type="date" name="datum" value="{{ day }}" max="{{ today }}" data-autosubmit></label>
         <noscript><button type="submit" class="compact">Zeigen</button></noscript>
     </form>
 </div>
