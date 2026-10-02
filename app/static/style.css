@@ -230,7 +230,7 @@ a { color: var(--brand-700); }
 }
 
 .stat .num { display: block; font-size: 1.25rem; font-weight: 700; }
-.stat .label { display: block; font-size: 0.68rem; color: rgba(255,255,255,0.75); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px; }
+.stat .label { display: block; font-size: 0.78rem; color: rgba(255,255,255,0.8); margin-top: 2px; }
 
 .section-title {
     display: flex;
@@ -279,7 +279,7 @@ a { color: var(--brand-700); }
 /* Plain data table - kept for admin screens, mainly used on wider/desktop viewports. */
 .data-table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: var(--radius-md); overflow: hidden; }
 .data-table th, .data-table td { text-align: left; padding: 0.6rem 0.7rem; border-bottom: 1px solid var(--border); font-size: 0.92rem; }
-.data-table th { color: var(--ink-muted); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; }
+.data-table th { color: var(--ink-muted); font-weight: 600; font-size: 0.82rem; }
 .data-table tr:last-child td { border-bottom: none; }
 
 @media (max-width: 640px) {
@@ -621,7 +621,13 @@ body.scanning { overflow: hidden; }
 .card-head h2 { margin: 0; }
 
 .day-nav { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
-.day-nav h1 { margin: 0 0.25rem; font-size: 1.35rem; }
+.day-nav h1 { margin: 0 0.25rem 0 0; font-size: 1.35rem; }
+@media (max-width: 767px) {
+    .day-nav h1 { flex-basis: 100%; margin-bottom: 0.25rem; }  /* title on its own row, the controls below */
+    .day-jump { margin-left: 0; }
+    .day-jump label { font-size: 0; gap: 0; }  /* the field explains itself; no label text squeezing the row */
+    .day-jump input { font-size: 1rem; }
+}
 
 .table-scroll { overflow-x: auto; margin-bottom: 0.5rem; border-radius: var(--radius-md); }
 .flugbuch-table { display: table; white-space: nowrap; }
@@ -780,3 +786,13 @@ a.cal-open:hover { background: #fae7c2; }
 .warning.takeover p:first-child { font-weight: 700; }
 .notice { background: var(--sky-100); border: 1px solid #b6dcf3; border-radius: var(--radius-md); padding: 0.7rem 0.9rem; margin-bottom: 1rem; }
 .notice p { margin: 0; }
+
+/* Flugbuch: cards on a phone, the table from tablet width up. */
+.flugbuch-cards { margin-bottom: 0.75rem; }
+@media (max-width: 767px) { .flugbuch .table-scroll { display: none; } }
+@media (min-width: 768px) { .flugbuch-cards { display: none; } }
+details.add-flight > summary h2 { display: inline; margin: 0; }
+details.add-flight > summary .hint { display: block; margin: 0.2rem 0 0 1.1rem; }
+details.add-flight[open] > summary { margin-bottom: 1rem; }
+.year-title { margin: 0.75rem 0 0.1rem; font-size: 1rem; color: var(--ink-muted); }
+.record.mine { border-left: 4px solid var(--brand-700); }  /* your own flights among everyone's */

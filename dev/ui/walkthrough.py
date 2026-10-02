@@ -224,7 +224,9 @@ def main() -> None:
         ])
         for flow, screen in ((pilot_flow, PHONE), (pilot_checkout_flow, PHONE), (tow_pilot_flow, PHONE),
                              (admin_flow, PHONE), (club_pc_flow, DESKTOP)):
-            context = browser.new_context(**screen, locale="de-CH", timezone_id="Europe/Zurich")
+            # Reduced motion: no page cross-fade, so screenshots show the finished page.
+            context = browser.new_context(**screen, locale="de-CH", timezone_id="Europe/Zurich",
+                                          reduced_motion="reduce")
             context.grant_permissions(["camera"], origin=BASE)
             page = context.new_page()
             page.on("pageerror", lambda e, f=flow.__name__: problems.append(f"{f}: JavaScript error {e}"))

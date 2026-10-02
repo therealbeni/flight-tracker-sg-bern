@@ -7,9 +7,9 @@
 
 {# The arrows jump to the previous/next day with flights: most days nobody flies. #}
 <div class="day-nav">
+    <h1>Flugbuch {{ day|wochentag }}, {{ day|datum }}</h1>
     {% if prev_day %}<a class="btn secondary compact" href="/flugbuch?datum={{ prev_day }}" title="Vorheriger Flugtag: {{ prev_day|datum }}" aria-label="Vorheriger Flugtag">&larr;</a>
     {% else %}<span class="btn secondary compact disabled" aria-hidden="true">&larr;</span>{% endif %}
-    <h1>Flugbuch {{ day|wochentag }}, {{ day|datum }}</h1>
     {% if next_day %}<a class="btn secondary compact" href="/flugbuch?datum={{ next_day }}" title="Nächster Flugtag: {{ next_day|datum }}" aria-label="Nächster Flugtag">&rarr;</a>
     {% else %}<span class="btn secondary compact disabled" aria-hidden="true">&rarr;</span>{% endif %}
     {% if day != today %}<a class="btn secondary compact" href="/flugbuch">Heute</a>{% endif %}
@@ -36,11 +36,20 @@
 {% if day_finalized %}
 <p class="hint">Dieser Tag ist abgeschlossen. Für Änderungen muss ihn ein Admin wieder öffnen.</p>
 {% else %}
-<form method="post" action="{{ '/flights/%d' % editing.id if editing else '/flugbuch' }}" class="card flight-entry" id="erfassen">
+{# Pilots rarely add a flight by hand: on their phone the form waits behind
+   one tap, so the day's flights come first. The FDL's laptop shows it open. #}
+{% set collapsed = not pilot.edits_all_flights and not editing and not form.errors %}
+{% if collapsed %}
+<details class="card add-flight" id="erfassen">
+    <summary><h2>Flug hinzufügen</h2> <span class="hint">für Flüge, die der Tracker nicht sieht (ohne FLARM, Gastflugzeug)</span></summary>
+{% endif %}
+<form method="post" action="{{ '/flights/%d' % editing.id if editing else '/flugbuch' }}" class="{{ 'card' if not collapsed }} flight-entry" {{ 'id=erfassen' if not collapsed }}>
+    {% if not collapsed %}
     <div class="card-head">
         <h2>{% if editing %}Flug bearbeiten: {{ editing.glider.registration if editing.glider else "" }} {{ editing.takeoff_time|hhmm }}{% else %}Flug hinzufügen{% endif %}</h2>
         {% if not editing %}<span class="hint">für Flüge, die der Tracker nicht sieht (ohne FLARM, Gastflugzeug)</span>{% endif %}
     </div>
+    {% endif %}
     <input type="hidden" name="day" value="{{ day }}">
     <input type="hidden" name="next" value="/flugbuch?datum={{ day }}">
     {{ flight_fields(form, choices, aircraft=editing.glider if editing else none) }}
@@ -49,7 +58,33 @@
         {% if editing %}<a class="btn secondary" href="/flugbuch?datum={{ day }}">Abbrechen</a>{% endif %}
     </div>
 </form>
+{% if collapsed %}</details>{% endif %}
 {% endif %}
+
+{# On a phone: the flights as cards (tap for details and corrections); on wider
+   screens the table below, with every column like Vereinsflieger. #}
+<div class="record-list flugbuch-cards">
+    {% for f in flights %}
+    <a class="record {{ 'needs-attention' if f.needs_attention or f.id in duplicates }}" href="/flights/{{ f.id }}">
+        <div class="record-top">
+            <span class="record-title">{{ f.glider.registration if f.glider else "?" }}</span>
+            <span>{{ status_badge(f) }}{% if f.id in duplicates %} <span class="missing">doppelt?</span>{% endif %}</span>
+        </div>
+        <div class="record-meta">
+            {{ f.pilot_display or "Pilot fehlt" }}{% if f.companion_display %} mit {{ f.companion_display }}{% endif %}
+            {% if f.tow_aircraft %}&middot; Schlepp {{ f.tow_aircraft.registration }}{% endif %}
+        </div>
+        <div class="record-times">
+            <span>{{ f.takeoff_airfield_icao or "?" }} {{ f.takeoff_time|hhmm }}{% if f.takeoff_estimated %}<span class="estimated">~</span>{% endif %}</span>
+            <span class="arrow">&rarr;</span>
+            <span>{% if f.landing_time %}{{ f.landing_airfield_icao or "?" }} {{ f.landing_time|hhmm }}{% if f.landing_estimated %}<span class="estimated">~</span>{% endif %}{% else %}-{% endif %}</span>
+            {% if f.duration_min %}<span class="hint">&middot; {{ f.duration_min|flugzeit }} h</span>{% endif %}
+        </div>
+    </a>
+    {% else %}
+    <p class="record-empty">An diesem Tag keine Flüge.</p>
+    {% endfor %}
+</div>
 
 <div class="table-scroll">
 <table class="data-table flugbuch-table">

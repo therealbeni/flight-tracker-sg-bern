@@ -37,7 +37,7 @@
 </div>
 <div class="record-list">
     {% for f in flights %}
-    <a class="record" href="/flights/{{ f.id }}">
+    <a class="record {{ 'mine' if pilot.id in (f.pilot_id, f.companion_id) }}" href="/flights/{{ f.id }}">
         <div class="record-top">
             <span class="record-title">{{ f.glider.registration if f.glider else "?" }}</span>
             {{ status_badge(f) }}

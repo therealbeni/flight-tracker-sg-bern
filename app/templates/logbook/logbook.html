@@ -7,12 +7,16 @@
     <p class="subline">Meine Flüge</p>
     <div class="stat-row">
         <div class="stat"><span class="num">{{ total_flights }}</span><span class="label">Flüge</span></div>
-        <div class="stat"><span class="num">{{ total_hours }}</span><span class="label">Stunden</span></div>
+        <div class="stat"><span class="num">{{ total_minutes|flugzeit }}</span><span class="label">Flugzeit (h)</span></div>
     </div>
 </div>
 
 <div class="record-list">
     {% for f in flights %}
+    {% set year = (f.takeoff_time|datum)[-4:] %}
+    {% if loop.first or year != (loop.previtem.takeoff_time|datum)[-4:] %}
+    <h2 class="year-title">{{ year }}</h2>
+    {% endif %}
     <a class="record" href="/flights/{{ f.id }}">
         <div class="record-top">
             <span class="record-title">{{ f.glider.registration if f.glider else "?" }}</span>

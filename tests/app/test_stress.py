@@ -170,7 +170,7 @@ def test_manual_and_tracked_flight_of_the_same_aircraft_and_time_are_flagged(cli
     client.post("/flugbuch", data=new_flight_form(world["glider"], pilot_id=str(world["pia"].id),
                                                   takeoff_time="14:02", landing_time="14:41"))
     assert db_session.query(Flight).filter_by(source=FlightSource.MANUAL).count() == 1
-    assert client.get("/flugbuch").text.count("doppelt?") == 2
+    assert client.get("/flugbuch").text.count("doppelt?") == 4  # both flights, as phone card and table row
     assert "doppelt?" in client.get("/dashboard").text  # FDL: Zu prüfen
 
 

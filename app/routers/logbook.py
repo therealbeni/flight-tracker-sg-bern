@@ -31,6 +31,6 @@ def logbook(request: Request, db: Session = Depends(get_db), pilot: Pilot = Depe
             "pilot": pilot,
             "flights": flights,
             "total_flights": len(flights),
-            "total_hours": round(total_minutes / 60, 1),
+            "total_minutes": total_minutes,
         },
     )
