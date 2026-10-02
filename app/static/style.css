@@ -732,3 +732,30 @@ details.card[open] > summary { margin-bottom: 0.75rem; }
 .day-jump label { display: flex; align-items: center; gap: 0.5rem; margin: 0; }
 .day-jump input { margin: 0; width: auto; min-height: 40px; padding: 0.4rem 0.6rem; }
 a.day-link { font-weight: 600; }
+
+/* ---------- Tage abschliessen: month calendar ---------- */
+
+.month-nav { display: flex; align-items: center; gap: 0.75rem; margin: 1rem 0 0.75rem; }
+.month-nav h2 { margin: 0; min-width: 11rem; text-align: center; }
+.calendar { width: 100%; max-width: 640px; table-layout: fixed; border-collapse: separate; border-spacing: 4px; }
+.calendar th { font-size: 0.8rem; color: var(--ink-muted); font-weight: 600; padding-bottom: 0.25rem; }
+.calendar td { padding: 0; height: 3.6rem; }
+.cal-day {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 100%; border-radius: var(--radius-sm); text-decoration: none; color: var(--ink-faint);
+}
+a.cal-day { color: inherit; font-weight: 700; }
+.cal-count { font-size: 0.7rem; font-weight: 600; }
+.cal-closed { background: var(--success-100); color: var(--success); border: 1px solid #b9e2cf; }
+.cal-open { background: var(--warning-100); color: var(--warning); border: 1px solid #e6c870; }
+a.cal-closed:hover { background: #d3efe2; }
+a.cal-open:hover { background: #fae7c2; }
+.cal-today { outline: 2px solid var(--brand-700); outline-offset: -2px; }
+.cal-legend { display: flex; align-items: center; gap: 0.4rem; color: var(--ink-muted); font-size: 0.85rem; }
+.cal-dot { display: inline-block; width: 0.9rem; height: 0.9rem; border-radius: 4px; margin-left: 0.6rem; }
+.cal-legend .cal-dot:first-child { margin-left: 0; }
+.open-days { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.day-admin { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
+.day-admin p { margin: 0; }
+.day-admin form { margin: 0; }
+@media (max-width: 480px) { .cal-word { display: none; } }

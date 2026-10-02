@@ -19,6 +19,20 @@
     </form>
 </div>
 
+{% if pilot.is_admin and flights %}
+{% set confirmed = flights | selectattr("verified_by_pilot") | list | length %}
+{% set in_air = flights | rejectattr("landing_time") | list | length %}
+<div class="card day-admin">
+    {% if day_finalized %}
+    <p><strong>Tag abgeschlossen.</strong> Gelandete Flüge sind gesperrt.</p>
+    <form method="post" action="/admin/finalize/{{ day }}/unlock"><button type="submit" class="secondary compact">Wieder öffnen</button></form>
+    {% else %}
+    <p>{{ confirmed }} von {{ flights|length }} Flügen bestätigt{% if in_air %}, {{ in_air }} ohne Landung (bleib{{ "en" if in_air != 1 else "t" }} offen){% endif %}.</p>
+    <form method="post" action="/admin/finalize/{{ day }}"><button type="submit" class="compact">Tag abschliessen</button></form>
+    {% endif %}
+</div>
+{% endif %}
+
 {% if day_finalized %}
 <p class="hint">Dieser Tag ist abgeschlossen. Für Änderungen muss ihn ein Admin wieder öffnen.</p>
 {% else %}
@@ -85,10 +99,8 @@
     <h2>Auschecken</h2>
     <p class="hint">Am Ende des Tages: wähle deinen Namen, prüfe deine Flüge und bestätige sie.</p>
     <div class="checkout-names">
-        {% for p in pilots_today %}
-        {% if p.id == pilot.id or pilot.edits_all_flights %}
-        <a class="btn secondary" href="/auschecken/{{ p.id }}?datum={{ day }}">{{ p.full_name }}</a>
-        {% endif %}
+        {% for pd in pilots_today if pd.pilot.id == pilot.id or pilot.edits_all_flights %}
+        <a class="btn secondary" href="/auschecken/{{ pd.pilot.id }}?datum={{ day }}">{{ pd.pilot.full_name }}{% if pd.checked_out_at %} (ausgecheckt {{ pd.checked_out_at|hhmm }}){% endif %}</a>
         {% endfor %}
     </div>
 </div>

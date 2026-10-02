@@ -1,9 +1,10 @@
 import io
 import uuid
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
+from typing import Optional
 
 import qrcode
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse, StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -12,7 +13,7 @@ from config import settings
 from database import get_db
 from deps import require_admin
 from models import AircraftKind, Airfield, Flight, Glider, Pilot, PilotRole, PilotStatus
-from timeutil import local_day_bounds, to_local
+from timeutil import local_day_bounds, to_local, today_local
 
 from templating import templates
 
@@ -159,27 +160,45 @@ def create_airfield(
 
 
 @router.get("/finalize")
-def finalize_overview(request: Request, db: Session = Depends(get_db)):
-    flights = db.scalars(
-        select(Flight).where(Flight.takeoff_time.isnot(None), Flight.deleted_at.is_(None))
-        .order_by(Flight.takeoff_time.desc())
-    ).all()
+def finalize_overview(request: Request, monat: Optional[str] = Query(None), db: Session = Depends(get_db)):
+    """A month calendar of flying days: closed (green) or still open (orange).
+    Closing and re-opening happens on the day's Flugbuch, next to its flights."""
+    try:
+        year, month = (int(part) for part in (monat or "").split("-"))
+        first = date(year, month, 1)
+    except ValueError:
+        first = today_local().replace(day=1)
+    next_first = (first + timedelta(days=32)).replace(day=1)
+    start, _ = local_day_bounds(first)
+    end, _ = local_day_bounds(next_first)
+    in_month = db.scalars(select(Flight).where(Flight.deleted_at.is_(None), Flight.takeoff_time >= start,
+                                               Flight.takeoff_time < end)).all()
+    by_day: dict[date, list[Flight]] = {}
+    for f in in_month:
+        by_day.setdefault(to_local(f.takeoff_time).date(), []).append(f)
 
-    by_date: dict[date, list[Flight]] = {}
-    for f in flights:
-        by_date.setdefault(to_local(f.takeoff_time).date(), []).append(f)
+    # Monday-first weeks covering the month; days of other months are None.
+    weeks, week = [], [None] * first.weekday()
+    for offset in range((next_first - first).days):
+        day = first + timedelta(days=offset)
+        flights = by_day.get(day, [])
+        week.append({"date": day, "flights": len(flights),
+                     "confirmed": sum(1 for f in flights if f.verified_by_pilot),
+                     "state": "none" if not flights else ("closed" if all(f.finalized_at for f in flights) else "open")})
+        if len(week) == 7:
+            weeks.append(week)
+            week = []
+    if week:
+        weeks.append(week + [None] * (7 - len(week)))
 
-    days = [
-        {
-            "date": day,
-            "total": len(day_flights),
-            "verified": sum(1 for f in day_flights if f.verified_by_pilot),
-            "landed": sum(1 for f in day_flights if f.landing_time is not None),
-            "finalized": all(f.finalized_at is not None for f in day_flights),
-        }
-        for day, day_flights in sorted(by_date.items(), reverse=True)
-    ]
-    return templates.TemplateResponse(request, "admin/finalize.html", {"days": days})
+    # Open days of all months, so nothing is forgotten in a month nobody looks at.
+    open_days = sorted({to_local(t).date() for t in db.scalars(
+        select(Flight.takeoff_time).where(Flight.deleted_at.is_(None), Flight.finalized_at.is_(None),
+                                          Flight.takeoff_time.is_not(None))).all()}, reverse=True)
+    return templates.TemplateResponse(request, "admin/finalize.html", {
+        "month": first, "weeks": weeks, "open_days": open_days, "today": today_local(),
+        "prev_month": (first - timedelta(days=1)).replace(day=1), "next_month": next_first,
+    })
 
 
 @router.post("/finalize/{day}")
@@ -193,7 +212,7 @@ def finalize_day(day: date, db: Session = Depends(get_db)):
     for f in flights:
         f.finalized_at = now
     db.commit()
-    return RedirectResponse("/admin/finalize", status_code=303)
+    return RedirectResponse(f"/flugbuch?datum={day}", status_code=303)
 
 
 @router.post("/finalize/{day}/unlock")
@@ -205,4 +224,4 @@ def unlock_day(day: date, db: Session = Depends(get_db)):
     for f in flights:
         f.finalized_at = None
     db.commit()
-    return RedirectResponse("/admin/finalize", status_code=303)
+    return RedirectResponse(f"/flugbuch?datum={day}", status_code=303)

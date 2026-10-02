@@ -17,6 +17,12 @@ from fastapi.testclient import TestClient
 
 from database import Base, engine, SessionLocal
 import main as main_module
+from jinja2 import StrictUndefined
+from templating import templates
+
+# A typo'd or missing template variable fails the test instead of rendering
+# as nothing (production keeps Jinja's lenient default).
+templates.env.undefined = StrictUndefined
 
 
 @pytest.fixture(autouse=True)

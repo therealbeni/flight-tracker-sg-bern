@@ -43,7 +43,7 @@
             {% endif %}
             </div>
             <div class="strip-side">
-                <span class="strip-count">{{ a.flight_count }} Flug{{ "e" if a.flight_count != 1 }}</span>
+                <span class="strip-count">{{ a.flight_count }} {{ "Flug" if a.flight_count == 1 else "Flüge" }}</span>
                 {% for c in a.claims if not a.airborne %}
                 <form method="post" action="/claims/{{ c.id }}/release">
                     <button type="submit" class="secondary compact" title="Check-in von {{ c.pilot.full_name }} beenden">Freigeben</button>
@@ -71,7 +71,7 @@
                     {% else %}{{ labels[pd.status] }}{% endif %}
                 </span>
             </div>
-            <span class="person-flights">{{ pd.flights|length }} Flug{{ "e" if pd.flights|length != 1 }}{% if pd.unconfirmed %}, {{ pd.unconfirmed|length }} unbestätigt{% endif %}</span>
+            <span class="person-flights">{{ pd.flights|length }} {{ "Flug" if pd.flights|length == 1 else "Flüge" }}{% if pd.unconfirmed %}, {{ pd.unconfirmed|length }} unbestätigt{% endif %}</span>
             <a class="btn secondary compact" href="/auschecken/{{ pd.pilot.id }}?next=/dashboard">Auschecken</a>
         </li>
     {% else %}
@@ -88,7 +88,7 @@
                 <span class="person-name">{{ pd.pilot.full_name }}</span>
                 <span class="person-status">Ausgecheckt um {{ pd.checked_out_at|hhmm }}</span>
             </div>
-            <span class="person-flights">{{ pd.flights|length }} Flug{{ "e" if pd.flights|length != 1 }}</span>
+            <span class="person-flights">{{ pd.flights|length }} {{ "Flug" if pd.flights|length == 1 else "Flüge" }}</span>
         </li>
     {% endfor %}
     </ul>

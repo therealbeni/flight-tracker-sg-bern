@@ -420,7 +420,40 @@ def test_day_arrows_skip_days_without_flights(client, db_session, world):
     assert "Vorheriger Flugtag" not in page  # the first flying day
 
 
-def test_closing_days_links_each_day_to_its_flugbuch(client, db_session, world):
+def test_calendar_shows_open_and_closed_days_and_links_them_to_the_flugbuch(client, db_session, world):
+    from datetime import timedelta
+
+    today = today_local()
     add_flight(db_session, world["glider"], world["pia"])
+    closed_day = today - timedelta(days=400)  # another month, long ago
+    db_session.add(Flight(record_id="old", glider_id=world["glider"].id, source=FlightSource.AUTO,
+                          takeoff_time=combine_local(closed_day, "12:00"), landing_time=combine_local(closed_day, "13:00"),
+                          finalized_at=datetime.now(timezone.utc)))
+    db_session.commit()
     login(client, "admin")
-    assert f'href="/flugbuch?datum={today_local()}"' in client.get("/admin/finalize").text
+    page = client.get("/admin/finalize").text
+    assert f'class="cal-day cal-open cal-today" href="/flugbuch?datum={today}"' in page
+    assert "Noch offene Tage" in page
+    page = client.get(f"/admin/finalize?monat={closed_day:%Y-%m}").text
+    assert f'class="cal-day cal-closed " href="/flugbuch?datum={closed_day}"' in page
+    assert client.get("/admin/finalize?monat=kaputt").status_code == 200  # a mangled link shows this month
+
+
+def test_admin_closes_and_reopens_a_day_from_its_flugbuch(client, db_session, world):
+    f = add_flight(db_session, world["glider"], world["pia"])
+    login(client, "admin")
+    assert "Tag abschliessen" in client.get("/flugbuch").text
+    response = client.post(f"/admin/finalize/{today_local()}", follow_redirects=False)
+    assert response.headers["location"] == f"/flugbuch?datum={today_local()}"
+    db_session.refresh(f)
+    assert f.finalized_at is not None
+    assert "Wieder öffnen" in client.get("/flugbuch").text
+    login(client, "desk")
+    assert "Tag abschliessen" not in client.get("/flugbuch").text and "Wieder öffnen" not in client.get("/flugbuch").text
+
+
+def test_flugbuch_offers_checkout_for_each_pilot_of_the_day(client, db_session, world):
+    add_flight(db_session, world["glider"], world["pia"])
+    login(client, "desk")
+    page = client.get("/flugbuch").text
+    assert f'href="/auschecken/{world["pia"].id}?datum={today_local()}">Pia Pilot</a>' in page

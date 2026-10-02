@@ -30,7 +30,7 @@
 </div>
 
 {% if open_issues %}
-<p class="warning">Bei {{ open_issues|length }} Flug{{ "en" if open_issues|length != 1 }} fehlt noch etwas. Tippe auf den Flug, um ihn zu korrigieren - oder checke trotzdem aus, der Flugdienstleiter kann es später nachtragen.</p>
+<p class="warning">Bei {{ open_issues|length }} {{ "Flug" if open_issues|length == 1 else "Flügen" }} fehlt noch etwas. Tippe auf den Flug, um ihn zu korrigieren - oder checke trotzdem aus, der Flugdienstleiter kann es später nachtragen.</p>
 {% endif %}
 
 {% if airborne %}

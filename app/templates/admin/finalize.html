@@ -3,33 +3,43 @@
 {% block content %}
 {% include "admin/_nav.html" %}
 <h1>Tage abschliessen</h1>
-<p class="hint">Ein abgeschlossener Tag ist gesperrt: gelandete Flüge können nicht mehr geändert werden. Schliesse einen Tag ab, sobald alle ihre Flüge bestätigt haben. Die Übertragung nach Vereinsflieger (sobald eingerichtet) nimmt nur abgeschlossene Flüge.</p>
+<p class="hint">Ein abgeschlossener Tag ist gesperrt: gelandete Flüge können nicht mehr geändert werden. Schliesse einen Tag ab, sobald alle ihre Flüge bestätigt haben - tippe dazu auf den Tag. Die Übertragung nach Vereinsflieger (sobald eingerichtet) nimmt nur abgeschlossene Flüge.</p>
 
-<table class="data-table">
-    <thead><tr><th>Datum</th><th>Flüge</th><th>Gelandet</th><th>Bestätigt</th><th>Status</th><th>Aktion</th></tr></thead>
+{% set month_names = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"] %}
+<div class="month-nav">
+    <a class="btn secondary compact" href="?monat={{ prev_month.strftime('%Y-%m') }}" aria-label="Vorheriger Monat">&larr;</a>
+    <h2>{{ month_names[month.month - 1] }} {{ month.year }}</h2>
+    <a class="btn secondary compact" href="?monat={{ next_month.strftime('%Y-%m') }}" aria-label="Nächster Monat">&rarr;</a>
+</div>
+
+<table class="calendar">
+    <thead><tr>{% for d in ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"] %}<th>{{ d }}</th>{% endfor %}</tr></thead>
     <tbody>
-    {% for d in days %}
+    {% for week in weeks %}
         <tr>
-            <td><a class="day-link" href="/flugbuch?datum={{ d.date }}">{{ d.date|wochentag }}, {{ d.date|datum }}</a></td>
-            <td>{{ d.total }}</td>
-            <td>{{ d.landed }}</td>
-            <td>{{ d.verified }} / {{ d.total }}</td>
-            <td>{% if d.finalized %}<span class="badge badge-approved">abgeschlossen</span>{% else %}<span class="badge badge-pending">offen</span>{% endif %}</td>
-            <td>
-                {% if not d.finalized %}
-                <form method="post" action="/admin/finalize/{{ d.date }}" class="inline-form">
-                    <button type="submit">Abschliessen</button>
-                </form>
-                {% else %}
-                <form method="post" action="/admin/finalize/{{ d.date }}/unlock" class="inline-form">
-                    <button type="submit" class="secondary">Wieder öffnen</button>
-                </form>
-                {% endif %}
-            </td>
+        {% for d in week %}
+            {% if d is none %}<td></td>
+            {% elif d.state == "none" %}<td><span class="cal-day cal-none {{ 'cal-today' if d.date == today }}">{{ d.date.day }}</span></td>
+            {% else %}
+            <td><a class="cal-day cal-{{ d.state }} {{ 'cal-today' if d.date == today }}" href="/flugbuch?datum={{ d.date }}"
+                   title="{{ d.date|datum }}: {{ d.flights }} Flüge, {{ d.confirmed }} bestätigt{{ ', abgeschlossen' if d.state == 'closed' }}">
+                <span class="cal-num">{{ d.date.day }}</span>
+                <span class="cal-count">{{ d.flights }}<span class="cal-word"> {{ "Flug" if d.flights == 1 else "Flüge" }}</span></span>
+            </a></td>
+            {% endif %}
+        {% endfor %}
         </tr>
-    {% else %}
-        <tr><td colspan="6">Noch keine Flüge.</td></tr>
     {% endfor %}
     </tbody>
 </table>
+<p class="cal-legend"><span class="cal-dot cal-closed"></span> abgeschlossen <span class="cal-dot cal-open"></span> noch offen</p>
+
+{% if open_days %}
+<h2>Noch offene Tage</h2>
+<div class="open-days">
+    {% for d in open_days %}<a class="btn secondary compact" href="/flugbuch?datum={{ d }}">{{ d|wochentag }}, {{ d|datum }}</a>{% endfor %}
+</div>
+{% else %}
+<p class="hint">Alle Tage mit Flügen sind abgeschlossen.</p>
+{% endif %}
 {% endblock %}
