@@ -85,6 +85,12 @@
     </nav>
     {% endif %}
     <script src="/static/flight-form.js?v={{ asset_version }}" defer></script>
+    {# Browsers that can (Chrome, Edge) load a page as soon as a finger or the
+       mouse is on its link, so it's there the moment it's tapped. Only plain
+       pages: no logout, nothing that changes data (that's all POST anyway). #}
+    <script type="speculationrules">
+    {"prefetch": [{"where": {"and": [{"href_matches": "/*"}, {"not": {"href_matches": "/static/*"}}]}, "eagerness": "moderate"}]}
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

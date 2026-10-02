@@ -73,14 +73,19 @@ class AircraftDay:
         return "claimed" if self.claims else "free"
 
 
+# Everything a list of flights shows, loaded in a few queries instead of a
+# few per flight.
+FLIGHT_LIST_OPTIONS = (selectinload(Flight.glider), selectinload(Flight.pilot), selectinload(Flight.companion),
+                       selectinload(Flight.tow_glider), selectinload(Flight.tow_pilot),
+                       selectinload(Flight.tow_flight).selectinload(Flight.glider),
+                       selectinload(Flight.tow_flight).selectinload(Flight.pilot))
+
+
 def flights_of_day(db: Session, day: date, pilot_id: Optional[int] = None) -> list[Flight]:
     start, end = local_day_bounds(day)
     query = (select(Flight).where(Flight.deleted_at.is_(None))
              .where(Flight.takeoff_time >= start, Flight.takeoff_time < end)
-             .options(selectinload(Flight.glider), selectinload(Flight.pilot), selectinload(Flight.companion),
-                      selectinload(Flight.tow_glider), selectinload(Flight.tow_pilot),
-                      selectinload(Flight.tow_flight).selectinload(Flight.glider),
-                      selectinload(Flight.tow_flight).selectinload(Flight.pilot)))
+             .options(*FLIGHT_LIST_OPTIONS))
     if pilot_id is not None:
         query = query.where(or_(Flight.pilot_id == pilot_id, Flight.companion_id == pilot_id))
     return list(db.scalars(query.order_by(Flight.takeoff_time)).all())

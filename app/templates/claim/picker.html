@@ -5,7 +5,7 @@
 {% block content %}
 <h1>Einchecken</h1>
 {{ my_claims_list(my_claims) }}
-<button type="button" id="scan-start" class="scan-button">{{ icons.icon("qr") }} QR-Code am Flugzeug scannen</button>
+<button type="button" id="scan-start" class="scan-button" data-fallback="/static/vendor/jsQR.js?v={{ asset_version }}">{{ icons.icon("qr") }} QR-Code am Flugzeug scannen</button>
 <p class="hint">oder wähle das Flugzeug hier aus:</p>
 
 <div class="glider-pick-list">
@@ -37,6 +37,5 @@
     <p class="scan-message" role="status"></p>
     <button type="button" class="scan-close secondary">Abbrechen</button>
 </div>
-<script src="/static/vendor/jsQR.js?v={{ asset_version }}"></script>
-<script src="/static/scan.js?v={{ asset_version }}"></script>
+<script src="/static/scan.js?v={{ asset_version }}" defer></script>
 {% endblock %}

@@ -1,5 +1,7 @@
 #!/bin/sh
 # Browser walk-through of the web app on a phone-sized screen (see walkthrough.py).
+#   dev/ui/run.sh            the walk-through
+#   dev/ui/run.sh perf.py    load times and layout shifts of every page
 # Uses the current code, a throwaway database and containers; touches nothing else.
 # Screenshots: dev/ui/screens/
 set -e
@@ -18,7 +20,7 @@ docker run -d --name "$NET-app" --network "$NET" -e BASE_URL=http://localhost:80
 for i in $(seq 30); do docker exec "$NET-app" python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/login')" 2>/dev/null && break; sleep 1; done
 status=0
 docker run --rm --network "container:$NET-app" -v "$PWD/dev/ui:/ui" -v "$OUT:/out" --ipc=host flight-tracker-browser \
-    python /ui/walkthrough.py || status=$?
+    python "/ui/${1:-walkthrough.py}" || status=$?
 rm -rf dev/ui/screens && mv "$OUT/screens" dev/ui/screens && rm -rf "$OUT"
 [ $status -eq 0 ] || docker logs "$NET-app" 2>&1 | tail -20
 exit $status

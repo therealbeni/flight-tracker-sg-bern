@@ -6,14 +6,8 @@
 # `website_webnet` network.
 
 http://flight.clanker.ch {
-	# CSS and JS are cache-busted with a ?v= query param tied to app start time (see
-	# app/templating.py), so it's safe to tell Cloudflare/browsers to cache them hard -
-	# a new deploy gets a new URL, so there's no staleness risk. Other /static/*
-	# files (icons, manifest) aren't versioned, so they're left at the default
-	# cache behaviour rather than risking the same staleness this rule avoids.
-	@versioned path /static/style.css /static/scan.js /static/vendor/*
-	header @versioned Cache-Control "public, max-age=31536000, immutable"
-
+	# Caching of CSS/JS/images is set by the app itself (main.py,
+	# CachedStaticFiles), so it works the same behind any proxy.
 	reverse_proxy app:8000 {
 		header_up X-Forwarded-Proto https
 	}

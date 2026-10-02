@@ -3,6 +3,7 @@ from urllib.parse import urlsplit
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -44,7 +45,20 @@ app.add_middleware(
     # HTTP inside the private Docker network, so the Secure cookie flag is correct here.
     https_only=settings.base_url.startswith("https://"),
 )
-app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+class CachedStaticFiles(StaticFiles):
+    """CSS, JS and images are linked with ?v=<deploy> (templating.asset_version),
+    so a browser may keep them for a year without asking again - a new deploy
+    links new URLs. Saves a round trip per file on every page at the field."""
+
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        if b"v=" in scope.get("query_string", b"") and response.status_code == 200:
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return response
+
+
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+app.mount("/static", CachedStaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
 

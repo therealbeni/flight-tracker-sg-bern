@@ -4,6 +4,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from database import get_db
+from day_board import FLIGHT_LIST_OPTIONS
 from deps import require_approved
 from models import Flight, Pilot
 
@@ -19,6 +20,7 @@ def logbook(request: Request, db: Session = Depends(get_db), pilot: Pilot = Depe
     flights = db.scalars(
         select(Flight)
         .where(or_(Flight.pilot_id == pilot.id, Flight.companion_id == pilot.id), Flight.deleted_at.is_(None))
+        .options(*FLIGHT_LIST_OPTIONS)
         .order_by(Flight.takeoff_time.desc())
     ).all()
     total_minutes = sum(f.duration_min or 0 for f in flights)

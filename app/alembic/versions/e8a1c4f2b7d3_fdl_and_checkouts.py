@@ -1,5 +1,5 @@
 """Flugdienstleiter (FDL) role replaces Startstelle; checkouts are recorded;
-who ended a check-in
+who ended a check-in; indexes for the day views and logbooks
 
 Revision ID: e8a1c4f2b7d3
 Revises: d2f6b8e4a1c9
@@ -33,9 +33,13 @@ def upgrade() -> None:
     with op.batch_alter_table("glider_claims") as batch:
         batch.add_column(sa.Column("cancelled_by_id", sa.Integer(), nullable=True))
         batch.create_foreign_key("glider_claims_cancelled_by_id_fkey", "pilots", ["cancelled_by_id"], ["id"])
+    op.create_index("ix_flights_takeoff_time", "flights", ["takeoff_time"])
+    op.create_index("ix_flights_pilot_id", "flights", ["pilot_id"])
 
 
 def downgrade() -> None:
+    op.drop_index("ix_flights_pilot_id", "flights")
+    op.drop_index("ix_flights_takeoff_time", "flights")
     with op.batch_alter_table("glider_claims") as batch:
         batch.drop_constraint("glider_claims_cancelled_by_id_fkey", type_="foreignkey")
         batch.drop_column("cancelled_by_id")

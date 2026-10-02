@@ -2,7 +2,8 @@
 // code of one of our aircraft, goes to that aircraft's check-in page.
 //
 // Uses the browser's BarcodeDetector where it exists (Android/Chrome) and the
-// bundled jsQR library otherwise (iPhone/Safari). Needs HTTPS for the camera.
+// bundled jsQR library otherwise (iPhone/Safari) - loaded only then, it's
+// 250 kB the check-in page shouldn't wait for. Needs HTTPS for the camera.
 (function () {
     const button = document.getElementById("scan-start");
     const overlay = document.getElementById("scan-overlay");
@@ -25,6 +26,16 @@
         } catch (e) {
             return null;
         }
+    }
+
+    function loadScript(src) {
+        return new Promise((resolve, reject) => {
+            const script = document.createElement("script");
+            script.src = src;
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.append(script);
+        });
     }
 
     function show(text) {
@@ -54,6 +65,15 @@
                 detector = null;
             }
         }
+        if (!detector && !window.jsQR) {
+            try {
+                await loadScript(button.dataset.fallback);
+            } catch (e) {
+                show("Der Scanner konnte nicht geladen werden (kein Empfang?). Wähle das Flugzeug in der Liste.");
+                return;
+            }
+        }
+        if (overlay.hidden) return;  // closed while loading
         running = true;
         requestAnimationFrame(scan);
     }

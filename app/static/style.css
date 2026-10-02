@@ -43,6 +43,17 @@
 
 * { box-sizing: border-box; }
 
+/* Going from page to page: a quick cross-fade instead of a white flash, with
+   the top bar and tab bar standing still (browsers without support simply
+   load the page as before). */
+@view-transition { navigation: auto; }
+.topbar { view-transition-name: topbar; }
+.tabbar { view-transition-name: tabbar; }
+::view-transition-group(root) { animation-duration: 120ms; }
+@media (prefers-reduced-motion: reduce) {
+    @view-transition { navigation: none; }
+}
+
 html, body { min-height: 100%; }  /* not height: that clips long pages under the tab bar */
 
 body {

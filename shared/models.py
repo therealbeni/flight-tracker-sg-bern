@@ -230,7 +230,7 @@ class Flight(Base):
     record_id: Mapped[str] = mapped_column(String(36), unique=True, nullable=False)
 
     glider_id: Mapped[int | None] = mapped_column(ForeignKey("gliders.id"), nullable=True)
-    pilot_id: Mapped[int | None] = mapped_column(ForeignKey("pilots.id"), nullable=True)
+    pilot_id: Mapped[int | None] = mapped_column(ForeignKey("pilots.id"), nullable=True, index=True)
     # Pilot without an account (guest, trial flight): name as free text.
     pilot_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # Begleiter / second seat (instructor, student, passenger): member or free text.
@@ -246,7 +246,7 @@ class Flight(Base):
     tow_glider_id: Mapped[int | None] = mapped_column(ForeignKey("gliders.id"), nullable=True)
     tow_pilot_id: Mapped[int | None] = mapped_column(ForeignKey("pilots.id"), nullable=True)
 
-    takeoff_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    takeoff_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
     landing_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     takeoff_airfield_icao: Mapped[str | None] = mapped_column(ForeignKey("airfields.icao"), nullable=True)

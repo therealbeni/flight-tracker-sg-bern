@@ -18,7 +18,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from database import get_db
 from deps import back_url, require_approved, require_flying_member
@@ -31,7 +31,8 @@ router = APIRouter()
 
 def active_claims(db: Session, **filters) -> list[GliderClaim]:
     """Active claims, newest first, e.g. active_claims(db, glider_id=3)."""
-    query = select(GliderClaim).where(GliderClaim.active_at(datetime.now(timezone.utc)))
+    query = (select(GliderClaim).where(GliderClaim.active_at(datetime.now(timezone.utc)))
+             .options(selectinload(GliderClaim.glider), selectinload(GliderClaim.pilot)))
     for column, value in filters.items():
         query = query.where(getattr(GliderClaim, column) == value)
     return list(db.scalars(query.order_by(GliderClaim.claimed_at.desc())).all())
@@ -76,7 +77,8 @@ def render_claim_form(request: Request, db: Session, glider: Glider, token: str,
 @router.get("/claim")
 def claim_picker(request: Request, db: Session = Depends(get_db), pilot: Pilot = Depends(require_flying_member)):
     gliders = db.scalars(select(Glider).where(Glider.active.is_(True)).order_by(Glider.kind, Glider.registration)).all()
-    rows = [{"glider": g, "claims": active_claims(db, glider_id=g.id)} for g in gliders]
+    claims = active_claims(db)
+    rows = [{"glider": g, "claims": [c for c in claims if c.glider_id == g.id]} for g in gliders]
     return templates.TemplateResponse(request, "claim/picker.html", {
         "rows": rows, "pilot": pilot, "my_claims": active_claims(db, pilot_id=pilot.id)})
 

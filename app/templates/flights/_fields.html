@@ -42,7 +42,7 @@
             {{ member_options(c.members, form.pilot_id) }}
         </select>
     </label>
-    <label class="span-2" data-show-if="pilot_id=">Name des Piloten (falls kein Mitglied)
+    <label class="span-2" data-show-if="pilot_id=" {{ "hidden" if form.pilot_id }}>Name des Piloten (falls kein Mitglied)
         <input type="text" name="pilot_name" value="{{ form.pilot_name }}" placeholder="Vorname Name" maxlength="100">
     </label>
 
@@ -53,7 +53,7 @@
             {{ member_options(c.members, form.companion_id) }}
         </select>
     </label>
-    <label class="span-2" data-show-if="companion_id={{ c.guest }}">Name des Gasts
+    <label class="span-2" data-show-if="companion_id={{ c.guest }}" {{ "hidden" if form.companion_id != c.guest }}>Name des Gasts
         <input type="text" name="companion_name" value="{{ form.companion_name }}" placeholder="Vorname Name" maxlength="100">
     </label>
 
@@ -80,14 +80,14 @@
             {% for code, label in c.billing_types.items() %}<option value="{{ code }}" {{ "selected" if form.billing == code }}>{{ label }}</option>{% endfor %}
         </select>
     </label>
-    <label class="span-2" data-show-if="billing=other_member">Zahlt
+    <label class="span-2" data-show-if="billing=other_member" {{ "hidden" if form.billing != "other_member" }}>Zahlt
         <select name="billing_member_id" data-search>
             <option value="">-- Mitglied wählen --</option>
             {{ member_options(c.members, form.billing_member_id) }}
         </select>
     </label>
 
-    <fieldset class="tow-fields" data-show-if="launch_method=F">
+    <fieldset class="tow-fields" data-show-if="launch_method=F" {{ "hidden" if form.launch_method != "F" }}>
         <legend>Schleppflugdaten</legend>
         <div class="form-grid">
             <label class="span-2">Schleppflugzeug
