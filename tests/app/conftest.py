@@ -29,6 +29,7 @@ templates.env.undefined = StrictUndefined
 def _reset_db():
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
+    engine.dispose()  # Postgres: pooled connections cache plans of the old tables
     yield
 
 

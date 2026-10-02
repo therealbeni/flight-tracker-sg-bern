@@ -1,5 +1,6 @@
 """Tracker tests: tracker/src (the tracker's modules) and the repo root (for the
-`shared` package) on sys.path, and a throwaway SQLite database per test."""
+`shared` package) on sys.path, and fresh tables per test (Postgres from dev/test.sh,
+or SQLite)."""
 
 import os
 import sys
@@ -24,6 +25,7 @@ import shared.models  # noqa: F401  (registers tables on Base.metadata)
 def _reset_db():
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
+    engine.dispose()  # Postgres: pooled connections cache plans of the old tables
     yield
 
 
