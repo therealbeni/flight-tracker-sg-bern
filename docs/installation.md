@@ -6,8 +6,7 @@
 docker compose up -d
 ```
 
-CSV files, raw beacon recordings and the terrain cache are written to `./data/` on the
-host. The app container applies database migrations on startup. All containers restart
+Raw beacon recordings and the terrain cache are written to `./data/` on the host. The app container applies database migrations on startup. All containers restart
 automatically unless explicitly stopped.
 
 See [Deployment](deployment.md) for the production setup.

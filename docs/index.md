@@ -1,6 +1,6 @@
 # Flight Tracker SG Bern
 
-Logs takeoffs and landings at Bern Belp Airport (LSZB) by listening to live [OGN](https://www.glidernet.org/) APRS beacons. Each detected movement is written to a daily CSV file.
+Logs the takeoffs and landings of SG Bern's aircraft by listening to live [OGN](https://www.glidernet.org/) APRS beacons, and writes them into the web app's database (flight book, pilot logbooks).
 
 ```{toctree}
 :maxdepth: 2

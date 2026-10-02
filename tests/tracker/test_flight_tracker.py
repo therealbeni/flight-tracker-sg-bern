@@ -1,11 +1,10 @@
-"""The glue in flight_tracker.py: OGN parsing, CSV output, sink isolation."""
+"""The glue in flight_tracker.py: OGN parsing, club-only tracking, sink isolation."""
 
-import csv
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from detection import EventKind
-from flight_tracker import CsvLogger, RawRecorder, Tracker, beacon_from_ogn
-from sim import LSPG, Sim, make_detector
+from flight_tracker import RawRecorder, Tracker, beacon_from_ogn
+from sim import Sim, make_detector
 
 UTC = timezone.utc
 
@@ -49,51 +48,10 @@ def test_replayed_beacon_gets_the_day_it_was_received():
     assert b.timestamp == datetime(2026, 9, 12, 13, 40, 5, tzinfo=UTC)
 
 
-def read_csv(path):
-    with path.open(newline="", encoding="utf-8") as f:
-        return list(csv.DictReader(f))
-
-
-def fly(sinks, sim):
-    tracker = Tracker(make_detector(), sinks)
+def fly(sinks, sim, **kwargs):
+    tracker = Tracker(make_detector(), sinks, **kwargs)
     for beacon in sim.beacons:
         tracker.process(beacon)
-
-
-def test_csv_row_written_on_takeoff_and_completed_on_landing(tmp_path):
-    logger = CsvLogger.for_airport("LSZB", output_dir=tmp_path)
-    sim = Sim().park(120).accelerate(0, 70, 16).climb(to_height=600, speed=110)
-    tracker = Tracker(make_detector(), [logger])
-    for beacon in sim.beacons:
-        tracker.process(beacon)
-    [row] = read_csv(tmp_path / "LSZB_movements_2026-09-26.csv")
-    assert row["callsign"] == "HB-1811" and row["takeoff_airport"] == "LSZB" and row["landing_time"] == ""
-
-    already_sent = len(sim.beacons)
-    sim.cruise(1200).fly_to(46.9144, 7.4990).descend(0).decelerate(90, 0, 24).park(120)
-    for beacon in sim.beacons[already_sent:]:
-        tracker.process(beacon)
-    [row] = read_csv(tmp_path / "LSZB_movements_2026-09-26.csv")
-    assert row["landing_airport"] == "LSZB" and float(row["flight_duration_min"]) > 20
-    assert row["takeoff_estimated"] == "0" and row["landing_estimated"] == "0"
-
-
-def test_airport_logger_ignores_flights_elsewhere(tmp_path):
-    fly([CsvLogger.for_airport("LSTZ", output_dir=tmp_path)], Sim().park(120).local_flight(20).park(120))
-    assert list(tmp_path.iterdir()) == []
-
-
-def test_fleet_logger_logs_club_aircraft_anywhere(tmp_path):
-    sim = Sim(lat=LSPG.lat, lon=LSPG.lon, ground_alt=470).park(120).local_flight(20).park(120)
-    fly([CsvLogger.for_fleet("sg-bern", lambda: {"4B4BBA": "HB-1811"}, output_dir=tmp_path)], sim)
-    [row] = read_csv(tmp_path / "sg-bern_movements_2026-09-26.csv")
-    assert row["takeoff_airport"] == row["landing_airport"] == "LSPG"
-
-
-def test_several_flights_append_to_the_same_day_file(tmp_path):
-    sim = Sim().park(120).local_flight(15).park(600).local_flight(15).park(120)
-    fly([CsvLogger.for_airport("LSZB", output_dir=tmp_path)], sim)
-    assert len(read_csv(tmp_path / "LSZB_movements_2026-09-26.csv")) == 2
 
 
 class Broken:
@@ -115,11 +73,20 @@ def test_a_failing_sink_does_not_stop_the_others():
     assert [e.kind for e in collect.events] == [EventKind.TAKEOFF, EventKind.LANDING]
 
 
+def test_only_club_aircraft_are_tracked():
+    collect = Collect()
+    fly([collect], Sim(address="AAAAAA").park(120).local_flight(20).park(120), track=lambda a: a == "4B4BBA")
+    assert collect.events == []
+    fly([collect], Sim().park(120).local_flight(20).park(120), track=lambda a: a == "4B4BBA")
+    assert [e.kind for e in collect.events] == [EventKind.TAKEOFF, EventKind.LANDING]
+
+
 def test_tracker_sweeps_on_the_stream_clock():
     # Signal lost low on final: only the periodic sweep can close the flight,
-    # driven by other aircraft's beacons keeping the stream clock going.
+    # driven by other aircraft's beacons keeping the stream clock going - even
+    # though those aircraft themselves are not tracked.
     collect = Collect()
-    tracker = Tracker(make_detector(), [collect])
+    tracker = Tracker(make_detector(), [collect], track=lambda address: address == "4B4BBA")
     sim = Sim().park(120).accelerate(0, 70, 16).climb(to_height=400, speed=110).descend(to_height=150)
     other = Sim(address="AAAAAA", start=sim.t).park(20 * 60)
     for beacon in sim.beacons + other.beacons:

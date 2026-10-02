@@ -39,11 +39,3 @@
 :undoc-members:
 :show-inheritance:
 ```
-
-## ddb
-
-```{automodule} ddb
-:members:
-:undoc-members:
-:show-inheritance:
-```

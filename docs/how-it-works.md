@@ -1,7 +1,9 @@
 # How it works
 
 The tracker connects to the OGN APRS network with an anonymous `N0CALL` login and
-receives every position beacon within 300 km of central Switzerland.
+receives every position beacon within 300 km of central Switzerland. Only the club's
+aircraft (the `gliders` table) are tracked; the rest of the traffic only shows that the
+feed is up.
 
 ```
 APRS line -> ogn-parser -> Beacon -> FlightDetector -> takeoff/landing events -> sinks
@@ -10,7 +12,7 @@ APRS line -> ogn-parser -> Beacon -> FlightDetector -> takeoff/landing events ->
 | Module | Job |
 |---|---|
 | `tracker/run.py` | Wiring: connects to OGN, restores open flights after a restart, logs a health line every 10 min. |
-| `flight_tracker.py` | Converts parser output to `Beacon`s, runs the periodic sweep, hands events to every sink (one failing sink never affects the others). Also the CSV logger and the raw beacon recorder. |
+| `flight_tracker.py` | Converts parser output to `Beacon`s, runs the periodic sweep, hands events to every sink (one failing sink never affects the others). Also the raw beacon recorder. |
 | `detection.py` | The takeoff/landing state machine. Pure logic, no I/O - tested beacon by beacon. |
 | `db_sink.py` | Writes club glider flights into the web app's database and matches QR claims to takeoffs. |
 | `airports.py` | "Which airfield is this?" - nearest real airfield within 3 km (OurAirports data, heliports/closed fields excluded). |

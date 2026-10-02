@@ -1,12 +1,11 @@
-"""OGN flight tracker: listens to live OGN beacons and logs takeoffs/landings.
+"""OGN flight tracker: listens to live OGN beacons and logs the takeoffs and
+landings of the club's aircraft.
 
-Outputs (all under DATA_DIR):
-  - {ICAO}_movements_{date}.csv   every flight touching a home airfield
-  - sg-bern_movements_{date}.csv  every flight of a club glider, anywhere
-  - raw/{date}.aprs               raw beacons of club gliders, for replay.py
-  - the `flights` table of the web app's database (club gliders only)
+Outputs:
+  - the `flights` table of the web app's database
+  - DATA_DIR/raw/{date}.aprs   raw beacons of club aircraft, for replay.py
 
-See docs/how-it-works.md.
+Only aircraft in the `gliders` table are tracked. See docs/how-it-works.md.
 """
 
 import os
@@ -21,14 +20,13 @@ from ogn.parser import AprsParseError, parse
 
 from airports import AirportDirectory
 from db_sink import DbSink
-from ddb import DeviceDatabase
 from detection import FlightDetector
-from flight_tracker import CsvLogger, RawRecorder, Tracker, beacon_from_ogn
+from flight_tracker import RawRecorder, Tracker, beacon_from_ogn
 from shared.database import SessionLocal
 from terrain import Terrain
 
-HOME_AIRFIELDS = ["LSZB", "LSTZ"]
-# Beacons within this many km of the point are received (APRS range filter).
+# Beacons within this many km of the point are received (APRS range filter):
+# club aircraft on cross-country flights anywhere in Switzerland.
 APRS_FILTER = "r/46.8/8.2/300"
 DATA_DIR = os.environ.get("DATA_DIR", ".")
 AIRPORTS_CSV = os.path.join(os.path.dirname(__file__), "src", "airports.csv")
@@ -40,8 +38,6 @@ def log(message: str) -> None:
     print(message, file=sys.stderr, flush=True)
 
 
-ddb = DeviceDatabase()
-log(f"Loaded {ddb.load()} entries from OGN device database.")
 airports = AirportDirectory.from_csv(AIRPORTS_CSV)
 log(f"Loaded {len(airports)} airfields.")
 terrain = Terrain()
@@ -50,24 +46,16 @@ terrain.preload(lat_min=46, lat_max=47, lon_min=6, lon_max=8)  # home region, av
 db_sink = DbSink(SessionLocal)
 
 
+def is_club_aircraft(address: str) -> bool:
+    return address in db_sink.fleet()
+
+
 def aircraft_info(address: str) -> tuple[str, str]:
-    entry = ddb.lookup(address)
-    registration = (entry.registration if entry else "") or db_sink.fleet().get(address, "")
-    return registration, entry.model if entry else ""
-
-
-def is_ours(flight) -> bool:
-    """Club glider, or a movement at a home airfield: worth a line in the log."""
-    airfields = (flight.takeoff_airport, flight.landing_airport)
-    return flight.address in db_sink.fleet() or any(a is not None and a.icao in HOME_AIRFIELDS for a in airfields)
+    return db_sink.fleet().get(address, ""), ""
 
 
 detector = FlightDetector(terrain=terrain.elevation, nearest_airport=airports.nearest, aircraft_info=aircraft_info)
-tracker = Tracker(detector, sinks=[
-    *(CsvLogger.for_airport(icao, output_dir=DATA_DIR) for icao in HOME_AIRFIELDS),
-    CsvLogger.for_fleet("sg-bern", db_sink.fleet, output_dir=DATA_DIR),
-    db_sink,
-], announce=is_ours)
+tracker = Tracker(detector, sinks=[db_sink], track=is_club_aircraft)
 raw = RawRecorder(os.path.join(DATA_DIR, "raw"), db_sink.fleet)
 
 # Flights that were in the air when the tracker last stopped.
@@ -106,11 +94,9 @@ def process_line(raw_message: str) -> None:
 
     if time.monotonic() >= next_stats:
         next_stats = time.monotonic() + STATS_EVERY_S
-        airborne = detector.active_flights()
-        ours = ", ".join(sorted(f.registration or f.address for f in airborne if is_ours(f)))
+        airborne = ", ".join(sorted(f.registration or f.address for f in detector.active_flights()))
         log(f"Last {STATS_EVERY_S // 60} min: {stats['beacons']} position beacons, "
-            f"{stats['parse_errors']} unparseable lines. {len(airborne)} aircraft in the air, "
-            f"ours: {ours or 'none'}")
+            f"{stats['parse_errors']} unparseable lines. Club aircraft in the air: {airborne or 'none'}")
         stats.update(beacons=0, parse_errors=0)
 
 
@@ -119,7 +105,7 @@ while True:
     client = AprsClient(aprs_user="N0CALL", aprs_filter=APRS_FILTER)
     try:
         client.connect()
-        log("Connected. Logging traffic.")
+        log("Connected. Tracking club aircraft.")
         client.run(callback=process_line, autoreconnect=True)
         log(f"Connection lost. Reconnecting in {RECONNECT_DELAY_S}s...")
     except KeyboardInterrupt:

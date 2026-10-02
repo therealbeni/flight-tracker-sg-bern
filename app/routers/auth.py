@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 
 from config import settings
 from database import get_db
-from deps import get_current_pilot
 from email_sender import sender
 from models import Pilot, PilotRole, PilotStatus, PasswordResetToken
 from security import (client_ip, generate_token, hash_password, hash_token, login_throttle, password_problem,

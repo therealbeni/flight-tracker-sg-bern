@@ -8,7 +8,7 @@ from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
 import main as main_module
-from models import Airfield, Flight, Glider, GliderClaim, Pilot, PilotRole, PilotStatus
+from models import Airfield, Flight, Glider, Pilot, PilotRole, PilotStatus
 from security import LoginThrottle, hash_password, login_throttle
 
 PASSWORD = "password123"
