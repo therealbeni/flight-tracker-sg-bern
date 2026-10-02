@@ -153,6 +153,9 @@ class DbSink:
             for towed in db.scalars(select(Flight).where(Flight.tow_flight_id == flight.id)).all():
                 towed.tow_flight_id = towed.tow_glider_id = None
                 towed.launch_method = None
+            # Write the cleared links first: the ORM doesn't know they point at
+            # this row and might delete it before (Postgres refuses that).
+            db.flush()
             db.delete(flight)
             return
         duration = record.duration
