@@ -171,3 +171,45 @@ def test_deleted_tow_flight_is_not_linked(db_session, fleet):
     row(db_session, tow).deleted_at = T
     db_session.commit()
     assert row(db_session, fly(sink, fleet["glider"], T)).tow_flight_id is None
+
+
+@pytest.mark.parametrize("motor_detected_first", [True, False])
+def test_motor_glider_can_tow_a_glider(db_session, fleet, motor_detected_first):
+    sink = DbSink(SessionLocal)
+    if motor_detected_first:
+        tow = fly(sink, fleet["motor"], T + timedelta(seconds=5), minutes=12)
+        glider = fly(sink, fleet["glider"], T, minutes=45)
+    else:
+        glider = fly(sink, fleet["glider"], T, minutes=45)
+        tow = fly(sink, fleet["motor"], T + timedelta(seconds=5), minutes=12)
+    g = row(db_session, glider)
+    assert g.launch_method is LaunchMethod.AEROTOW and g.tow_flight.record_id == tow
+    assert g.tow_glider_id == fleet["motor"].id
+    t = row(db_session, tow)
+    assert t.launch_method is LaunchMethod.SELF
+    assert (t.flight_type, t.billing) == ("F", "none")  # this flight was a tow
+
+
+def test_motor_glider_flying_alone_is_a_normal_flight(db_session, fleet):
+    t = row(db_session, fly(DbSink(SessionLocal), fleet["motor"], T))
+    assert (t.flight_type, t.billing) == ("N", "pilot")
+
+
+def test_glider_gets_the_aircraft_that_took_off_with_it(db_session, fleet):
+    # Tow plane tows; the motor glider happens to take off just after them.
+    sink = DbSink(SessionLocal)
+    glider = fly(sink, fleet["glider"], T, minutes=45)
+    tow = fly(sink, fleet["tow"], T + timedelta(seconds=3), minutes=9)
+    motor = fly(sink, fleet["motor"], T + timedelta(seconds=55), minutes=60)
+    assert row(db_session, glider).tow_flight.record_id == tow
+    assert (row(db_session, motor).flight_type, row(db_session, motor).billing) == ("N", "pilot")
+
+
+def test_dropping_a_too_short_glider_flight_makes_the_motor_glider_flight_normal_again(db_session, fleet):
+    sink = DbSink(SessionLocal)
+    record = FlightRecord(address=fleet["motor"].ogn_device_id, registration="HB-2377", model="",
+                          takeoff_time=T + timedelta(seconds=4), takeoff_airport=LSZB)
+    sink.handle(FlightEvent(EventKind.TAKEOFF, record))  # motor glider in the air
+    fly(sink, fleet["glider"], T, minutes=0.3)  # glider bounced on the runway, not a flight
+    t = row(db_session, record.record_id)
+    assert (t.flight_type, t.billing) == ("N", "pilot")

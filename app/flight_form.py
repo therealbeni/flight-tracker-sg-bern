@@ -104,12 +104,12 @@ class FlightInput:
         return form
 
     def fill_tow_defaults(self, db: Session, when: Optional[datetime]) -> None:
-        """F-Schlepp without tow data yet: the club's tow plane, and whoever is
-        checked in on it (the tow pilot of the day)."""
+        """F-Schlepp without tow data yet: the club's tow plane (a motor glider
+        only if there's none), and whoever is checked in on it (the tow pilot
+        of the day)."""
         if not self.tow_glider_id:
-            towplane = db.scalar(select(Glider).where(Glider.kind == AircraftKind.TOWPLANE, Glider.active.is_(True))
-                                 .order_by(Glider.registration))
-            self.tow_glider_id = str(towplane.id) if towplane else ""
+            tugs = sorted(tow_aircraft(db), key=lambda g: g.kind is not AircraftKind.TOWPLANE)
+            self.tow_glider_id = str(tugs[0].id) if tugs else ""
         if not self.tow_pilot_id and self.tow_glider_id:
             claim = db.scalar(select(GliderClaim)
                               .where(GliderClaim.glider_id == int(self.tow_glider_id),
@@ -175,7 +175,7 @@ def save(db: Session, user: Pilot, form: FlightInput, flight: Optional[Flight] =
     tow_glider_id = tow_pilot_id = None
     if launch is LaunchMethod.AEROTOW:
         tow_glider = db.get(Glider, _int_or_none(form.tow_glider_id) or 0)
-        if tow_glider is None:
+        if tow_glider is None or not tow_glider.kind.can_tow:
             errors.append("Bitte das Schleppflugzeug wählen.")
         else:
             tow_glider_id = tow_glider.id
@@ -300,6 +300,12 @@ def _fit(text: Optional[str]) -> Optional[str]:
     return text if text is None or len(text) <= 255 else text[:254] + "…"
 
 
+def tow_aircraft(db: Session) -> list[Glider]:
+    """Aircraft that can tow: tow planes and motor gliders."""
+    return [g for g in db.scalars(select(Glider).where(Glider.active.is_(True)).order_by(Glider.registration)).all()
+            if g.kind.can_tow]
+
+
 def members(db: Session) -> list[Pilot]:
     """Everyone who can be pilot or Begleiter (not the FDL account)."""
     return list(db.scalars(
@@ -316,7 +322,12 @@ def form_choices(db: Session) -> dict:
     gliders = db.scalars(select(Glider).where(Glider.active.is_(True)).order_by(Glider.kind, Glider.registration)).all()
     return {
         "gliders": gliders,
-        "towplanes": [g for g in gliders if g.kind is AircraftKind.TOWPLANE],
+        "towplanes": [g for g in gliders if g.kind.can_tow],
+        # Who is checked in on each tow aircraft now: the form suggests them
+        # as tow pilot when that aircraft is picked (static/flight-form.js).
+        "tow_pilots": {c.glider_id: c.pilot_id for c in db.scalars(
+            select(GliderClaim).where(GliderClaim.active_at(datetime.now(timezone.utc)))
+            .order_by(GliderClaim.claimed_at)).all()},
         "members": members(db),
         "airfields": db.scalars(select(Airfield).order_by(Airfield.icao)).all(),
         "launch_methods": list(LaunchMethod),

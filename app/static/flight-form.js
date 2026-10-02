@@ -6,6 +6,8 @@
 //    JavaScript the plain dropdown still works.
 //  - data-show-if="name=value": the element is only shown while the form
 //    field `name` has that value (e.g. the guest's name field for "Gast").
+//  - Schleppflugzeug: picking another tow aircraft suggests whoever is
+//    checked in on it as tow pilot, unless a tow pilot was chosen by hand.
 (function () {
     // "Zürcher" is found with "zurcher", "Müller" with "muller".
     function normalize(text) {
@@ -145,6 +147,22 @@
         update();
     }
 
+    function setUpTowPilot(form) {
+        const aircraft = form.elements["tow_glider_id"];
+        const pilot = form.elements["tow_pilot_id"];
+        if (!aircraft || !pilot) return;
+        const suggested = () => (aircraft.selectedOptions[0] && aircraft.selectedOptions[0].dataset.pilot) || "";
+        let previous = suggested();
+        aircraft.addEventListener("change", () => {
+            if (pilot.value === "" || pilot.value === previous) {
+                pilot.value = suggested();
+                pilot.dispatchEvent(new Event("change", { bubbles: true }));
+            }
+            previous = suggested();
+        });
+    }
+
     document.querySelectorAll("select[data-search]").forEach(makeSearchable);
     document.querySelectorAll("form").forEach(setUpShowIf);
+    document.querySelectorAll("form").forEach(setUpTowPilot);
 })();

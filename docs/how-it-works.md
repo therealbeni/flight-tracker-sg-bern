@@ -50,6 +50,10 @@ estimated. Silence caused by our own connection being down is not counted.
 **First seen in the air** (e.g. took off out of coverage, or the tracker just started):
 the flight gets an *estimated* takeoff.
 
+**Tows.** A glider taking off within 60 s of a tow plane or motor glider at the same
+airfield is linked to it as an aerotow (the closest in time if there are several). The
+tow's flight becomes Flugart F, billed with the glider, as in Vereinsflieger.
+
 **Restarts.** Flights still open in the database are re-attached at startup, so their
 landing completes the same record.
 

@@ -71,6 +71,11 @@ class AircraftKind(str, enum.Enum):
         return {"glider": "Segelflugzeug", "motorglider": "Motorsegler", "towplane": "Schleppflugzeug"}[self.value]
 
     @property
+    def can_tow(self) -> bool:
+        """Tow planes, and motor gliders (they can tow gliders too)."""
+        return self is not AircraftKind.GLIDER
+
+    @property
     def flies_all_day(self) -> bool:
         """Usually one pilot for many flights (tow pilot, motor glider trip), so
         checking in defaults to 'for the whole day'."""

@@ -149,6 +149,11 @@ def club_pc_flow(page: Page) -> None:
     expect(tow).to_be_visible()
     expect(tow.locator("select[name=tow_glider_id]")).to_have_value(re.compile(r"\d+"))
     expect(tow.locator(".combo-input")).to_have_value("Toni Schlepp")
+    # The motor glider can tow too; nobody is checked in on it, so no tow pilot is suggested.
+    tow.locator("select[name=tow_glider_id]").select_option(label="HB-2377 (H36 Dimona)")
+    expect(tow.locator(".combo-input")).to_have_value("-- unbekannt --")
+    tow.locator("select[name=tow_glider_id]").select_option(label="D-EDUY (Robin DR400)")
+    expect(tow.locator(".combo-input")).to_have_value("Toni Schlepp")
     form.locator("select[name=launch_method]").select_option("W")
     expect(tow).to_be_hidden()
     form.locator("select[name=launch_method]").select_option("F")

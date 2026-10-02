@@ -92,7 +92,7 @@
             <label class="span-2">Schleppflugzeug
                 <select name="tow_glider_id">
                     <option value="">-- wählen --</option>
-                    {% for g in c.towplanes %}<option value="{{ g.id }}" {{ "selected" if form.tow_glider_id == g.id|string }}>{{ g.registration }}{% if g.model %} ({{ g.model }}){% endif %}</option>{% endfor %}
+                    {% for g in c.towplanes %}<option value="{{ g.id }}" data-pilot="{{ c.tow_pilots.get(g.id, '') }}" {{ "selected" if form.tow_glider_id == g.id|string }}>{{ g.registration }}{% if g.model %} ({{ g.model }}){% endif %}</option>{% endfor %}
                 </select>
             </label>
             <label class="span-2">Schlepppilot

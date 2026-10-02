@@ -106,25 +106,23 @@ class DbSink:
         return flight
 
     def _link_tow(self, db: Session, glider: Glider, flight: Flight) -> None:
-        """Pairs a glider takeoff with the tow plane taking off with it (same
-        airfield, within TOW_WINDOW). Whichever of the two is detected second
-        makes the link."""
+        """Pairs a glider takeoff with the tow plane or motor glider taking off
+        with it (same airfield, within TOW_WINDOW; the closest one if there are
+        several). Whichever of the two is detected second makes the link."""
         if flight.takeoff_airfield_icao is None or flight.takeoff_estimated:
             return
-        if glider.kind is AircraftKind.TOWPLANE:
-            wanted = AircraftKind.GLIDER
-        elif glider.kind is AircraftKind.GLIDER:
-            wanted = AircraftKind.TOWPLANE
+        if glider.kind.can_tow:
+            wanted = [AircraftKind.GLIDER]
         else:
-            return
+            wanted = [kind for kind in AircraftKind if kind.can_tow]
         candidates = db.scalars(
             select(Flight).join(Glider, Flight.glider_id == Glider.id)
-            .where(Glider.kind == wanted, Flight.id != flight.id, Flight.deleted_at.is_(None))
+            .where(Glider.kind.in_(wanted), Flight.id != flight.id, Flight.deleted_at.is_(None))
             .where(Flight.takeoff_airfield_icao == flight.takeoff_airfield_icao,
                    Flight.takeoff_estimated.is_(False))
             .where(Flight.takeoff_time.between(flight.takeoff_time - TOW_WINDOW, flight.takeoff_time + TOW_WINDOW))
         ).all()
-        if wanted is AircraftKind.GLIDER:
+        if glider.kind.can_tow:
             candidates = [f for f in candidates if f.tow_flight_id is None]
         else:
             towing = set(db.scalars(select(Flight.tow_flight_id).where(Flight.tow_flight_id.is_not(None))).all())
@@ -132,11 +130,14 @@ class DbSink:
         if not candidates:
             return
         other = min(candidates, key=lambda f: abs(_aware(f.takeoff_time) - _aware(flight.takeoff_time)))
-        towed, tow = (other, flight) if wanted is AircraftKind.GLIDER else (flight, other)
+        towed, tow = (other, flight) if glider.kind.can_tow else (flight, other)
         towed.tow_flight_id = tow.id
         towed.launch_method = LaunchMethod.AEROTOW
         if towed.tow_glider_id is None:
             towed.tow_glider_id = tow.glider_id
+        # Vereinsflieger: a tow is Flugart F, billed with the towed glider (a
+        # tow plane's flights start out that way, a motor glider's become so).
+        tow.flight_type, tow.billing = "F", "none"
 
     def _record_landing(self, db: Session, flight: Flight, record: FlightRecord) -> None:
         if is_too_short(record, self._min_duration):
@@ -146,6 +147,9 @@ class DbSink:
             if claim is not None:
                 claim.consumed_at = None
                 claim.flight_id = None
+            tow = flight.tow_flight
+            if tow is not None and tow.glider is not None and tow.glider.kind is AircraftKind.MOTORGLIDER:
+                tow.flight_type, tow.billing = "N", "pilot"  # it didn't tow after all
             for towed in db.scalars(select(Flight).where(Flight.tow_flight_id == flight.id)).all():
                 towed.tow_flight_id = towed.tow_glider_id = None
                 towed.launch_method = None

@@ -328,7 +328,7 @@ def test_aerotow_form_defaults_to_the_tow_plane_and_its_checked_in_pilot(client,
     login(client, "desk")
     page = client.get("/flugbuch").text
     tow_section = page[page.index('name="tow_glider_id"'):page.index("</fieldset>")]
-    assert f'<option value="{world["tow"].id}" selected>D-EDUY' in tow_section
+    assert f'<option value="{world["tow"].id}" data-pilot="{world["bob"].id}" selected>D-EDUY' in tow_section
     assert f'<option value="{world["bob"].id}" selected>Bob Brunner' in tow_section
 
     resp = client.post("/flugbuch", data=new_flight_form(world["glider"], launch_method="F",
@@ -457,3 +457,23 @@ def test_flugbuch_offers_checkout_for_each_pilot_of_the_day(client, db_session, 
     login(client, "desk")
     page = client.get("/flugbuch").text
     assert f'href="/auschecken/{world["pia"].id}?datum={today_local()}">Pia Pilot</a>' in page
+
+
+def test_motor_glider_can_be_the_tow_aircraft(client, db_session, world):
+    motor = Glider(registration="HB-2377", ogn_device_id="4B4DF0", kind=AircraftKind.MOTORGLIDER)
+    db_session.add(motor)
+    db_session.commit()
+    login(client, "desk")
+    page = client.get("/flugbuch").text
+    tow_section = page[page.index('name="tow_glider_id"'):page.index("</fieldset>")]
+    assert "HB-2377" in tow_section and "HB-1811" not in tow_section
+    assert f'<option value="{world["tow"].id}" data-pilot="" selected>D-EDUY' in tow_section  # still the default
+
+    resp = client.post("/flugbuch", data=new_flight_form(world["glider"], launch_method="F",
+                                                         tow_glider_id=str(motor.id)), follow_redirects=False)
+    assert resp.status_code == 303
+    assert db_session.query(Flight).filter_by(glider_id=world["glider"].id).one().tow_glider_id == motor.id
+    # A glider can't tow.
+    resp = client.post("/flugbuch", data=new_flight_form(world["glider"], launch_method="F",
+                                                         tow_glider_id=str(world["glider"].id)))
+    assert resp.status_code == 400 and "Bitte das Schleppflugzeug wählen." in resp.text
