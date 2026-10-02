@@ -13,8 +13,6 @@ class Settings:
             "All pilots will be logged out on every restart. Set SESSION_SECRET in .env for production.",
             file=sys.stderr,
         )
-    # How long a QR-code glider claim stays valid if the pilot never takes off.
-    claim_ttl_minutes: int = int(os.environ.get("CLAIM_TTL_MINUTES", "180"))
     # Password reset links expire after this long.
     reset_token_ttl_minutes: int = int(os.environ.get("RESET_TOKEN_TTL_MINUTES", "60"))
     base_url: str = os.environ.get("BASE_URL", "http://localhost:8000")

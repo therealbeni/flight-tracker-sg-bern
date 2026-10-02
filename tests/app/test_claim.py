@@ -177,3 +177,21 @@ def test_picker_shows_who_is_checked_in(client, db_session):
     approve(db_session, "bob@example.com")
     client.post("/login", data={"email": "bob@example.com", "password": "password123"})
     assert "Alice eingecheckt" in client.get("/claim").text
+
+
+def test_one_flight_check_in_lasts_until_takeoff_even_after_a_long_wait(client, db_session):
+    """Bug: a one-flight check-in silently ended 3 h after checking in. On a
+    busy day a pilot easily waits longer than that for a launch - the flight
+    then had no pilot."""
+    from timeutil import as_utc, local_end_of_day
+
+    signup_and_login(client, "Alice Admin", "alice@example.com")
+    glider = make_glider(db_session)
+    client.post(f"/claim/{glider.claim_token}")
+
+    claim = db_session.query(GliderClaim).one()
+    claimed_at = as_utc(claim.claimed_at)
+    assert as_utc(claim.expires_at) == local_end_of_day(claimed_at)
+    still_waiting = claimed_at + timedelta(hours=5)
+    if still_waiting < as_utc(claim.expires_at):  # not when the test runs just before midnight
+        assert db_session.query(GliderClaim).filter(GliderClaim.active_at(still_waiting)).count() == 1

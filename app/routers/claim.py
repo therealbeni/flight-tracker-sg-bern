@@ -4,14 +4,13 @@ The tracker gives a takeoff the pilot of the most recent active claim on that
 aircraft - see GliderClaim in shared/models.py.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
-from config import settings
 from database import get_db
 from deps import back_url, require_approved
 from models import Glider, GliderClaim, Pilot
@@ -66,8 +65,10 @@ def claim_submit(request: Request, token: str, mode: str = Form("next"),
         superseded = superseded.where(GliderClaim.whole_day.is_(False))
     db.execute(superseded.values(cancelled_at=now))
 
-    expires_at = local_end_of_day(now) if whole_day else now + timedelta(minutes=settings.claim_ttl_minutes)
-    db.add(GliderClaim(glider_id=glider.id, pilot_id=pilot.id, claimed_at=now, expires_at=expires_at,
+    # Both kinds last until local midnight: waiting hours for a launch is
+    # normal. A one-flight check-in ends earlier at its takeoff, when released,
+    # or at checkout.
+    db.add(GliderClaim(glider_id=glider.id, pilot_id=pilot.id, claimed_at=now, expires_at=local_end_of_day(now),
                        whole_day=whole_day))
     db.commit()
     return templates.TemplateResponse(request, "claim/claim_success.html", {"glider": glider, "whole_day": whole_day})

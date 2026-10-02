@@ -46,7 +46,7 @@ dashboard, personal logbooks, and Vereinsflieger sync. That's the scope of this 
 - Each glider gets a QR code encoding a stable claim token (`/claim/{token}`), rendered
   server-side and viewable/printable from the admin gliders page.
 - Pilot scans it on their phone, confirms, and the system opens a "claim" for that glider
-  (default 3 hour expiry) tied to their account; claiming again supersedes the previous
+  (valid until its takeoff, release, checkout or midnight) tied to their account; claiming again supersedes the previous
   unconsumed claim.
 - The tracker and web app now share one schema (`shared/` package, used by both Docker
   images) instead of duplicating models. `tracker/src/db_sink.py` is a `FilteredLogger`
