@@ -142,6 +142,13 @@ the log - needs an SMTP account), Vereinsflieger sync (needs an API key).
 6. **Konto** (`/konto`): change name, e-mail (needs the password), password (other sessions
    end); owners find their aircraft's QR code there.
 
+## Statistik (branch feature/statistics)
+
+`/statistik` for every member: *Meine* (own flights as pilot and Begleiter, per aircraft,
+per month, launches, longest flight, and launches in the last 90 days - the passenger
+recency of SFCL.160) and *Verein* (all aircraft incl. private ones, tows, flying days, per
+pilot), per year or all years. Rules in `app/flight_stats.py`.
+
 ## Phase 3 — Vereinsflieger sync
 
 - Requires: club board obtains a Vereinsflieger API AppKey (blocking, external to us).

@@ -935,3 +935,42 @@ label.radio input { width: 1.15rem; height: 1.15rem; min-height: 0; margin: 0; p
 .own-aircraft li { display: flex; gap: 1rem; align-items: center; }
 .own-aircraft .qr { flex: none; border: 1px solid var(--border); border-radius: var(--radius-sm); }
 .account-logout { max-width: 560px; }
+
+/* ---------- Statistik ---------- */
+
+.section-link { margin: -0.25rem 0 1rem; font-weight: 600; }
+.section-link a { text-decoration: none; }
+
+.stats-controls { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; margin: 0.5rem 0 1rem; }
+.segmented { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 3px; background: var(--brand-100); border-radius: var(--radius-sm); }
+.segmented a { padding: 0.4rem 0.8rem; border-radius: 6px; color: var(--brand-900); font-weight: 600; font-size: 0.9rem; text-decoration: none; min-height: 36px; display: inline-flex; align-items: center; }
+.segmented a.active { background: var(--surface); box-shadow: 0 1px 2px rgba(20, 30, 45, 0.12); }
+.tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; margin-bottom: 1rem; }
+@media (min-width: 768px) { .tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.tile { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 0.75rem 0.9rem; }
+.tile-num { display: block; font-size: 1.6rem; font-weight: 800; color: var(--brand-900); font-variant-numeric: tabular-nums; }
+.tile-label { display: block; color: var(--ink-muted); font-size: 0.85rem; }
+.recency { margin-bottom: 0.75rem; }
+.recency p { margin: 0; font-weight: 500; }
+.launch-row { display: flex; flex-wrap: wrap; gap: 0.4rem 1.25rem; margin: 0.25rem 0 0.5rem; color: var(--ink); }
+
+figure.chart { position: relative; margin: 0 0 0.5rem; padding: 0.75rem 0.75rem 0.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); }
+figure.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart .grid { stroke: var(--border); stroke-width: 1; }
+.chart .baseline { stroke: #cbd5e1; stroke-width: 1; }
+.chart .tick { fill: var(--ink-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.chart .bar { fill: var(--brand-600); }
+.chart .hit { fill: transparent; }
+.chart .col { cursor: default; outline: none; }
+.chart .col.active .hit, .chart .col:focus-visible .hit { fill: var(--brand-100); }
+.chart .col.active .bar { fill: var(--brand-900); }
+.chart figcaption { margin-top: 0.25rem; }
+.chart-tip { position: absolute; top: 0.25rem; z-index: 2; padding: 0.3rem 0.6rem; background: var(--brand-900); color: #fff; border-radius: var(--radius-sm); font-size: 0.85rem; font-weight: 600; white-space: nowrap; pointer-events: none; }
+.chart-table summary { cursor: pointer; color: var(--brand-700); font-size: 0.85rem; font-weight: 600; margin-top: 0.25rem; }
+.chart-table table { margin-top: 0.5rem; }
+.stats-table { white-space: nowrap; }
+.stats-table td.num, .stats-table th.num, .chart-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.stats-table tr.mine td { background: var(--brand-100); }
+.bar-cell { min-width: 9rem; }
+.bar-cell .inline-bar { display: inline-block; vertical-align: middle; width: 5rem; height: 10px; margin-right: 0.5rem; }
+.bar-cell .inline-bar rect { fill: var(--brand-600); }

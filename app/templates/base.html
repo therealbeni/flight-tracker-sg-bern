@@ -39,6 +39,7 @@
             {% if is_admin %}
             <a href="/admin/pilots" class="{{ 'active' if path.startswith('/admin') }}">Verwaltung</a>
             {% endif %}
+            <a href="/statistik" class="{{ 'active' if path == '/statistik' }}">Statistik</a>
             <a href="/hilfe" class="{{ 'active' if path == '/hilfe' }}">Hilfe</a>
             <a href="/konto" class="nav-icon {{ 'active' if path.startswith('/konto') }}">{{ icons.icon("gear") }} Konto</a>
         </nav>

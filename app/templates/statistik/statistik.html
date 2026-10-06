@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}Statistik{% endblock %}
+{% block page_class %}stats-page{% endblock %}
+
+{# Flight hours per month as columns (flight_stats.month_chart). Hovering or
+   focusing a month shows its numbers (static/stats.js); the same numbers
+   are in the table below the chart. #}
+{% macro month_chart(chart, year) %}
+{% set w, h, left, top, bottom = 480, 190, 34, 12, 160 %}
+{% set slot = (w - left) / 12 %}
+<figure class="chart">
+    <svg viewBox="0 0 {{ w }} {{ h }}" role="img" aria-label="Flugstunden pro Monat">
+        {% for t in chart.ticks %}
+        {% set y = bottom - (bottom - top) * t / chart.top %}
+        <line class="grid" x1="{{ left }}" x2="{{ w }}" y1="{{ y }}" y2="{{ y }}"/>
+        <text class="tick" x="{{ left - 8 }}" y="{{ y + 4 }}" text-anchor="end">{{ t|round(1)|string|replace(".0", "") }}</text>
+        {% endfor %}
+        {% for c in chart.columns %}
+        {% set x = left + slot * loop.index0 %}
+        {% set bh = (bottom - top) * c.share %}
+        <g class="col" tabindex="0" data-tip="{{ c.name }}{% if year %} {{ year }}{% endif %}: {{ c.flights }} {{ 'Flug' if c.flights == 1 else 'Flüge' }}, {{ c.minutes|flugzeit }} h">
+            <rect class="hit" x="{{ x }}" y="{{ top }}" width="{{ slot }}" height="{{ bottom - top }}"/>
+            {% if bh >= 0.5 %}
+            {% set bx = x + slot / 2 - 10 %}{% set r = [4, bh]|min %}
+            <path class="bar" d="M{{ bx }},{{ bottom }} V{{ bottom - bh + r }} Q{{ bx }},{{ bottom - bh }} {{ bx + r }},{{ bottom - bh }} H{{ bx + 20 - r }} Q{{ bx + 20 }},{{ bottom - bh }} {{ bx + 20 }},{{ bottom - bh + r }} V{{ bottom }} Z"/>
+            {% endif %}
+            <text class="tick" x="{{ x + slot / 2 }}" y="{{ bottom + 18 }}" text-anchor="middle">{{ c.label }}</text>
+        </g>
+        {% endfor %}
+        <line class="baseline" x1="{{ left }}" x2="{{ w }}" y1="{{ bottom }}" y2="{{ bottom }}"/>
+    </svg>
+    <figcaption class="hint">Flugstunden pro Monat</figcaption>
+    <details class="chart-table">
+        <summary>Als Tabelle</summary>
+        <table class="data-table">
+            <thead><tr><th>Monat</th><th class="num">Flüge</th><th class="num">Flugzeit (h)</th></tr></thead>
+            <tbody>{% for c in chart.columns if c.flights %}<tr><td>{{ c.name }}</td><td class="num">{{ c.flights }}</td><td class="num">{{ c.minutes|flugzeit }}</td></tr>{% endfor %}</tbody>
+        </table>
+    </details>
+    <div class="chart-tip" role="status" hidden></div>
+</figure>
+{% endmacro %}
+
+{% macro aircraft_table(rows, top_minutes, launch_labels) %}
+<div class="table-scroll">
+<table class="data-table stats-table">
+    <thead><tr><th>Flugzeug</th><th class="num">Flüge</th><th>Flugzeit (h)</th><th class="num">Ø</th><th class="num">Längster</th><th>Starts</th><th class="num">Schlepps</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+        <tr>
+            <td><strong>{{ r.glider.registration }}</strong> <span class="hint">{{ r.glider.model or r.glider.kind.label }}{% if r.glider.is_private %}, privat{% endif %}</span></td>
+            <td class="num">{{ r.total.flights }}</td>
+            <td class="bar-cell"><svg class="inline-bar" viewBox="0 0 100 10" preserveAspectRatio="none" aria-hidden="true"><rect width="{{ (r.total.minutes / top_minutes * 100)|round(1) if top_minutes else 0 }}" height="10"/></svg><span class="num">{{ r.total.minutes|flugzeit }}</span></td>
+            <td class="num">{{ r.total.average|flugzeit }}</td>
+            <td class="num">{{ r.total.longest|flugzeit }}</td>
+            <td>{% for code, n in r.launches|dictsort %}<span title="{{ launch_labels[code] }}">{{ code }} {{ n }}</span>{{ ", " if not loop.last }}{% endfor %}</td>
+            <td class="num">{{ r.tows or "" }}</td>
+        </tr>
+    {% else %}
+        <tr><td colspan="7" class="record-empty">Keine Flüge in diesem Zeitraum.</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endmacro %}
+
+{% block content %}
+<h1>Statistik</h1>
+<div class="stats-controls">
+    {% if not pilot.is_fdl %}
+    <nav class="segmented" aria-label="Ansicht">
+        <a href="?ansicht=ich&jahr={{ year or 'alle' }}" class="{{ 'active' if view == 'ich' }}">Meine</a>
+        <a href="?ansicht=verein&jahr={{ year or 'alle' }}" class="{{ 'active' if view == 'verein' }}">Verein</a>
+    </nav>
+    {% endif %}
+    <nav class="segmented" aria-label="Jahr">
+        {% for y in years %}<a href="?ansicht={{ view }}&jahr={{ y }}" class="{{ 'active' if year == y }}">{{ y }}</a>{% endfor %}
+        <a href="?ansicht={{ view }}&jahr=alle" class="{{ 'active' if year is none }}">Alle</a>
+    </nav>
+</div>
+
+{% set s = stats %}
+{% if view == "ich" %}
+<div class="tiles">
+    <div class="tile"><span class="tile-num">{{ s.total.flights }}</span><span class="tile-label">Flüge</span></div>
+    <div class="tile"><span class="tile-num">{{ s.total.minutes|flugzeit }}</span><span class="tile-label">Flugzeit (h)</span></div>
+    <div class="tile"><span class="tile-num">{{ s.as_pilot.flights }}</span><span class="tile-label">als Pilot, {{ s.as_pilot.minutes|flugzeit }} h</span></div>
+    <div class="tile"><span class="tile-num">{{ s.as_companion.flights }}</span><span class="tile-label">als Begleiter, {{ s.as_companion.minutes|flugzeit }} h</span></div>
+</div>
+<div class="{{ 'notice' if recent.flights >= recency_launches else 'warning' }} recency">
+    <p><strong>{{ recent.flights }} {{ "Start" if recent.flights == 1 else "Starts" }} als Pilot in den letzten {{ recency_days }} Tagen</strong> ({{ recent.minutes|flugzeit }} h).
+    {% if recent.flights >= recency_launches %}Genug für Passagierflüge (mindestens {{ recency_launches }}).
+    {% else %}Für Passagierflüge braucht es mindestens {{ recency_launches }}.{% endif %}</p>
+</div>
+{% if s.longest_flight %}
+<p class="hint">Längster Flug: <a href="/flights/{{ s.longest_flight.id }}">{{ s.longest_flight.duration_min|flugzeit }} h mit {{ s.longest_flight.glider.registration if s.longest_flight.glider else "?" }} am {{ s.longest_flight.takeoff_time|datum }}</a>{% if s.first %} &middot; Flüge vom {{ s.first|datum }} bis {{ s.last|datum }}{% endif %}</p>
+{% endif %}
+{% else %}
+<div class="tiles">
+    <div class="tile"><span class="tile-num">{{ s.total.flights }}</span><span class="tile-label">Flüge</span></div>
+    <div class="tile"><span class="tile-num">{{ s.total.minutes|flugzeit }}</span><span class="tile-label">Flugzeit (h)</span></div>
+    <div class="tile"><span class="tile-num">{{ s.flying_days }}</span><span class="tile-label">Flugtage</span></div>
+    <div class="tile"><span class="tile-num">{{ s.tows }}</span><span class="tile-label">Schlepps</span></div>
+</div>
+{% endif %}
+
+<div class="launch-row">
+    {% for code in ["W", "F", "E"] %}
+    <span><strong>{{ s.launches.get(code, 0) }}</strong> {{ launch_labels[code] }}</span>
+    {% endfor %}
+    {% set unknown = s.total.flights - s.launches.values()|sum %}
+    {% if unknown %}<span class="hint">{{ unknown }} ohne Startart</span>{% endif %}
+</div>
+
+<h2>{{ "Meine Flugstunden" if view == "ich" else "Flugstunden" }} pro Monat{% if year %} {{ year }}{% endif %}</h2>
+{{ month_chart(chart, year) }}
+
+<h2>Flugzeuge</h2>
+{{ aircraft_table(s.aircraft, top_minutes, launch_labels) }}
+<p class="hint">Starts: W = Winde, F = F-Schlepp, E = Eigenstart. Flugzeit nur von gelandeten Flügen.</p>
+
+{% if view == "verein" %}
+<h2>Piloten</h2>
+<div class="table-scroll">
+<table class="data-table stats-table">
+    <thead><tr><th>Name</th><th class="num">Flüge als Pilot</th><th class="num">Flugzeit</th><th class="num">als Begleiter</th><th class="num">Flugzeit</th></tr></thead>
+    <tbody>
+    {% for p in s.pilots %}
+        <tr class="{{ 'mine' if p.pilot.id == pilot.id }}">
+            <td>{{ p.pilot.full_name }}</td>
+            <td class="num">{{ p.as_pilot.flights }}</td><td class="num">{{ p.as_pilot.minutes|flugzeit }}</td>
+            <td class="num">{{ p.as_companion.flights or "" }}</td><td class="num">{{ p.as_companion.minutes|flugzeit if p.as_companion.flights else "" }}</td>
+        </tr>
+    {% else %}
+        <tr><td colspan="5" class="record-empty">Keine Flüge in diesem Zeitraum.</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}<script src="/static/stats.js?v={{ asset_version }}" defer></script>{% endblock %}

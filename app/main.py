@@ -11,7 +11,7 @@ from config import settings
 from deps import get_current_pilot
 from models import Pilot
 from paths import STATIC_DIR
-from routers import account, admin, auth, claim, dashboard, flights, flugbuch, logbook
+from routers import account, admin, auth, claim, dashboard, flights, flugbuch, logbook, statistik
 from templating import templates
 
 # No automatic API docs (/docs, /openapi.json): they'd list every endpoint and
@@ -86,6 +86,7 @@ app.include_router(dashboard.router)
 app.include_router(flights.router)
 app.include_router(flugbuch.router)
 app.include_router(logbook.router)
+app.include_router(statistik.router)
 
 
 @app.exception_handler(HTTPException)

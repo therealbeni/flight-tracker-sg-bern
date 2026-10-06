@@ -264,6 +264,19 @@ def account_flow(page: Page) -> None:
     check_page(page, "41-flug-hinzufuegen-handy")
 
 
+def stats_flow(page: Page) -> None:
+    login(page, "pilot@test.ch")
+    page.click(".tabbar >> text=Meine Flüge")
+    page.click("text=Meine Statistik")
+    expect(page.locator("h1")).to_contain_text("Statistik")
+    page.locator("figure.chart .col").nth(9).hover()
+    expect(page.locator(".chart-tip")).to_be_visible()
+    check_page(page, "50-statistik-meine")
+    page.click(".segmented >> text=Verein")
+    expect(page.locator("h2", has_text="Piloten")).to_be_visible()
+    check_page(page, "51-statistik-verein")
+
+
 def admin_flow(page: Page) -> None:
     login(page, "admin@test.ch")
     page.click(".tabbar >> text=Verwaltung")
@@ -287,7 +300,7 @@ def main() -> None:
             "--use-file-for-fake-video-capture=/out/qr-camera.y4m",
         ])
         for flow, screen in ((pilot_flow, PHONE), (pilot_checkout_flow, PHONE), (tow_pilot_flow, PHONE),
-                             (admin_flow, PHONE), (account_flow, PHONE), (club_pc_flow, DESKTOP),
+                             (admin_flow, PHONE), (account_flow, PHONE), (stats_flow, PHONE), (club_pc_flow, DESKTOP),
                              (club_pc_wide_flow, WIDE)):
             # Reduced motion: no page cross-fade, so screenshots show the finished page.
             context = browser.new_context(**screen, locale="de-CH", timezone_id="Europe/Zurich",
