@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}{{ glider.registration }} bearbeiten{% endblock %}
+{% block content %}
+{% include "admin/_nav.html" %}
+<form method="post" action="/admin/gliders/{{ glider.id }}" class="card narrow">
+    <h1>{{ glider.registration }} bearbeiten</h1>
+    {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+    <label>Kennzeichen<input type="text" name="registration" value="{{ glider.registration }}" maxlength="32" required></label>
+    <label>Typ<input type="text" name="model" value="{{ glider.model or '' }}" maxlength="128"></label>
+    <label>Art
+        <select name="kind">{% for k in kinds %}<option value="{{ k.value }}" {{ "selected" if glider.kind == k }}>{{ k.label }}</option>{% endfor %}</select>
+    </label>
+    <label>FLARM-/OGN-ID (6 Zeichen)<input type="text" name="ogn_device_id" value="{{ glider.ogn_device_id or '' }}" maxlength="6"></label>
+
+    <fieldset class="choice">
+        <legend>Besitzer</legend>
+        <p class="hint">Ohne Besitzer gehört das Flugzeug dem Verein. Ein Privatflugzeug wird erfasst wie die Vereinsflugzeuge, aber nur seinen Besitzern zum Einchecken angeboten, nie als «frei» angezeigt und nie als Schleppflugzeug gezählt.</p>
+        {% for p in glider.owners %}
+        <label class="radio"><input type="checkbox" name="owner_ids" value="{{ p.id }}" checked> {{ p.full_name }}</label>
+        {% endfor %}
+        <label>{{ "Weiteren Besitzer hinzufügen" if glider.owners else "Privatflugzeug von" }}
+            <select name="new_owner_id" data-search>
+                <option value="">{{ "-- niemand --" if glider.owners else "-- Verein --" }}</option>
+                {% for p in members if p not in glider.owners %}<option value="{{ p.id }}">{{ p.full_name }}</option>{% endfor %}
+            </select>
+        </label>
+    </fieldset>
+    <div class="form-actions">
+        <button type="submit">Speichern</button>
+        <a class="btn secondary" href="/admin/gliders">Abbrechen</a>
+    </div>
+</form>
+{% endblock %}

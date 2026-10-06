@@ -27,10 +27,10 @@
     {% import "_icons.html" as icons %}
 
     <header class="topbar">
-        <a class="brand" href="/dashboard">{{ icons.logo() }} SG Bern</a>
+        <a class="brand" href="{{ '/flugbuch' if is_fdl else '/dashboard' }}">{{ icons.logo() }} SG Bern</a>
         {% if logged_in %}
         <nav>
-            <a href="/dashboard" class="{{ 'active' if path == '/dashboard' }}">{{ "Übersicht" if is_fdl else "Heute" }}</a>
+            {% if not is_fdl %}<a href="/dashboard" class="{{ 'active' if path == '/dashboard' }}">Heute</a>{% endif %}
             <a href="/flugbuch" class="{{ 'active' if path.startswith('/flugbuch') or path.startswith('/auschecken') }}">Flugbuch</a>
             {% if not is_fdl %}
             <a href="/claim" class="{{ 'active' if path.startswith('/claim') }}">Einchecken</a>
@@ -40,7 +40,9 @@
             <a href="/admin/pilots" class="{{ 'active' if path.startswith('/admin') }}">Verwaltung</a>
             {% endif %}
             <a href="/hilfe" class="{{ 'active' if path == '/hilfe' }}">Hilfe</a>
+            <a href="/konto" class="{{ 'active' if path.startswith('/konto') }}">Konto</a>
         </nav>
+        <a href="/konto" class="account-link {{ 'active' if path.startswith('/konto') }}" aria-label="Konto und Einstellungen">{{ icons.icon("user") }}</a>
         <form action="/logout" method="post" class="logout-form">
             <button type="submit" class="secondary compact">{{ icons.icon("logout") }} Abmelden</button>
         </form>
@@ -62,9 +64,11 @@
 
     {% if logged_in %}
     <nav class="tabbar">
+        {% if not is_fdl %}
         <a href="/dashboard" class="{{ 'active' if path == '/dashboard' }}">
-            {{ icons.icon("home") }}<span class="label">{{ "Übersicht" if is_fdl else "Heute" }}</span>
+            {{ icons.icon("home") }}<span class="label">Heute</span>
         </a>
+        {% endif %}
         {% if is_fdl %}
         <a href="/flugbuch" class="{{ 'active' if path.startswith('/flugbuch') or path.startswith('/auschecken') }}">
             {{ icons.icon("book") }}<span class="label">Flugbuch</span>

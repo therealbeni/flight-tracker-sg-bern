@@ -11,7 +11,15 @@ Rules when checking in:
     applies again after that one flight). A whole-day check-in replaces all.
   - One pilot flies one aircraft at a time: a one-flight check-in ends the
     pilot's one-flight check-ins on other aircraft.
+
+Pilots check in on their phone (QR code or list), or at the club PC through
+the Flugdienstleiter (FDL) account - same rules (check_in below).
+
+Private aircraft (see Glider) are only listed for their owners. Their QR
+code works for anyone holding it, so an owner can lend the aircraft.
 """
+
+from dataclasses import dataclass, field
 
 from datetime import datetime, timedelta, timezone
 
@@ -60,6 +68,50 @@ def _replaced(claims: list[GliderClaim], whole_day: bool) -> list[GliderClaim]:
     return claims if whole_day else [c for c in claims if not c.whole_day]
 
 
+@dataclass
+class CheckIn:
+    """What check_in did: the new claim, or the check-ins in the way."""
+
+    claim: GliderClaim | None = None
+    conflicts: list[GliderClaim] = field(default_factory=list)  # others' check-ins, if not taken over
+    ended_elsewhere: list[GliderClaim] = field(default_factory=list)
+
+
+def check_in(db: Session, glider: Glider, pilot: Pilot, whole_day: bool, takeover: bool, by: Pilot) -> CheckIn:
+    """Checks `pilot` in on `glider` (see the module docstring). `by` is who
+    does it: the pilot, or the FDL at the club PC. Expects `glider` locked
+    (SELECT ... FOR UPDATE), so two check-ins on it run one after the other.
+    Doesn't commit."""
+    now = datetime.now(timezone.utc)
+    replaced = _replaced(active_claims(db, glider_id=glider.id), whole_day)
+    conflicts = [c for c in replaced if c.pilot_id != pilot.id]
+    if conflicts and not takeover:
+        return CheckIn(conflicts=conflicts)
+    # Who ended them: the pilot taking the aircraft over (what the previous
+    # pilot is told under "Heute"), even when the FDL typed it in.
+    end_claims(replaced, pilot, now)
+
+    ended_elsewhere = []
+    if not whole_day:
+        ended_elsewhere = [c for c in active_claims(db, pilot_id=pilot.id)
+                           if c.glider_id != glider.id and not c.whole_day]
+        end_claims(ended_elsewhere, pilot, now)
+
+    # Both kinds last until local midnight: waiting hours for a launch is
+    # normal. A one-flight check-in ends earlier at its takeoff, when released,
+    # or at checkout.
+    claim = GliderClaim(glider_id=glider.id, pilot_id=pilot.id, claimed_at=now, expires_at=local_end_of_day(now),
+                        whole_day=whole_day, claimed_by_id=by.id if by.id != pilot.id else None)
+    db.add(claim)
+    return CheckIn(claim=claim, ended_elsewhere=ended_elsewhere)
+
+
+def visible_aircraft(db: Session, pilot: Pilot) -> list[Glider]:
+    """Active aircraft `pilot` may pick from a list: the club's, and their own."""
+    gliders = db.scalars(select(Glider).where(Glider.active.is_(True)).order_by(Glider.kind, Glider.registration)).all()
+    return [g for g in gliders if not g.is_private or g.owned_by(pilot)]
+
+
 def render_claim_form(request: Request, db: Session, glider: Glider, token: str, pilot: Pilot,
                       mode: str = "", status_code: int = 200):
     claims = active_claims(db, glider_id=glider.id)
@@ -76,8 +128,9 @@ def render_claim_form(request: Request, db: Session, glider: Glider, token: str,
 
 @router.get("/claim")
 def claim_picker(request: Request, db: Session = Depends(get_db), pilot: Pilot = Depends(require_flying_member)):
-    gliders = db.scalars(select(Glider).where(Glider.active.is_(True)).order_by(Glider.kind, Glider.registration)).all()
     claims = active_claims(db)
+    # Own private aircraft first: their owners fly them most.
+    gliders = sorted(visible_aircraft(db, pilot), key=lambda g: not g.is_private)
     rows = [{"glider": g, "claims": [c for c in claims if c.glider_id == g.id]} for g in gliders]
     return templates.TemplateResponse(request, "claim/picker.html", {
         "rows": rows, "pilot": pilot, "my_claims": active_claims(db, pilot_id=pilot.id)})
@@ -94,28 +147,13 @@ def claim_submit(request: Request, token: str, mode: str = Form("next"), takeove
                  db: Session = Depends(get_db), pilot: Pilot = Depends(require_flying_member)):
     glider = _glider_for_token(db, token, lock=True)
     whole_day = mode == "day"
-    now = datetime.now(timezone.utc)
-
-    replaced = _replaced(active_claims(db, glider_id=glider.id), whole_day)
-    if not takeover and any(c.pilot_id != pilot.id for c in replaced):
+    done = check_in(db, glider, pilot, whole_day, takeover=bool(takeover), by=pilot)
+    if done.claim is None:
         db.rollback()  # releases the lock
         return render_claim_form(request, db, glider, token, pilot, mode=mode, status_code=409)
-    end_claims(replaced, pilot, now)
-
-    ended_elsewhere = []
-    if not whole_day:
-        ended_elsewhere = [c for c in active_claims(db, pilot_id=pilot.id)
-                           if c.glider_id != glider.id and not c.whole_day]
-        end_claims(ended_elsewhere, pilot, now)
-
-    # Both kinds last until local midnight: waiting hours for a launch is
-    # normal. A one-flight check-in ends earlier at its takeoff, when released,
-    # or at checkout.
-    db.add(GliderClaim(glider_id=glider.id, pilot_id=pilot.id, claimed_at=now, expires_at=local_end_of_day(now),
-                       whole_day=whole_day))
     db.commit()
     return templates.TemplateResponse(request, "claim/claim_success.html", {
-        "glider": glider, "whole_day": whole_day, "ended_elsewhere": ended_elsewhere})
+        "glider": glider, "whole_day": whole_day, "ended_elsewhere": done.ended_elsewhere})
 
 
 @router.post("/claims/{claim_id}/release")

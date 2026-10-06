@@ -31,6 +31,7 @@ dashboard, personal logbooks, and Vereinsflieger sync. That's the scope of this 
 - Phase 1: done.
 - Phase 2: done.
 - Club ops v2 (below): done 2026-09-29, running on staging (flight.clanker.ch).
+- Club ops v4 (below): done 2026-10-06, after the first real flying day (03.10.).
 - Phase 3: on hold - waiting on the club board to confirm/request a Vereinsflieger AppKey.
 
 ## Phase 0 — Accounts & data foundation
@@ -119,6 +120,27 @@ automatically, raw beacon recording + replay. See [How it works](how-it-works.md
 
 Not possible without the club: sending emails (password reset currently only prints to
 the log - needs an SMTP account), Vereinsflieger sync (needs an API key).
+
+## Club ops v4 (2026-10-06) - after the first real flying day
+
+1. **Check in at the club PC.** The FDL (and admins) check pilots without a phone in from
+   the Flugbuch (`/flugbuch/einchecken`): pilot, aircraft, next start or whole day; same
+   rules as on the phone, incl. asking before taking over. The claim records who made it
+   (`glider_claims.claimed_by_id`).
+2. **Flugbuch as the FDL's command center.** The FDL's start page is the Flugbuch. The
+   flights refresh themselves every 30 s; aircraft in the air are sky-blue rows with
+   their minutes counting up. Adding/correcting a flight, Einchecken and Auschecken open
+   as dialogs over the table instead of a form always on screen. The old overview
+   (aircraft and pilots of the day) is a side panel ("Flugdienst"): docked on screens
+   from 1500 px, a drawer on smaller ones.
+3. **Calendar** in the Flugbuch: days with flights are green.
+4. **Startart Winde** when no tow plane took off with a glider (see How it works).
+5. **Private aircraft.** An aircraft with owners (`aircraft_owners`) is a member's own:
+   tracked and logged like the club's, owners check in on it, but it's never offered to
+   other pilots, never shown as "frei", and never counted as a tow plane. Admins set owners
+   under Verwaltung > Flugzeuge (aircraft are editable there now).
+6. **Konto** (`/konto`): change name, e-mail (needs the password), password (other sessions
+   end); owners find their aircraft's QR code there.
 
 ## Phase 3 — Vereinsflieger sync
 

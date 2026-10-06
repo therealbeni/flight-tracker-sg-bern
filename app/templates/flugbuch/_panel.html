@@ -1,0 +1,87 @@
+{# Flugdienst: today's aircraft and pilots, beside the Flugbuch on the club PC.
+   Docked on a wide screen, a drawer on a smaller one (static/flugbuch.js);
+   without JavaScript simply below the flights. #}
+<aside class="fb-panel" id="flugdienst" aria-labelledby="panel-title">
+    <div class="fb-panel-head">
+        <h2 id="panel-title">Flugdienst heute</h2>
+        <button type="button" class="sheet-close" data-panel-toggle aria-label="Seitenleiste schliessen">{{ icons.icon("close") }}</button>
+    </div>
+    <div data-live id="panel-body">
+    <section aria-labelledby="h-aircraft">
+        <h3 id="h-aircraft">Flugzeuge</h3>
+        <ul class="strips">
+        {% for a in aircraft %}
+            <li class="strip strip-{{ a.status }}">
+                <div class="strip-id">
+                    <span class="strip-reg">{{ a.glider.registration }}</span>
+                    <span class="strip-model">{{ a.glider.model or a.glider.kind.label }}{% if a.glider.is_private %}, privat{% endif %}</span>
+                </div>
+                <div class="strip-state">
+                {% if a.airborne %}
+                    {% set f = a.airborne %}
+                    <span class="strip-status">In der Luft, {{ minutes_since(f.takeoff_time)|flugzeit }} h</span>
+                    <span class="strip-who">{{ f.pilot_display or "Pilot unbekannt" }}{% if f.companion_display %} mit {{ f.companion_display }}{% endif %}</span>
+                {% elif a.claims %}
+                    <span class="strip-status">Eingecheckt</span>
+                    {% for c in a.claims %}
+                    <span class="strip-who">{{ c.pilot.full_name }}, {{ "ganzer Tag" if c.whole_day else "nächster Start" }}
+                        <form method="post" action="/claims/{{ c.id }}/release" class="inline-form">
+                            <button type="submit" class="link-button" title="Check-in von {{ c.pilot.full_name }} beenden">freigeben</button>
+                        </form>
+                    </span>
+                    {% endfor %}
+                {% elif a.status == "free" %}
+                    <span class="strip-status">Frei</span>
+                {% else %}
+                    <span class="strip-status">Gelandet</span>
+                {% endif %}
+                    <span class="strip-count">{{ a.flight_count }} {{ "Flug" if a.flight_count == 1 else "Flüge" }} heute</span>
+                </div>
+                {% if not a.airborne %}
+                <a class="btn secondary compact" href="/flugbuch?datum={{ day }}&einchecken={{ a.glider.id }}" data-dialog-open="checkin-dialog" data-glider="{{ a.glider.id }}" title="Jemanden auf {{ a.glider.registration }} einchecken">Einchecken</a>
+                {% endif %}
+            </li>
+        {% else %}
+            <li class="record-empty">Noch keine Flugzeuge erfasst.</li>
+        {% endfor %}
+        </ul>
+    </section>
+
+    <section aria-labelledby="h-pilots">
+        <h3 id="h-pilots">Piloten</h3>
+        <ul class="people">
+        {% for pd in present %}
+            <li class="person person-{{ pd.status }}">
+                <div class="person-main">
+                    <span class="person-name">{{ pd.pilot.full_name }}</span>
+                    <span class="person-status">
+                        {% if pd.status == "air" %}In der Luft mit {{ pd.airborne.glider.registration if pd.airborne.glider else "?" }}
+                        {% elif pd.status == "checked_in" %}Eingecheckt auf {{ pd.claims | map(attribute="glider.registration") | join(", ") }}
+                        {% else %}Gelandet, nicht eingecheckt{% endif %}
+                        &middot; {{ pd.flights|length }} {{ "Flug" if pd.flights|length == 1 else "Flüge" }}{% if pd.unconfirmed %}, {{ pd.unconfirmed|length }} unbestätigt{% endif %}
+                    </span>
+                </div>
+                <a class="btn secondary compact" href="/auschecken/{{ pd.pilot.id }}?next=/flugbuch">Auschecken</a>
+            </li>
+        {% else %}
+            <li class="record-empty">Noch niemand eingecheckt.</li>
+        {% endfor %}
+        </ul>
+        {% if gone %}
+        <details class="people-gone">
+            <summary>Nach Hause gegangen ({{ gone|length }})</summary>
+            <ul class="people">
+            {% for pd in gone %}
+                <li class="person person-out">
+                    <div class="person-main">
+                        <span class="person-name">{{ pd.pilot.full_name }}</span>
+                        <span class="person-status">Ausgecheckt um {{ pd.checked_out_at|hhmm }} &middot; {{ pd.flights|length }} {{ "Flug" if pd.flights|length == 1 else "Flüge" }}</span>
+                    </div>
+                </li>
+            {% endfor %}
+            </ul>
+        </details>
+        {% endif %}
+    </section>
+    </div>
+</aside>

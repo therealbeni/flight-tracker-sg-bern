@@ -13,15 +13,21 @@
         <select name="kind">{% for k in kinds %}<option value="{{ k.value }}">{{ k.label }}</option>{% endfor %}</select>
     </label>
     <label>FLARM-/OGN-ID (6 Zeichen)<input type="text" name="ogn_device_id" placeholder="4B4BBA" maxlength="6"></label>
+    <label>Besitzer
+        <select name="owner_id" data-search>
+            <option value="">Verein</option>
+            {% for p in members %}<option value="{{ p.id }}">{{ p.full_name }} (Privatflugzeug)</option>{% endfor %}
+        </select>
+    </label>
     <button type="submit">Hinzufügen</button>
 </form>
 
 <table class="data-table">
-    <thead><tr><th>Kennzeichen</th><th>Typ</th><th>Art</th><th>OGN-ID</th><th>Aktiv</th><th>QR-Code</th><th>Aktion</th></tr></thead>
+    <thead><tr><th>Kennzeichen</th><th>Typ</th><th>Art</th><th>Besitzer</th><th>OGN-ID</th><th>Aktiv</th><th>QR-Code</th><th>Aktion</th></tr></thead>
     <tbody>
     {% for g in gliders %}
         <tr>
-            <td>{{ g.registration }}</td>
+            <td><a href="/admin/gliders/{{ g.id }}">{{ g.registration }}</a></td>
             <td>{{ g.model or "" }}</td>
             <td>
                 <form method="post" action="/admin/gliders/{{ g.id }}/kind" class="inline-form">
@@ -31,6 +37,7 @@
                     <noscript><button type="submit" class="compact">OK</button></noscript>
                 </form>
             </td>
+            <td>{{ g.owners | map(attribute="full_name") | join(", ") if g.owners else "Verein" }}</td>
             <td>{{ g.ogn_device_id or "" }}</td>
             <td>{{ "ja" if g.active else "nein" }}</td>
             <td>
@@ -40,13 +47,14 @@
                 </div>
             </td>
             <td>
+                <a class="btn secondary compact" href="/admin/gliders/{{ g.id }}">Bearbeiten</a>
                 <form method="post" action="/admin/gliders/{{ g.id }}/toggle-active" class="inline-form">
                     <button type="submit" class="secondary">{{ "Deaktivieren" if g.active else "Aktivieren" }}</button>
                 </form>
             </td>
         </tr>
     {% else %}
-        <tr><td colspan="7">Noch keine Flugzeuge.</td></tr>
+        <tr><td colspan="8">Noch keine Flugzeuge.</td></tr>
     {% endfor %}
     </tbody>
 </table>

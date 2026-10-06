@@ -18,7 +18,7 @@
     <label class="span-2">Luftfahrzeug
         <select name="glider_id" required data-search>
             <option value="">-- wählen --</option>
-            {% for g in c.gliders %}<option value="{{ g.id }}" {{ "selected" if form.glider_id == g.id|string }}>{{ g.registration }}{% if g.model %} ({{ g.model }}){% endif %}</option>{% endfor %}
+            {% for g in c.gliders %}<option value="{{ g.id }}" data-launch="{{ '' if g.kind.value == 'glider' else 'E' }}" {{ "selected" if form.glider_id == g.id|string }}>{{ g.registration }}{% if g.model %} ({{ g.model }}){% endif %}{% if g.is_private %}, privat{% endif %}</option>{% endfor %}
         </select>
     </label>
     <div class="span-2 grid-spacer"></div>

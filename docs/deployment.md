@@ -85,10 +85,16 @@ Restore a backup: `docker compose exec -T db pg_restore -U flighttracker -d flig
   "Als Pilot ansehen" (see the app exactly as a given pilot does, to test or help).
 - **Flugdienstleiter (FDL)** (laptop at the launch point): register an account for it (e.g.
   "Flugdienstleiter LSZB"), then give it this role on Verwaltung > Piloten. It opens on
-  an overview of the day (aircraft in the air / checked in / free, pilots present and
-  checked out, flights to check), refreshing itself every 30 s. It can edit/add/delete
-  all flights of open days, release check-ins and check out any pilot, but can't check
-  in itself or manage pilots or aircraft.
+  the Flugbuch, refreshing itself every 30 s, with a side panel of today's aircraft (in
+  the air / checked in / free) and pilots (present / checked out). It can edit/add/delete
+  all flights of open days, check pilots without a phone in, release check-ins and check
+  out any pilot, but can't fly itself or manage pilots or aircraft.
+
+Everyone changes their own name, e-mail address and password under Konto (`/konto`).
+
+Members' own aircraft: add them on Verwaltung > Flugzeuge with the owner(s) set. They are
+tracked like the club's aircraft, but only offered to their owners for check-in, never
+shown as free and never counted as a tow plane.
 
 Aircraft kinds (Verwaltung > Flugzeuge) matter: tow planes and motor gliders default to
 "check in for the whole day", and tows are linked to the glider they towed.

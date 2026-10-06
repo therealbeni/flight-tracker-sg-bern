@@ -324,9 +324,9 @@ def _fit(text: Optional[str]) -> Optional[str]:
 
 
 def tow_aircraft(db: Session) -> list[Glider]:
-    """Aircraft that can tow: tow planes and motor gliders."""
+    """Aircraft that tow: the club's tow planes and motor gliders."""
     return [g for g in db.scalars(select(Glider).where(Glider.active.is_(True)).order_by(Glider.registration)).all()
-            if g.kind.can_tow]
+            if g.tows]
 
 
 def members(db: Session) -> list[Pilot]:
@@ -345,7 +345,7 @@ def form_choices(db: Session) -> dict:
     gliders = db.scalars(select(Glider).where(Glider.active.is_(True)).order_by(Glider.kind, Glider.registration)).all()
     return {
         "gliders": gliders,
-        "towplanes": [g for g in gliders if g.kind.can_tow],
+        "towplanes": [g for g in gliders if g.tows],
         # Who is checked in on each tow aircraft now: the form suggests them
         # as tow pilot when that aircraft is picked (static/flight-form.js).
         "tow_pilots": {c.glider_id: c.pilot_id for c in db.scalars(

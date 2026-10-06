@@ -54,6 +54,8 @@ def seed() -> None:
                           kind=AircraftKind.MOTORGLIDER),
         "D-EDUY": Glider(registration="D-EDUY", model="Robin DR400", ogn_device_id="3D0EB4",
                          kind=AircraftKind.TOWPLANE),
+        # Pia's own glider: only she is offered it.
+        "HB-3407": Glider(registration="HB-3407", model="LS 8", ogn_device_id="4B5407", owners=[people["pilot"]]),
     }
     db.add_all([*people.values(), *fleet.values()])
     db.flush()
@@ -78,6 +80,13 @@ def seed() -> None:
                duration_min=40, takeoff_airfield_icao="LSZB", landing_latitude=46.95, landing_longitude=7.7,
                landing_estimated=True, launch_method=LaunchMethod.SELF, source=FlightSource.AUTO),
     ])
+    # Earlier flying days, for the calendar.
+    for days_ago, hour in [(3, 11), (3, 13), (9, 12), (16, 14)]:
+        start = now.replace(hour=hour, minute=5) - timedelta(days=days_ago)
+        db.add(Flight(record_id=f"old-{days_ago}-{hour}", glider_id=fleet["HB-1811"].id, pilot_id=people["pilot"].id,
+                      takeoff_time=start, landing_time=start + timedelta(minutes=30), duration_min=30,
+                      takeoff_airfield_icao="LSZB", landing_airfield_icao="LSZB", launch_method=LaunchMethod.WINCH,
+                      source=FlightSource.AUTO))
     db.commit()
 
 

@@ -1,14 +1,13 @@
-"""Heute: the start page. Pilots see their check-ins and the day's flights;
-the Flugdienstleiter (FDL) sees the whole day at a glance (day_board.py)."""
-
-from datetime import datetime, timezone
+"""Heute: the start page. Pilots see their check-ins and the day's flights.
+The Flugdienstleiter's (FDL) start page is the Flugbuch, their command center."""
 
 from fastapi import APIRouter, Depends, Request
+from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from database import get_db
-from day_board import aircraft_of_day, flights_of_day, issues, pilots_of_day
+from day_board import flights_of_day, pilots_of_day
 from deps import require_approved
 from models import GliderClaim, Pilot
 from routers.claim import active_claims
@@ -20,10 +19,10 @@ router = APIRouter()
 
 @router.get("/dashboard")
 def dashboard(request: Request, db: Session = Depends(get_db), pilot: Pilot = Depends(require_approved)):
+    if pilot.is_fdl:
+        return RedirectResponse("/flugbuch", status_code=303)
     today = today_local()
     flights = flights_of_day(db, today)
-    if pilot.is_fdl:
-        return fdl_dashboard(request, db, pilot, flights)
     me = next((pd for pd in pilots_of_day(db, today, flights) if pd.pilot.id == pilot.id), None)
     return templates.TemplateResponse(request, "dashboard/today.html", {
         "pilot": pilot,
@@ -54,23 +53,3 @@ def ended_by_others(db: Session, pilot: Pilot) -> list[dict]:
             GliderClaim.claimed_at == claim.cancelled_at)) is not None
         notices.append({"claim": claim, "took_over": took_over})
     return notices
-
-
-def fdl_dashboard(request: Request, db: Session, user: Pilot, flights: list):
-    today = today_local()
-    now = datetime.now(timezone.utc)
-    pilots = pilots_of_day(db, today, flights)
-    aircraft = aircraft_of_day(db, today, flights)
-    return templates.TemplateResponse(request, "dashboard/fdl.html", {
-        "pilot": user,
-        "today": today,
-        "flights": flights,
-        "aircraft": aircraft,
-        "pilots": pilots,
-        "present": [pd for pd in pilots if pd.status != "out"],
-        "gone": [pd for pd in pilots if pd.status == "out"],
-        "airborne": [a for a in aircraft if a.airborne],
-        "issues": (found := issues(flights)),
-        "to_check": [f for f in flights if f.id in found],
-        "minutes_since": lambda dt: (now - as_utc(dt)).total_seconds() / 60,
-    })

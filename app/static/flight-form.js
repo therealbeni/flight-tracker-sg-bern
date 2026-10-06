@@ -10,6 +10,9 @@
 //    before sending, data-autosubmit sends it when a field is changed.
 //  - Schleppflugzeug: picking another tow aircraft suggests whoever is
 //    checked in on it as tow pilot, unless a tow pilot was chosen by hand.
+//  - Luftfahrzeug (adding a flight): a motor glider or tow plane gets
+//    Startart Eigenstart, unless one was chosen by hand (a glider's could
+//    be either, Winde or F-Schlepp).
 (function () {
     // "Zürcher" is found with "zurcher", "Müller" with "muller".
     function normalize(text) {
@@ -164,6 +167,20 @@
         });
     }
 
+    function setUpLaunchDefault(form) {
+        const aircraft = form.elements["glider_id"];
+        const launch = form.elements["launch_method"];
+        if (!aircraft || !launch || aircraft.tagName !== "SELECT") return;
+        let suggested = "";
+        aircraft.addEventListener("change", () => {
+            const option = aircraft.selectedOptions[0];
+            if (launch.value !== "" && launch.value !== suggested) return;  // chosen by hand
+            suggested = (option && option.dataset.launch) || "";
+            launch.value = suggested;
+            launch.dispatchEvent(new Event("change", { bubbles: true }));
+        });
+    }
+
     // A double tap must not send a form twice (two flights added, two
     // check-ins). Once sent, further submits of that form are ignored until
     // the next page shows; coming back with the browser's Back button resets it.
@@ -191,4 +208,5 @@
     document.querySelectorAll("select[data-search]").forEach(makeSearchable);
     document.querySelectorAll("form").forEach(setUpShowIf);
     document.querySelectorAll("form").forEach(setUpTowPilot);
+    document.querySelectorAll("form").forEach(setUpLaunchDefault);
 })();

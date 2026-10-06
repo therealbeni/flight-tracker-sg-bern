@@ -25,7 +25,7 @@ def test_pages_have_no_inline_event_handlers(client, db_session, world):
     # They would need 'unsafe-inline' in the policy above.
     import re
     for who, paths in {"admin": ["/admin/pilots", "/admin/gliders", "/flugbuch", "/flights/0"],
-                       "pia": ["/dashboard", "/claim", "/logbook"]}.items():
+                       "pia": ["/dashboard", "/claim", "/logbook", "/konto"], "desk": ["/flugbuch"]}.items():
         login(client, who)
         for path in paths:
             assert not re.search(r"\son[a-z]+=", client.get(path).text), path

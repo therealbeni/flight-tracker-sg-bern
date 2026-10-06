@@ -12,7 +12,9 @@ from sqlalchemy.orm import Session
 
 from config import settings
 from database import get_db
+from day_board import month_calendar, parse_month
 from deps import require_admin, start_session
+from flight_form import members
 from models import AircraftKind, Airfield, Flight, Glider, Pilot, PilotRole, PilotStatus
 from routers.claim import active_claims, end_claims
 from timeutil import local_day_bounds, to_local, today_local
@@ -76,7 +78,31 @@ def reject_pilot(pilot_id: int, db: Session = Depends(get_db), admin: Pilot = De
 def render_gliders(request: Request, db: Session, error: Optional[str] = None):
     gliders = db.scalars(select(Glider).order_by(Glider.registration)).all()
     return templates.TemplateResponse(request, "admin/gliders.html", {
-        "gliders": gliders, "kinds": list(AircraftKind), "error": error}, status_code=400 if error else 200)
+        "gliders": gliders, "kinds": list(AircraftKind), "members": members(db), "error": error},
+        status_code=400 if error else 200)
+
+
+def aircraft_problem(db: Session, registration: str, model: str, ogn_device_id: str,
+                     glider: Optional[Glider] = None) -> Optional[str]:
+    """What's wrong with these aircraft fields (German), or None. `glider`:
+    the aircraft being edited (its own registration/ID don't clash)."""
+    others = select(Glider).where(Glider.id != glider.id) if glider else select(Glider)
+    if not registration:
+        return "Bitte das Kennzeichen eingeben."
+    if len(registration) > 32 or len(model) > 128:
+        return "Kennzeichen (höchstens 32 Zeichen) oder Typ (höchstens 128) ist zu lang."
+    if ogn_device_id and not re.fullmatch(r"[0-9A-F]{6}", ogn_device_id):
+        return "Die FLARM-/OGN-ID hat genau 6 Zeichen: Ziffern und A-F, z.B. 4B4BBA."
+    if db.scalar(others.where(Glider.registration == registration)):
+        return f"Ein Flugzeug {registration} gibt es schon."
+    if ogn_device_id and db.scalar(others.where(Glider.ogn_device_id == ogn_device_id)):
+        return f"Die OGN-ID {ogn_device_id} gehört schon einem anderen Flugzeug."
+    return None
+
+
+def _owners(db: Session, ids: list[str]) -> list[Pilot]:
+    wanted = {int(i) for i in ids if i.strip().isdigit()}
+    return [p for p in members(db) if p.id in wanted]
 
 
 @router.get("/gliders")
@@ -91,24 +117,51 @@ def create_glider(
     model: str = Form(""),
     ogn_device_id: str = Form(""),
     kind: AircraftKind = Form(AircraftKind.GLIDER),
+    owner_id: str = Form(""),
     db: Session = Depends(get_db),
 ):
     registration, model, ogn_device_id = registration.strip().upper(), model.strip(), ogn_device_id.strip().upper()
-    error = None
-    if not registration:
-        error = "Bitte das Kennzeichen eingeben."
-    elif len(registration) > 32 or len(model) > 128:
-        error = "Kennzeichen (höchstens 32 Zeichen) oder Typ (höchstens 128) ist zu lang."
-    elif ogn_device_id and not re.fullmatch(r"[0-9A-F]{6}", ogn_device_id):
-        error = "Die FLARM-/OGN-ID hat genau 6 Zeichen: Ziffern und A-F, z.B. 4B4BBA."
-    elif db.scalar(select(Glider).where(Glider.registration == registration)):
-        error = f"Ein Flugzeug {registration} gibt es schon."
-    elif ogn_device_id and db.scalar(select(Glider).where(Glider.ogn_device_id == ogn_device_id)):
-        error = f"Die OGN-ID {ogn_device_id} gehört schon einem anderen Flugzeug."
-    if error:
+    if error := aircraft_problem(db, registration, model, ogn_device_id):
         return render_gliders(request, db, error)
     db.add(Glider(registration=registration, model=model or None, ogn_device_id=ogn_device_id or None, kind=kind,
-                  claim_token=str(uuid.uuid4())))
+                  claim_token=str(uuid.uuid4()), owners=_owners(db, [owner_id])))
+    db.commit()
+    return RedirectResponse("/admin/gliders", status_code=303)
+
+
+def render_glider_edit(request: Request, db: Session, glider: Glider, error: Optional[str] = None):
+    return templates.TemplateResponse(request, "admin/glider_edit.html", {
+        "glider": glider, "kinds": list(AircraftKind), "members": members(db), "error": error},
+        status_code=400 if error else 200)
+
+
+@router.get("/gliders/{glider_id}")
+def edit_glider(request: Request, glider_id: int, db: Session = Depends(get_db)):
+    glider = db.get(Glider, glider_id)
+    if glider is None:
+        raise HTTPException(status_code=404, detail="Dieses Flugzeug gibt es nicht.")
+    return render_glider_edit(request, db, glider)
+
+
+@router.post("/gliders/{glider_id}")
+async def save_glider(request: Request, glider_id: int, db: Session = Depends(get_db)):
+    """Kennzeichen, Typ, Art, FLARM-ID and owners (none: a club aircraft)."""
+    glider = db.get(Glider, glider_id)
+    if glider is None:
+        raise HTTPException(status_code=404, detail="Dieses Flugzeug gibt es nicht.")
+    data = await request.form()
+    registration = str(data.get("registration", "")).strip().upper()
+    model = str(data.get("model", "")).strip()
+    ogn_device_id = str(data.get("ogn_device_id", "")).strip().upper()
+    try:
+        kind = AircraftKind(str(data.get("kind", "")))
+    except ValueError:
+        kind = glider.kind
+    if error := aircraft_problem(db, registration, model, ogn_device_id, glider):
+        return render_glider_edit(request, db, glider, error)
+    glider.registration, glider.model, glider.ogn_device_id, glider.kind = \
+        registration, model or None, ogn_device_id or None, kind
+    glider.owners = _owners(db, [str(v) for v in data.getlist("owner_ids")] + [str(data.get("new_owner_id", ""))])
     db.commit()
     return RedirectResponse("/admin/gliders", status_code=303)
 
@@ -187,33 +240,9 @@ def create_airfield(
 def finalize_overview(request: Request, monat: Optional[str] = Query(None), db: Session = Depends(get_db)):
     """A month calendar of flying days: closed (green) or still open (orange).
     Closing and re-opening happens on the day's Flugbuch, next to its flights."""
-    try:
-        year, month = (int(part) for part in (monat or "").split("-"))
-        first = date(year, month, 1)
-    except ValueError:
-        first = today_local().replace(day=1)
+    first = parse_month(monat, today_local())
+    weeks = month_calendar(db, first)
     next_first = (first + timedelta(days=32)).replace(day=1)
-    start, _ = local_day_bounds(first)
-    end, _ = local_day_bounds(next_first)
-    in_month = db.scalars(select(Flight).where(Flight.deleted_at.is_(None), Flight.takeoff_time >= start,
-                                               Flight.takeoff_time < end)).all()
-    by_day: dict[date, list[Flight]] = {}
-    for f in in_month:
-        by_day.setdefault(to_local(f.takeoff_time).date(), []).append(f)
-
-    # Monday-first weeks covering the month; days of other months are None.
-    weeks, week = [], [None] * first.weekday()
-    for offset in range((next_first - first).days):
-        day = first + timedelta(days=offset)
-        flights = by_day.get(day, [])
-        week.append({"date": day, "flights": len(flights),
-                     "confirmed": sum(1 for f in flights if f.verified_by_pilot),
-                     "state": "none" if not flights else ("closed" if all(f.finalized_at for f in flights) else "open")})
-        if len(week) == 7:
-            weeks.append(week)
-            week = []
-    if week:
-        weeks.append(week + [None] * (7 - len(week)))
 
     # Open days of all months, so nothing is forgotten in a month nobody looks at.
     open_days = sorted({to_local(t).date() for t in db.scalars(

@@ -69,7 +69,7 @@ def test_flugbuch_lists_the_days_flights_in_order(client, db_session, world):
     login(client, "pia")
     page = client.get("/flugbuch").text
     assert page.index("Bob Brunner") < page.index("Pia Pilot")
-    assert "Anz. Flüge: 3" in page
+    assert "3 Flüge, <span class=\"aloft\">1 in der Luft</span>" in page
     assert "Pilot fehlt" in page or "fehlt" in page
     assert "in der Luft" in page
 
@@ -457,7 +457,9 @@ def test_flugbuch_offers_checkout_for_each_pilot_of_the_day(client, db_session, 
     add_flight(db_session, world["glider"], world["pia"])
     login(client, "desk")
     page = client.get("/flugbuch").text
-    assert f'href="/auschecken/{world["pia"].id}?datum={today_local()}">Pia Pilot</a>' in page
+    assert f'href="/auschecken/{world["pia"].id}?next=/flugbuch">Pia Pilot</a>' in page  # Auschecken dialog
+    login(client, "pia")
+    assert f'href="/auschecken/{world["pia"].id}?datum={today_local()}">Auschecken</a>' in client.get("/flugbuch").text
 
 
 def test_motor_glider_can_be_the_tow_aircraft(client, db_session, world):
@@ -478,3 +480,48 @@ def test_motor_glider_can_be_the_tow_aircraft(client, db_session, world):
     resp = client.post("/flugbuch", data=new_flight_form(world["glider"], launch_method="F",
                                                          tow_glider_id=str(world["glider"].id)))
     assert resp.status_code == 400 and "Bitte das Schleppflugzeug wählen." in resp.text
+
+
+# ---- the Flugbuch as command center: form in a dialog, calendar
+
+
+def flight_dialog(page: str) -> str:
+    return page[page.index('<dialog id="flight-dialog"'):page.index("</dialog>")]
+
+
+def test_flight_form_waits_behind_a_button(client, db_session, world):
+    f = add_flight(db_session, world["glider"], world["pia"])
+    login(client, "desk")
+    assert "data-open-on-load" not in flight_dialog(client.get("/flugbuch").text)  # flights first
+    assert "data-open-on-load" in flight_dialog(client.get("/flugbuch?neu=1").text)  # without JavaScript
+    editing = flight_dialog(client.get(f"/flugbuch?bearbeiten={f.id}").text)
+    assert "data-open-on-load" in editing and "Flug bearbeiten: HB-1811" in editing
+
+
+def test_flight_form_with_errors_opens_again(client, db_session, world):
+    login(client, "desk")
+    resp = client.post("/flugbuch", data=new_flight_form(world["glider"], takeoff_time="99:99"))
+    assert resp.status_code == 400
+    dialog = flight_dialog(resp.text)
+    assert "data-open-on-load" in dialog and "Zeiten bitte als Stunden:Minuten" in dialog
+
+
+def test_calendar_marks_days_with_flights_green(client, db_session, world):
+    add_flight(db_session, world["glider"], world["pia"])
+    login(client, "pia")
+    page = client.get("/flugbuch").text
+    today = today_local()
+    flown = page[page.index(f'href="/flugbuch?datum={today}"') - 80:page.index(f'href="/flugbuch?datum={today}"')]
+    assert "cal-flown" in flown and "cal-selected" in flown
+    if today.day > 1:
+        before = today.replace(day=1)
+        quiet = page[page.index(f'href="/flugbuch?datum={before}"') - 80:page.index(f'href="/flugbuch?datum={before}"')]
+        assert "cal-flown" not in quiet
+
+
+def test_calendar_shows_another_month(client, db_session, world):
+    login(client, "pia")
+    page = client.get("/flugbuch?datum=2026-09-12&monat=2026-08").text
+    assert '<details class="cal-pop" open>' in page and "August 2026" in page
+    assert 'href="/flugbuch?datum=2026-08-31"' in page
+    assert "Flugbuch Samstag, 12.09.2026" in page  # the day shown stays

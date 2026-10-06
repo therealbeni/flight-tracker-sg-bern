@@ -120,6 +120,11 @@ a { color: var(--brand-700); }
 
 .topbar form.logout-form { display: none; }
 
+/* Phone: the account page sits in the top bar's corner (the tab bar is full). */
+.topbar .account-link { display: inline-flex; align-items: center; gap: 0.35rem; color: var(--ink-muted); font-weight: 600; font-size: 0.9rem; text-decoration: none; }
+.topbar .account-link svg { width: 22px; height: 22px; }
+.topbar .account-link.active { color: var(--brand-700); }
+
 /* ---------- Bottom tab bar (primary nav on mobile - the main use case) ---------- */
 
 .tabbar {
@@ -467,6 +472,7 @@ a.glider-pick { text-decoration: none; color: inherit; }
         display: block;
         margin-left: 0.5rem;
     }
+    .topbar .account-link { display: none; }
     .topbar form.logout-form button {
         width: auto;
         min-height: 36px;
@@ -606,7 +612,7 @@ body.scanning { overflow: hidden; }
     border-radius: var(--radius-sm);
     box-shadow: var(--shadow-card);
 }
-.combo-list[hidden] { display: none; }
+.combo-list[hidden], .combo > select[hidden] { display: none; }
 .combo-list li {
     padding: 0.6rem 0.8rem;
     color: var(--ink);
@@ -620,20 +626,13 @@ body.scanning { overflow: hidden; }
 .card-head { display: flex; align-items: baseline; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
 .card-head h2 { margin: 0; }
 
-.day-nav { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
-.day-nav h1 { margin: 0 0.25rem 0 0; font-size: 1.35rem; }
-@media (max-width: 767px) {
-    .day-nav h1 { flex-basis: 100%; margin-bottom: 0.25rem; }  /* title on its own row, the controls below */
-    .day-jump { margin-left: 0; }
-    .day-jump label { font-size: 0; gap: 0; }  /* the field explains itself; no label text squeezing the row */
-    .day-jump input { font-size: 1rem; }
-}
+.day-nav { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 
 .table-scroll { overflow-x: auto; margin-bottom: 0.5rem; border-radius: var(--radius-md); }
 .flugbuch-table { display: table; white-space: nowrap; }
 .flugbuch-table th, .flugbuch-table td { padding: 0.45rem 0.55rem; font-size: 0.88rem; vertical-align: middle; }
 .flugbuch-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
-.flugbuch-table td.notes { white-space: normal; min-width: 8rem; max-width: 16rem; }
+.flugbuch-table td.notes { white-space: normal; min-width: 6rem; max-width: 14rem; }
 .flugbuch-table tr.needs-attention td { background: #fffaf0; }
 .flugbuch-table tr.is-editing td { background: var(--brand-100); }
 .flugbuch-table tfoot td { font-weight: 700; border-top: 2px solid var(--border); }
@@ -657,7 +656,13 @@ details.card > summary::before { content: "\25B8  "; color: var(--ink-muted); }
 details.card[open] > summary::before { content: "\25BE  "; }
 details.card[open] > summary { margin-bottom: 0.75rem; }
 .error p { margin: 0.15rem 0; }
-.flugbuch-table .badge { white-space: normal; }
+.flugbuch-table .badge { white-space: normal; border-radius: var(--radius-sm); }
+/* The row's button stays in view however wide the table gets. */
+.flugbuch-table .actions { position: sticky; right: 0; padding-left: 0.4rem; background: var(--surface); box-shadow: -8px 0 8px -8px rgba(20, 30, 45, 0.15); }
+.flugbuch-table tr.needs-attention td.actions { background: #fffaf0; }
+.flugbuch-table tr.is-airborne td.actions { background: var(--sky-100); }
+.flugbuch-table tr.is-editing td.actions { background: var(--brand-100); }
+.flugbuch-table .actions .btn { min-height: 34px; padding: 0.35rem 0.7rem; }
 
 /* ---------- Hilfe ---------- */
 
@@ -681,18 +686,7 @@ details.card[open] > summary { margin-bottom: 0.75rem; }
 
 .day-summary { font-weight: 600; color: var(--ink); margin: 0.25rem 0 0.5rem; }
 
-/* ---------- Flugdienstleiter (FDL) overview, made for a laptop ---------- */
-
-.fdl-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
-.fdl-head h1 { margin: 0; }
-.fdl-summary { margin: 0.2rem 0 0; color: var(--ink-muted); font-size: 1rem; }
-.fdl-actions { display: flex; gap: 0.5rem; }
-.fdl-grid { display: grid; gap: 0 2rem; }
-@media (min-width: 1000px) {
-    .fdl-grid { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
-}
-.fdl h2 { margin: 0 0 0.6rem; }
-.fdl section > h2:not(:first-child) { margin-top: 1.5rem; }
+/* ---------- Flugdienst side panel: aircraft and pilots of today ---------- */
 
 /* Aircraft as flight progress strips: the status edge reads from across the room. */
 .strips, .people { list-style: none; margin: 0 0 1rem; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
@@ -745,9 +739,6 @@ details.card[open] > summary { margin-bottom: 0.75rem; }
     .person { flex-wrap: wrap; }
 }
 .btn.disabled { opacity: 0.35; pointer-events: none; }
-.day-jump { margin-left: auto; display: flex; align-items: center; gap: 0.4rem; }
-.day-jump label { display: flex; align-items: center; gap: 0.5rem; margin: 0; }
-.day-jump input { margin: 0; width: auto; min-height: 40px; padding: 0.4rem 0.6rem; }
 a.day-link { font-weight: 600; }
 
 /* ---------- Tage abschliessen: month calendar ---------- */
@@ -791,9 +782,6 @@ a.cal-open:hover { background: #fae7c2; }
 .flugbuch-cards { margin-bottom: 0.75rem; }
 @media (max-width: 767px) { .flugbuch .table-scroll { display: none; } }
 @media (min-width: 768px) { .flugbuch-cards { display: none; } }
-details.add-flight > summary h2 { display: inline; margin: 0; }
-details.add-flight > summary .hint { display: block; margin: 0.2rem 0 0 1.1rem; }
-details.add-flight[open] > summary { margin-bottom: 1rem; }
 .year-title { margin: 0.75rem 0 0.1rem; font-size: 1rem; color: var(--ink-muted); }
 .record.mine { border-left: 4px solid var(--brand-700); }  /* your own flights among everyone's */
 .card-text { margin: 0 0 0.75rem; }
@@ -801,3 +789,147 @@ details.add-flight[open] > summary { margin-bottom: 1rem; }
 .pending-title { margin-top: 0.5rem; }
 img.qr { display: block; }
 .qr-link { white-space: normal; max-width: 120px; overflow-wrap: break-word; }
+
+
+/* ---------- Flugbuch: the club PC's command center ---------- */
+
+.fb-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem 1rem; flex-wrap: wrap; margin-bottom: 0.9rem; }
+.fb-head h1 { margin: 0; font-size: 1.4rem; }
+.fb-toolbar { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.9rem; }
+.fb-toolbar svg { width: 18px; height: 18px; }
+.panel-toggle { margin-left: auto; }
+.count-badge {
+    display: inline-flex; align-items: center; justify-content: center; min-width: 1.4rem; height: 1.4rem;
+    padding: 0 0.35rem; border-radius: 999px; background: var(--brand-700); color: #fff; font-size: 0.75rem;
+}
+.day-admin { padding: 0.6rem 0.9rem; margin-bottom: 0.9rem; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); }
+.flugbuch .notice { margin-bottom: 0.9rem; }
+
+/* What's in the air right now reads first: sky-blue rows, minutes counting up. */
+.aloft { color: #126fa8; font-weight: 700; }
+.flugbuch-table tr.is-airborne td { background: var(--sky-100); }
+.flugbuch-table tr.is-airborne td:first-child { box-shadow: inset 5px 0 0 var(--sky); }
+.record.is-airborne { border-left: 5px solid var(--sky); }
+.flugbuch-table td.num { font-size: 0.95rem; }
+
+/* Side panel. Without JavaScript it simply follows the flights. */
+.fb-panel { margin-top: 1.5rem; }
+.fb-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.5rem; }
+.fb-panel-head h2 { margin: 0; font-size: 1.05rem; }
+.fb-panel h3 { font-size: 0.9rem; color: var(--ink-muted); margin: 1rem 0 0.4rem; }
+.fb-panel section:first-child h3 { margin-top: 0.25rem; }
+.flugbuch:not(.panel-js) .fb-panel .sheet-close, .flugbuch:not(.panel-js) .panel-toggle { display: none; }
+.flugbuch.panel-js .fb-panel {
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: 40; width: min(400px, 92vw); margin: 0;
+    padding: 1rem 1rem 1.5rem; overflow-y: auto; background: var(--bg); border-left: 1px solid var(--border);
+    box-shadow: -8px 0 24px rgba(20, 30, 45, 0.12); transform: translateX(105%); visibility: hidden;
+    transition: transform 160ms ease, visibility 0s 160ms;
+}
+.flugbuch.panel-js.panel-open .fb-panel { transform: none; visibility: visible; transition: transform 160ms ease; }
+@media (min-width: 1500px) {
+    .content.wide:has(.panel-open) { max-width: 1840px; }
+    .flugbuch.panel-js.panel-open { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 1.75rem; align-items: start; }
+    .flugbuch.panel-js.panel-open .fb-panel {
+        position: sticky; top: 76px; z-index: auto; width: auto; max-height: calc(100vh - 92px);
+        padding: 0.9rem; border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: none;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .flugbuch.panel-js .fb-panel, .flugbuch.panel-js.panel-open .fb-panel { transition: none; }
+}
+
+.fb-panel .strip { grid-template-columns: minmax(0, 1fr) auto; gap: 0.15rem 0.75rem; padding: 0.5rem 0.6rem 0.5rem 0.8rem; }
+.fb-panel .strip-id { display: flex; align-items: baseline; gap: 0.5rem; }
+.fb-panel .strip-reg { font-size: 1.05rem; }
+.fb-panel .strip-state { grid-column: 1; grid-row: 2; }
+.fb-panel .strip > .btn { grid-column: 2; grid-row: 1 / span 2; }
+.fb-panel .strip-status { font-size: 0.9rem; }
+.fb-panel .strip-count { font-size: 0.8rem; }
+.strip-idle { border-left-color: var(--ink-faint); }
+.fb-panel .person-status { font-size: 0.82rem; }
+.people-gone > summary { cursor: pointer; color: var(--ink-muted); font-weight: 600; font-size: 0.9rem; margin: 0.75rem 0 0.4rem; }
+.people-gone .person { background: transparent; }
+.people-gone .person-name { font-weight: 600; color: var(--ink-muted); }
+button.link-button {
+    display: inline; width: auto; min-height: 0; padding: 0; margin-left: 0.25rem; background: none;
+    color: var(--brand-700); font-weight: 600; font-size: inherit; text-decoration: underline;
+}
+button.link-button:hover { background: none; color: var(--brand-900); }
+
+/* Dialogs over the flights: the flight form, Einchecken, Auschecken. */
+dialog.sheet {
+    width: min(980px, calc(100vw - 2rem)); max-height: calc(100dvh - 2rem); overflow-y: auto;
+    padding: 1.1rem 1.4rem 0; border: none; border-radius: var(--radius-lg); background: var(--surface);
+    color: var(--ink); box-shadow: 0 20px 60px rgba(20, 30, 45, 0.3);
+}
+dialog.sheet-small { width: min(520px, calc(100vw - 2rem)); padding-bottom: 1.1rem; }
+dialog.sheet::backdrop { background: rgba(27, 52, 70, 0.45); }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 0.25rem; }
+.sheet-head h2 { margin: 0; }
+.sheet-sub { margin: 0 0 0.9rem; }
+.sheet-close {
+    display: inline-flex; align-items: center; justify-content: center; flex: none; width: 40px; height: 40px;
+    min-height: 0; padding: 0; border-radius: 999px; background: transparent; color: var(--ink-muted);
+}
+.sheet-close:hover { background: var(--brand-100); color: var(--brand-900); }
+.sheet-close svg { width: 20px; height: 20px; }
+dialog.sheet .form-actions {
+    position: sticky; bottom: 0; align-items: center; margin: 0 -1.4rem; padding: 0.75rem 1.4rem 1rem;
+    background: var(--surface); border-top: 1px solid var(--border);
+}
+dialog.sheet-small .form-actions { position: static; margin: 0; padding: 0.25rem 0 0; border: none; }
+dialog.sheet .form-actions > button, dialog.sheet .form-actions > .btn { width: auto; }
+.sheet-more { margin-left: auto; font-size: 0.85rem; }
+@media (max-width: 640px) {
+    dialog.sheet, dialog.sheet-small {
+        width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; margin: 0; border-radius: 0; padding: 0.9rem 1rem 0;
+    }
+    dialog.sheet .form-actions { margin: 0 -1rem; padding: 0.75rem 1rem calc(0.75rem + var(--safe-bottom)); }
+    dialog.sheet .form-actions > button, dialog.sheet .form-actions > .btn { flex: 1; }
+}
+fieldset.choice { border: none; padding: 0; margin: 0 0 0.9rem; }
+fieldset.choice legend { padding: 0; margin-bottom: 0.35rem; font-size: 0.85rem; font-weight: 600; color: var(--ink-muted); }
+label.radio { display: flex; align-items: center; gap: 0.6rem; margin: 0 0 0.35rem; color: var(--ink); font-weight: 500; font-size: 0.95rem; }
+label.radio input { width: 1.15rem; height: 1.15rem; min-height: 0; margin: 0; padding: 0; flex: none; accent-color: var(--brand-700); }
+
+/* Calendar to jump to a day: days with flights in green. */
+.cal-pop { position: relative; }
+.cal-pop > summary { list-style: none; }
+.cal-pop > summary::-webkit-details-marker { display: none; }
+.cal-pop > summary svg { width: 18px; height: 18px; }
+.cal-pop[open] > summary { background: var(--brand-700); color: #fff; }
+.cal-pop-body {
+    position: absolute; top: calc(100% + 6px); right: 0; z-index: 25; width: 300px; padding: 0.6rem 0.75rem 0.4rem;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-card);
+}
+.cal-pop .month-nav { justify-content: space-between; margin: 0 0 0.4rem; }
+.cal-pop .month-nav h2 { font-size: 0.95rem; min-width: 0; }
+.calendar.mini { border-spacing: 3px; }
+.calendar.mini td { height: 2.2rem; }
+.calendar.mini .cal-day { font-size: 0.88rem; border: 1px solid transparent; }
+.calendar.mini a.cal-day { font-weight: 500; color: var(--ink); }
+.calendar.mini a.cal-day:hover { background: var(--brand-100); }
+.calendar.mini a.cal-flown { background: var(--success-100); color: var(--success); border-color: #b9e2cf; font-weight: 700; }
+.calendar.mini a.cal-flown:hover { background: #d3efe2; }
+.calendar.mini .cal-today { outline: none; text-decoration: underline 2px; text-underline-offset: 3px; }
+.calendar.mini a.cal-selected { box-shadow: inset 0 0 0 2px var(--brand-700); }
+.cal-future { color: var(--ink-faint); opacity: 0.5; }
+.cal-dot.cal-flown { background: var(--success-100); border: 1px solid #b9e2cf; }
+.cal-dot.cal-today-dot { width: 0.9rem; height: 2px; border-radius: 0; background: var(--ink); }
+.cal-pop .cal-legend { margin: 0.3rem 0 0; font-size: 0.8rem; }
+@media (max-width: 767px) {
+    .fb-head h1 { font-size: 1.2rem; }
+    .cal-pop-label { display: none; }
+    .cal-pop-body { right: auto; left: -3.5rem; width: min(300px, calc(100vw - 2rem)); }  /* under the left arrow */
+    .fb-toolbar > .btn:first-child { flex: 1; }
+}
+
+/* ---------- Konto ---------- */
+
+.account-card { max-width: 560px; }
+.account-card h2 { margin-top: 0; }
+.account-card label .hint { font-weight: 400; }
+.own-aircraft { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1rem; }
+.own-aircraft li { display: flex; gap: 1rem; align-items: center; }
+.own-aircraft .qr { flex: none; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.account-logout { max-width: 560px; }

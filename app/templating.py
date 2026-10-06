@@ -1,4 +1,5 @@
 import time
+from datetime import timedelta
 
 from fastapi.templating import Jinja2Templates
 
@@ -20,6 +21,7 @@ def current_user(request):
 
 
 templates.env.globals["current_user"] = current_user
+templates.env.globals["timedelta_days"] = lambda days: timedelta(days=days)
 
 # Times are stored in UTC and always shown in Swiss local time: {{ f.takeoff_time|hhmm }}
 templates.env.filters["hhmm"] = timeutil.fmt_time

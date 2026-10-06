@@ -1,0 +1,36 @@
+{# Month calendar to jump to a day; days with flights are green. Changing
+   the month reloads the page with the calendar open (?monat=). #}
+{% set month_names = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"] %}
+{% set m = calendar_month %}
+{% set prev_m = (m - timedelta_days(1)).replace(day=1) %}
+{% set next_m = (m + timedelta_days(32)).replace(day=1) %}
+<details class="cal-pop" {{ "open" if calendar_open }}>
+    <summary class="btn secondary compact" title="Tag im Kalender wählen">{% import "_icons.html" as icons %}{{ icons.icon("calendar") }}<span class="cal-pop-label">Kalender</span></summary>
+    <div class="cal-pop-body">
+        <div class="month-nav">
+            <a class="btn secondary compact" href="/flugbuch?datum={{ day }}&monat={{ prev_m.strftime('%Y-%m') }}" aria-label="Vorheriger Monat">&larr;</a>
+            <h2>{{ month_names[m.month - 1] }} {{ m.year }}</h2>
+            {% if next_m <= today %}<a class="btn secondary compact" href="/flugbuch?datum={{ day }}&monat={{ next_m.strftime('%Y-%m') }}" aria-label="Nächster Monat">&rarr;</a>
+            {% else %}<span class="btn secondary compact disabled" aria-hidden="true">&rarr;</span>{% endif %}
+        </div>
+        <table class="calendar mini">
+            <thead><tr>{% for d in ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"] %}<th>{{ d }}</th>{% endfor %}</tr></thead>
+            <tbody>
+            {% for week in calendar %}
+                <tr>
+                {% for d in week %}
+                    {% if d is none %}<td></td>
+                    {% elif d.date > today %}<td><span class="cal-day cal-future">{{ d.date.day }}</span></td>
+                    {% else %}
+                    <td><a class="cal-day {{ 'cal-flown' if d.flights }} {{ 'cal-today' if d.date == today }} {{ 'cal-selected' if d.date == day }}"
+                           href="/flugbuch?datum={{ d.date }}"
+                           title="{{ d.date|wochentag }}, {{ d.date|datum }}{% if d.flights %}: {{ d.flights }} {{ 'Flug' if d.flights == 1 else 'Flüge' }}{% endif %}">{{ d.date.day }}</a></td>
+                    {% endif %}
+                {% endfor %}
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        <p class="cal-legend"><span class="cal-dot cal-flown"></span> geflogen <span class="cal-dot cal-today-dot"></span> heute</p>
+    </div>
+</details>

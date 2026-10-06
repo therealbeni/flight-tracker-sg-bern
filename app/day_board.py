@@ -5,7 +5,8 @@ check out (Auschecken: flights confirmed, going home). Checking in or flying
 again after that makes them present again.
 
 An aircraft is *in the air* (open flight), *eingecheckt* (someone has an
-active check-in on it) or *frei*.
+active check-in on it) or *frei*. Members' private aircraft are never "frei"
+(not the club's to hand out): they only show up while in use or once flown.
 """
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from models import Checkout, Flight, Glider, GliderClaim, Pilot
-from timeutil import as_utc, local_day_bounds, today_local
+from timeutil import as_utc, local_day_bounds, to_local, today_local
 
 
 @dataclass
@@ -67,10 +68,12 @@ class AircraftDay:
 
     @property
     def status(self) -> str:
-        """"air", "claimed" or "free"."""
+        """"air", "claimed", "free", or "idle" (a private aircraft not in use)."""
         if self.airborne is not None:
             return "air"
-        return "claimed" if self.claims else "free"
+        if self.claims:
+            return "claimed"
+        return "idle" if self.glider.is_private else "free"
 
 
 # Everything a list of flights shows, loaded in a few queries instead of a
@@ -158,7 +161,8 @@ def pilots_of_day(db: Session, day: date, flights: Optional[list[Flight]] = None
 
 
 def aircraft_of_day(db: Session, day: date, flights: list[Flight]) -> list[AircraftDay]:
-    """Every active aircraft with what it's doing: in the air, checked in, free."""
+    """Every active club aircraft with what it's doing (in the air, checked
+    in, free), then the private aircraft that flew or are checked in."""
     gliders = db.scalars(select(Glider).where(Glider.active.is_(True)).order_by(Glider.kind, Glider.registration)).all()
     board = {g.id: AircraftDay(g) for g in gliders}
     for flight in flights:
@@ -174,7 +178,9 @@ def aircraft_of_day(db: Session, day: date, flights: list[Flight]) -> list[Aircr
         for claim in claims:
             if claim.glider_id in board:
                 board[claim.glider_id].claims.append(claim)
-    return list(board.values())
+    club = [a for a in board.values() if not a.glider.is_private]
+    private = [a for a in board.values() if a.glider.is_private and (a.status != "idle" or a.flight_count)]
+    return club + private
 
 
 def record_checkout(db: Session, pilot: Pilot, day: date, by: Pilot) -> None:
@@ -188,3 +194,40 @@ def record_checkout(db: Session, pilot: Pilot, day: date, by: Pilot) -> None:
         except IntegrityError:  # the same checkout sent twice at once (double tap)
             checkout = db.scalar(select(Checkout).where(Checkout.pilot_id == pilot.id, Checkout.day == day))
     checkout.checked_out_at, checkout.by_pilot_id = now, by.id
+
+
+def month_calendar(db: Session, first: date) -> list[list[Optional[dict]]]:
+    """Monday-first weeks of the month starting at `first`; each day is None
+    (another month) or {"date", "flights", "confirmed", "state"} with state
+    "none" (no flights), "open" or "closed" (finalized)."""
+    next_first = (first + timedelta(days=32)).replace(day=1)
+    start, _ = local_day_bounds(first)
+    end, _ = local_day_bounds(next_first)
+    in_month = db.scalars(select(Flight).where(Flight.deleted_at.is_(None), Flight.takeoff_time >= start,
+                                               Flight.takeoff_time < end)).all()
+    by_day: dict[date, list[Flight]] = {}
+    for f in in_month:
+        by_day.setdefault(to_local(f.takeoff_time).date(), []).append(f)
+
+    weeks, week = [], [None] * first.weekday()
+    for offset in range((next_first - first).days):
+        day = first + timedelta(days=offset)
+        flights = by_day.get(day, [])
+        week.append({"date": day, "flights": len(flights),
+                     "confirmed": sum(1 for f in flights if f.verified_by_pilot),
+                     "state": "none" if not flights else ("closed" if all(f.finalized_at for f in flights) else "open")})
+        if len(week) == 7:
+            weeks.append(week)
+            week = []
+    if week:
+        weeks.append(week + [None] * (7 - len(week)))
+    return weeks
+
+
+def parse_month(text: Optional[str], default: date) -> date:
+    """"2026-10" -> 1.10.2026; the month of `default` if it isn't one."""
+    try:
+        year, month = (int(part) for part in (text or "").split("-"))
+        return date(year, month, 1)
+    except ValueError:
+        return default.replace(day=1)
