@@ -162,7 +162,8 @@ def test_dropping_a_too_short_tow_flight_unlinks_the_glider(db_session, fleet):
     glider = fly(sink, fleet["glider"], T, minutes=50)
     fly(sink, fleet["tow"], T + timedelta(seconds=2), minutes=0.4)  # aborted takeoff
     g = row(db_session, glider)
-    assert g.tow_flight_id is None and g.tow_glider_id is None and g.launch_method is None
+    assert g.tow_flight_id is None and g.tow_glider_id is None
+    assert g.launch_method is LaunchMethod.WINCH  # no tow after all
 
 
 def test_deleted_tow_flight_is_not_linked(db_session, fleet):
@@ -213,3 +214,83 @@ def test_dropping_a_too_short_glider_flight_makes_the_motor_glider_flight_normal
     fly(sink, fleet["glider"], T, minutes=0.3)  # glider bounced on the runway, not a flight
     t = row(db_session, record.record_id)
     assert (t.flight_type, t.billing) == ("N", "pilot")
+
+
+def take_off(sink, glider, at, airport=LSZB, estimated=False) -> FlightRecord:
+    record = FlightRecord(address=glider.ogn_device_id, registration=glider.registration, model="",
+                          takeoff_time=at, takeoff_airport=airport, takeoff_estimated=estimated)
+    sink.handle(FlightEvent(EventKind.TAKEOFF, record))
+    return record
+
+
+def test_glider_without_tow_plane_was_winch_launched(db_session, fleet):
+    record_id = fly(DbSink(SessionLocal), fleet["glider"], T, minutes=4)  # a winch circuit
+    assert row(db_session, record_id).launch_method is LaunchMethod.WINCH
+
+
+def test_launch_stays_open_until_a_tow_plane_could_still_show_up(db_session, fleet):
+    sink = DbSink(SessionLocal)
+    glider = take_off(sink, fleet["glider"], T)
+    assert row(db_session, glider.record_id).launch_method is None  # not known yet
+    take_off(sink, fleet["tow"], T + timedelta(seconds=20))  # reported a little later
+    assert row(db_session, glider.record_id).launch_method is LaunchMethod.AEROTOW
+
+
+def test_glider_in_the_air_becomes_winch_once_no_tow_plane_came(db_session, fleet):
+    sink = DbSink(SessionLocal)
+    glider = take_off(sink, fleet["glider"], T)
+    other = take_off(sink, fleet["glider2"], T + timedelta(minutes=2))  # too early to tell
+    assert row(db_session, glider.record_id).launch_method is None
+    take_off(sink, fleet["motor"], T + timedelta(minutes=10))  # any later event settles it
+    assert row(db_session, glider.record_id).launch_method is LaunchMethod.WINCH
+    assert row(db_session, other.record_id).launch_method is LaunchMethod.WINCH
+
+
+def test_unseen_takeoff_gets_no_launch_method(db_session, fleet):
+    sink = DbSink(SessionLocal)
+    estimated = fly(sink, fleet["glider"], T, minutes=30, estimated=True)
+    fly(sink, fleet["glider2"], T + timedelta(hours=1), minutes=30)
+    assert row(db_session, estimated).launch_method is None  # could have been towed out of sight
+
+
+def test_motor_glider_and_tow_plane_are_never_winch(db_session, fleet):
+    sink = DbSink(SessionLocal)
+    motor = fly(sink, fleet["motor"], T)
+    tow = fly(sink, fleet["tow"], T + timedelta(minutes=30))
+    assert row(db_session, motor).launch_method is LaunchMethod.SELF
+    assert row(db_session, tow).launch_method is LaunchMethod.SELF
+
+
+@pytest.fixture
+def private(db_session, fleet):
+    """A member's own motor glider and glider."""
+    owner = pilot(db_session, "Otto")
+    aircraft = {
+        "motor": Glider(registration="HB-2999", ogn_device_id="4B5999", kind=AircraftKind.MOTORGLIDER, owners=[owner]),
+        "glider": Glider(registration="HB-3407", ogn_device_id="4B5407", kind=AircraftKind.GLIDER, owners=[owner]),
+    }
+    db_session.add_all(aircraft.values())
+    db_session.commit()
+    return aircraft
+
+
+@pytest.mark.parametrize("motor_detected_first", [True, False])
+def test_private_motor_glider_never_counts_as_tow_plane(db_session, fleet, private, motor_detected_first):
+    sink = DbSink(SessionLocal)
+    if motor_detected_first:
+        motor = fly(sink, private["motor"], T + timedelta(seconds=5), minutes=60)
+        glider = fly(sink, fleet["glider"], T, minutes=5)
+    else:
+        glider = fly(sink, fleet["glider"], T, minutes=5)
+        motor = fly(sink, private["motor"], T + timedelta(seconds=5), minutes=60)
+    assert row(db_session, glider).launch_method is LaunchMethod.WINCH
+    assert row(db_session, glider).tow_flight_id is None
+    assert (row(db_session, motor).flight_type, row(db_session, motor).launch_method) == ("N", LaunchMethod.SELF)
+
+
+def test_private_glider_is_tracked_and_towed_by_the_club_tow_plane(db_session, fleet, private):
+    sink = DbSink(SessionLocal)
+    glider = fly(sink, private["glider"], T, minutes=120)
+    tow = fly(sink, fleet["tow"], T + timedelta(seconds=3), minutes=8)
+    g = row(db_session, glider)
+    assert g.launch_method is LaunchMethod.AEROTOW and g.tow_flight.record_id == tow

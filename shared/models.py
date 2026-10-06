@@ -11,6 +11,8 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     String,
+    Table,
+    Column,
     Text,
     UniqueConstraint,
     and_,
@@ -149,7 +151,21 @@ class Airfield(Base):
     elevation_m: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
 
 
+# Members who own a private aircraft (one or several, e.g. a syndicate).
+aircraft_owners = Table(
+    "aircraft_owners", Base.metadata,
+    Column("glider_id", ForeignKey("gliders.id", ondelete="CASCADE"), primary_key=True),
+    Column("pilot_id", ForeignKey("pilots.id", ondelete="CASCADE"), primary_key=True),
+)
+
+
 class Glider(Base):
+    """An aircraft the tracker follows: the club's own, or a member's private
+    one (it has owners). Private aircraft are tracked and logged like the
+    club's, and their owners check in on them - but they are nobody else's
+    business: never offered to other pilots, never shown as "frei", and never
+    taken for the tow plane of a glider."""
+
     __tablename__ = "gliders"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -164,6 +180,24 @@ class Glider(Base):
     kind: Mapped[AircraftKind] = mapped_column(
         Enum(AircraftKind), default=AircraftKind.GLIDER, server_default=AircraftKind.GLIDER.name, nullable=False
     )
+    owners: Mapped[list["Pilot"]] = relationship(secondary=aircraft_owners, order_by="Pilot.full_name", lazy="selectin")
+
+    @property
+    def is_private(self) -> bool:
+        return bool(self.owners)
+
+    @property
+    def tows(self) -> bool:
+        """Can be the tow plane of a glider: the club's tow planes and motor gliders."""
+        return self.kind.can_tow and not self.is_private
+
+    def owned_by(self, pilot: "Pilot") -> bool:
+        return any(owner.id == pilot.id for owner in self.owners)
+
+    @classmethod
+    def club_owned(cls):
+        """SQL condition: a club aircraft, not a private one."""
+        return ~cls.owners.any()
 
 
 class GliderClaim(Base):
@@ -190,6 +224,8 @@ class GliderClaim(Base):
     # Who ended it: the pilot themselves, someone taking the aircraft over,
     # the FDL, an admin. Empty for older rows and automatic ends.
     cancelled_by_id: Mapped[int | None] = mapped_column(ForeignKey("pilots.id"), nullable=True)
+    # Who made the check-in, if not the pilot: the FDL on the club PC.
+    claimed_by_id: Mapped[int | None] = mapped_column(ForeignKey("pilots.id"), nullable=True)
 
     glider: Mapped["Glider"] = relationship()
     pilot: Mapped["Pilot"] = relationship(foreign_keys=[pilot_id])

@@ -26,6 +26,10 @@ from shared.models import AircraftKind, Airfield, Flight, FlightSource, Glider, 
 # A glider and its tow plane start their takeoff roll together; detected
 # takeoff times differ by a few seconds (different speed/beacon timing).
 TOW_WINDOW = timedelta(seconds=60)
+# A takeoff is reported once the aircraft has climbed 50 m, so the tow plane's
+# may arrive a minute or so after the glider's. A glider that no tow plane took
+# off with by this long after its takeoff was launched by the winch.
+WINCH_AFTER = timedelta(minutes=3)
 
 
 def _aware(dt: Optional[datetime]) -> Optional[datetime]:
@@ -58,6 +62,7 @@ class DbSink:
                     flight = self._create_flight(db, glider, event.flight)
                 if event.kind is EventKind.LANDING:
                     self._record_landing(db, flight, event.flight)
+                self._settle_launches(db, _aware(event.flight.landing_time or event.flight.takeoff_time))
                 db.commit()
             except Exception:
                 db.rollback()
@@ -111,18 +116,20 @@ class DbSink:
         several). Whichever of the two is detected second makes the link."""
         if flight.takeoff_airfield_icao is None or flight.takeoff_estimated:
             return
-        if glider.kind.can_tow:
-            wanted = [AircraftKind.GLIDER]
+        if glider.kind.can_tow and not glider.tows:
+            return  # a private motor glider: never anyone's tow plane
+        query = select(Flight).join(Glider, Flight.glider_id == Glider.id)
+        if glider.tows:
+            query = query.where(Glider.kind == AircraftKind.GLIDER)
         else:
-            wanted = [kind for kind in AircraftKind if kind.can_tow]
+            query = query.where(Glider.kind.in_([kind for kind in AircraftKind if kind.can_tow]), Glider.club_owned())
         candidates = db.scalars(
-            select(Flight).join(Glider, Flight.glider_id == Glider.id)
-            .where(Glider.kind.in_(wanted), Flight.id != flight.id, Flight.deleted_at.is_(None))
+            query.where(Flight.id != flight.id, Flight.deleted_at.is_(None))
             .where(Flight.takeoff_airfield_icao == flight.takeoff_airfield_icao,
                    Flight.takeoff_estimated.is_(False))
             .where(Flight.takeoff_time.between(flight.takeoff_time - TOW_WINDOW, flight.takeoff_time + TOW_WINDOW))
         ).all()
-        if glider.kind.can_tow:
+        if glider.tows:
             candidates = [f for f in candidates if f.tow_flight_id is None]
         else:
             towing = set(db.scalars(select(Flight.tow_flight_id).where(Flight.tow_flight_id.is_not(None))).all())
@@ -130,7 +137,7 @@ class DbSink:
         if not candidates:
             return
         other = min(candidates, key=lambda f: abs(_aware(f.takeoff_time) - _aware(flight.takeoff_time)))
-        towed, tow = (other, flight) if glider.kind.can_tow else (flight, other)
+        towed, tow = (other, flight) if glider.tows else (flight, other)
         towed.tow_flight_id = tow.id
         towed.launch_method = LaunchMethod.AEROTOW
         if towed.tow_glider_id is None:
@@ -152,7 +159,7 @@ class DbSink:
                 tow.flight_type, tow.billing = "N", "pilot"  # it didn't tow after all
             for towed in db.scalars(select(Flight).where(Flight.tow_flight_id == flight.id)).all():
                 towed.tow_flight_id = towed.tow_glider_id = None
-                towed.launch_method = None
+                towed.launch_method = LaunchMethod.WINCH if self._launch_seen(towed) else None
             # Write the cleared links first: the ORM doesn't know they point at
             # this row and might delete it before (Postgres refuses that).
             db.flush()
@@ -167,6 +174,34 @@ class DbSink:
         # location we have, and pilots fill in the real place on correction.
         flight.landing_latitude = record.landing_latitude
         flight.landing_longitude = record.landing_longitude
+        glider = flight.glider
+        if (glider is not None and glider.kind is AircraftKind.GLIDER and flight.launch_method is None
+                and self._launch_seen(flight)):
+            flight.launch_method = LaunchMethod.WINCH  # landed, and no tow plane took off with it
+
+    @staticmethod
+    def _launch_seen(flight: Flight) -> bool:
+        """The takeoff was seen at an airfield, so a tow plane taking off with
+        it would have been seen too (same conditions as in _link_tow)."""
+        return flight.takeoff_airfield_icao is not None and not flight.takeoff_estimated
+
+    def _settle_launches(self, db: Session, now: Optional[datetime]) -> None:
+        """Gliders are launched by a tow plane or the winch. Once WINCH_AFTER
+        has passed without a tow plane taking off with a glider, it was the
+        winch. Runs with every takeoff and landing of any club aircraft, which
+        on a flying day is often enough - and a glider's own landing settles it
+        at the latest."""
+        if now is None:
+            return
+        pending = db.scalars(
+            select(Flight).join(Glider, Flight.glider_id == Glider.id)
+            .where(Glider.kind == AircraftKind.GLIDER, Flight.source == FlightSource.AUTO,
+                   Flight.launch_method.is_(None), Flight.tow_flight_id.is_(None), Flight.deleted_at.is_(None))
+            .where(Flight.takeoff_time.between(now - timedelta(days=1), now - WINCH_AFTER))
+        ).all()
+        for flight in pending:
+            if self._launch_seen(flight):
+                flight.launch_method = LaunchMethod.WINCH
 
     def _airfield(self, db: Session, airport: Optional[Airport]) -> Optional[str]:
         """Returns the airfield code, adding the airfield to the table first if

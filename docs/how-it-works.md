@@ -53,6 +53,13 @@ the flight gets an *estimated* takeoff.
 **Tows.** A glider taking off within 60 s of a tow plane or motor glider at the same
 airfield is linked to it as an aerotow (the closest in time if there are several). The
 tow's flight becomes Flugart F, billed with the glider, as in Vereinsflieger.
+A glider is launched by a tow plane or the winch: if no tow plane took off with it, it
+gets Startart Winde - three minutes after its takeoff (a tow plane's takeoff is reported
+once it has climbed 50 m, so it can come in a little after the glider's), or at its
+landing at the latest. Until then the Startart stays empty. A takeoff the tracker didn't
+see itself (estimated time) gets no Startart: it may have been towed out of sight.
+Members' private aircraft are tracked like the club's, but a private motor glider is
+never counted as anyone's tow plane.
 
 **Restarts.** Flights still open in the database are re-attached at startup, so their
 landing completes the same record.

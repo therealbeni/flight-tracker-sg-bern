@@ -16,6 +16,7 @@ from shared.models import (  # noqa: F401
     LaunchMethod,
     PasswordResetToken,
     Pilot,
+    aircraft_owners,
     PilotRole,
     PilotStatus,
 )
