@@ -189,11 +189,10 @@ def private(db_session, world):
     return glider
 
 
-def test_private_aircraft_are_only_offered_to_their_owners(client, db_session, world, private):
+def test_private_aircraft_are_listed_for_everyone(client, db_session, world, private):
+    # Often shared by several members: anyone may check in on it.
     login(client, "pia")
-    assert "HB-3407" not in client.get("/claim").text
-    login(client, "bob")
-    assert "HB-3407" in client.get("/claim").text
+    assert "LS 8, privat" in client.get("/claim").text
     claim(client, private)
     assert db_session.query(GliderClaim).one().glider_id == private.id
 
@@ -201,8 +200,8 @@ def test_private_aircraft_are_only_offered_to_their_owners(client, db_session, w
 def test_private_aircraft_is_never_free_on_the_club_pc(client, db_session, world, private):
     login(client, "desk")
     assert "HB-3407" not in panel(client)  # not in use: not shown
-    page = client.get("/flugbuch").text
-    assert 'data-owners="%d"' % world["bob"].id in page  # offered at check-in once Bob is chosen
+    assert "HB-3407 (LS 8), privat - frei" not in client.get("/flugbuch").text  # never "frei"...
+    assert "HB-3407 (LS 8), privat" in client.get("/flugbuch").text  # ...but offered at check-in
     desk_check_in(client, world["bob"], private, mode="next")
     shown = panel(client)
     assert "HB-3407" in shown and "privat" in shown and "Bob Brunner, nächster Start" in shown
@@ -212,14 +211,14 @@ def test_private_aircraft_is_never_free_on_the_club_pc(client, db_session, world
     assert shown.count("strip strip-free") == 2  # HB-1811 and D-EDUY, never the private one
 
 
-def test_private_aircraft_is_not_a_tow_plane_choice(client, db_session, world):
+def test_private_motor_glider_is_a_tow_plane_choice(client, db_session, world):
     db_session.add(Glider(registration="HB-2999", kind=AircraftKind.MOTORGLIDER, owners=[world["bob"]]))
     db_session.commit()
     login(client, "desk")
     page = client.get("/flugbuch?neu=1").text
     tow_select = page[page.index('name="tow_glider_id"'):]
     tow_select = tow_select[:tow_select.index("</select>")]
-    assert "D-EDUY" in tow_select and "HB-2999" not in tow_select
+    assert "D-EDUY" in tow_select and "HB-2999" in tow_select
 
 
 def test_admin_makes_an_aircraft_private_and_back(client, db_session, world):

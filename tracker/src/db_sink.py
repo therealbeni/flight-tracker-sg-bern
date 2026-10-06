@@ -116,20 +116,18 @@ class DbSink:
         several). Whichever of the two is detected second makes the link."""
         if flight.takeoff_airfield_icao is None or flight.takeoff_estimated:
             return
-        if glider.kind.can_tow and not glider.tows:
-            return  # a private motor glider: never anyone's tow plane
         query = select(Flight).join(Glider, Flight.glider_id == Glider.id)
-        if glider.tows:
+        if glider.kind.can_tow:
             query = query.where(Glider.kind == AircraftKind.GLIDER)
         else:
-            query = query.where(Glider.kind.in_([kind for kind in AircraftKind if kind.can_tow]), Glider.club_owned())
+            query = query.where(Glider.kind.in_([kind for kind in AircraftKind if kind.can_tow]))
         candidates = db.scalars(
             query.where(Flight.id != flight.id, Flight.deleted_at.is_(None))
             .where(Flight.takeoff_airfield_icao == flight.takeoff_airfield_icao,
                    Flight.takeoff_estimated.is_(False))
             .where(Flight.takeoff_time.between(flight.takeoff_time - TOW_WINDOW, flight.takeoff_time + TOW_WINDOW))
         ).all()
-        if glider.tows:
+        if glider.kind.can_tow:
             candidates = [f for f in candidates if f.tow_flight_id is None]
         else:
             towing = set(db.scalars(select(Flight.tow_flight_id).where(Flight.tow_flight_id.is_not(None))).all())
@@ -137,7 +135,7 @@ class DbSink:
         if not candidates:
             return
         other = min(candidates, key=lambda f: abs(_aware(f.takeoff_time) - _aware(flight.takeoff_time)))
-        towed, tow = (other, flight) if glider.tows else (flight, other)
+        towed, tow = (other, flight) if glider.kind.can_tow else (flight, other)
         towed.tow_flight_id = tow.id
         towed.launch_method = LaunchMethod.AEROTOW
         if towed.tow_glider_id is None:

@@ -141,7 +141,7 @@ def test_admin_finalize_locks_editing_and_unlock_reopens_it(client, db_session):
     overview = client.get("/admin/finalize")
     assert flight.takeoff_time.strftime("%d.%m.%Y") in overview.text
 
-    client.post(f"/admin/finalize/{day}", follow_redirects=False)
+    client.post("/flugbuch/abschliessen", data={"day": str(day)}, follow_redirects=False)
     db_session.refresh(flight)
     assert flight.finalized_at is not None
 

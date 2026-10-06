@@ -162,9 +162,9 @@ aircraft_owners = Table(
 class Glider(Base):
     """An aircraft the tracker follows: the club's own, or a member's private
     one (it has owners). Private aircraft are tracked and logged like the
-    club's, and their owners check in on them - but they are nobody else's
-    business: never offered to other pilots, never shown as "frei", and never
-    taken for the tow plane of a glider."""
+    club's and listed for check-in (marked "privat"), and a private motor
+    glider can tow like the club's - but a private aircraft is never shown as
+    "frei" (not the club's to hand out)."""
 
     __tablename__ = "gliders"
 
@@ -186,18 +186,8 @@ class Glider(Base):
     def is_private(self) -> bool:
         return bool(self.owners)
 
-    @property
-    def tows(self) -> bool:
-        """Can be the tow plane of a glider: the club's tow planes and motor gliders."""
-        return self.kind.can_tow and not self.is_private
-
     def owned_by(self, pilot: "Pilot") -> bool:
         return any(owner.id == pilot.id for owner in self.owners)
-
-    @classmethod
-    def club_owned(cls):
-        """SQL condition: a club aircraft, not a private one."""
-        return ~cls.owners.any()
 
 
 class GliderClaim(Base):

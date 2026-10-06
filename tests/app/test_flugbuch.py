@@ -444,13 +444,29 @@ def test_admin_closes_and_reopens_a_day_from_its_flugbuch(client, db_session, wo
     f = add_flight(db_session, world["glider"], world["pia"])
     login(client, "admin")
     assert "Tag abschliessen" in client.get("/flugbuch").text
-    response = client.post(f"/admin/finalize/{today_local()}", follow_redirects=False)
-    assert response.headers["location"] == f"/flugbuch?datum={today_local()}"
+    client.post("/flugbuch/abschliessen", data={"day": str(today_local())})
     db_session.refresh(f)
     assert f.finalized_at is not None
     assert "Wieder öffnen" in client.get("/flugbuch").text
     login(client, "desk")
-    assert "Tag abschliessen" not in client.get("/flugbuch").text and "Wieder öffnen" not in client.get("/flugbuch").text
+    page = client.get("/flugbuch").text
+    assert "Wieder öffnen kann ein Admin" in page and "/unlock" not in page
+
+
+def test_fdl_closes_the_day(client, db_session, world):
+    f = add_flight(db_session, world["glider"], world["pia"])
+    flying = add_flight(db_session, world["glider"], world["bob"], start="15:00", end=None)
+    login(client, "pia")
+    assert "Tag abschliessen" not in client.get("/flugbuch").text
+    assert client.post("/flugbuch/abschliessen", data={"day": str(today_local())}).status_code == 403
+    login(client, "desk")
+    assert "Tag abschliessen" in client.get("/flugbuch").text
+    response = client.post("/flugbuch/abschliessen", data={"day": str(today_local())}, follow_redirects=False)
+    assert response.headers["location"] == f"/flugbuch?datum={today_local()}"
+    db_session.refresh(f)
+    db_session.refresh(flying)
+    assert f.finalized_at is not None and flying.finalized_at is None  # still in the air: stays open
+    assert client.post(f"/admin/finalize/{today_local()}/unlock").status_code == 403  # re-opening: admins
 
 
 def test_flugbuch_offers_checkout_for_each_pilot_of_the_day(client, db_session, world):

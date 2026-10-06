@@ -231,3 +231,13 @@ def parse_month(text: Optional[str], default: date) -> date:
         return date(year, month, 1)
     except ValueError:
         return default.replace(day=1)
+
+
+def finalize_day(db: Session, day: date) -> None:
+    """Tag abschliessen: locks the landed flights of `day` (see flight_form.can_edit).
+    Flights still in the air stay open. Doesn't commit."""
+    start, end = local_day_bounds(day)
+    now = datetime.now(timezone.utc)
+    for f in db.scalars(select(Flight).where(Flight.takeoff_time >= start, Flight.takeoff_time < end,
+                                             Flight.landing_time.is_not(None), Flight.finalized_at.is_(None))).all():
+        f.finalized_at = now

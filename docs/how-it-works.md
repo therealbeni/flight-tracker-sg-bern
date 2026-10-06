@@ -58,8 +58,8 @@ gets Startart Winde - three minutes after its takeoff (a tow plane's takeoff is 
 once it has climbed 50 m, so it can come in a little after the glider's), or at its
 landing at the latest. Until then the Startart stays empty. A takeoff the tracker didn't
 see itself (estimated time) gets no Startart: it may have been towed out of sight.
-Members' private aircraft are tracked like the club's, but a private motor glider is
-never counted as anyone's tow plane.
+Members' private aircraft are tracked like the club's; a private motor glider can be
+the tow plane too.
 
 **Restarts.** Flights still open in the database are re-attached at startup, so their
 landing completes the same record.

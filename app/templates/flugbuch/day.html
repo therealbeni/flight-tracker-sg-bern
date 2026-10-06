@@ -40,15 +40,18 @@
 
 {% if notice %}<p class="notice" role="status">{{ notice }}</p>{% endif %}
 
-{% if pilot.is_admin and flights %}
+{% if desk and flights %}
 {% set confirmed = flights | selectattr("verified_by_pilot") | list | length %}
 <div class="day-admin">
     {% if day_finalized %}
-    <p><strong>Tag abgeschlossen.</strong> Gelandete Flüge sind gesperrt.</p>
-    <form method="post" action="/admin/finalize/{{ day }}/unlock"><button type="submit" class="secondary compact">Wieder öffnen</button></form>
+    <p><strong>Tag abgeschlossen.</strong> Gelandete Flüge sind gesperrt.{% if not pilot.is_admin %} Wieder öffnen kann ein Admin.{% endif %}</p>
+    {% if pilot.is_admin %}<form method="post" action="/admin/finalize/{{ day }}/unlock"><button type="submit" class="secondary compact">Wieder öffnen</button></form>{% endif %}
     {% else %}
     <p>{{ confirmed }} von {{ flights|length }} Flügen bestätigt{% if airborne_count %}, {{ airborne_count }} ohne Landung (bleib{{ "en" if airborne_count != 1 else "t" }} offen){% endif %}.</p>
-    <form method="post" action="/admin/finalize/{{ day }}"><button type="submit" class="secondary compact">Tag abschliessen</button></form>
+    <form method="post" action="/flugbuch/abschliessen" data-confirm="Tag abschliessen? Die gelandeten Flüge können danach nicht mehr geändert werden - wieder öffnen kann nur ein Admin.">
+        <input type="hidden" name="day" value="{{ day }}">
+        <button type="submit" class="secondary compact">Tag abschliessen</button>
+    </form>
     {% endif %}
 </div>
 {% elif day_finalized %}

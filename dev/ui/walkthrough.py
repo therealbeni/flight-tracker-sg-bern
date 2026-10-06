@@ -162,7 +162,6 @@ def club_pc_flow(page: Page) -> None:
     page.click(".fb-toolbar >> text=Einchecken")
     checkin = page.locator("#checkin-dialog")
     expect(checkin).to_be_visible()
-    expect(checkin.locator("option", has_text="HB-3407")).to_be_hidden()  # whose aircraft? nobody chosen yet
     pick(checkin, "pilot_id", "pia")
     choose(checkin.locator("select[name=glider_id]"), re.compile(r"HB-1811.*frei"))
     expect(checkin.locator("input[name=mode][value=next]")).to_be_checked()
@@ -258,7 +257,7 @@ def account_flow(page: Page) -> None:
     expect(page.locator(".own-aircraft")).to_contain_text("HB-3407")
     check_page(page, "40-konto")
     page.goto(f"{BASE}/claim")
-    expect(page.locator(".glider-pick").first).to_contain_text("HB-3407")  # her own aircraft on top
+    expect(page.locator(".glider-pick", has_text="HB-3407")).to_contain_text("privat")  # with the club's
     page.goto(f"{BASE}/flugbuch")
     page.click("text=Flug hinzufügen")
     expect(page.locator("#flight-dialog")).to_be_visible()

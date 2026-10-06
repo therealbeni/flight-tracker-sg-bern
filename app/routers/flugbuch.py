@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 
 import flight_form
 from database import get_db
-from day_board import (aircraft_of_day, flights_of_day, month_calendar, parse_month, pilots_of_day,
+from day_board import (aircraft_of_day, finalize_day, flights_of_day, month_calendar, parse_month, pilots_of_day,
                        possible_duplicates, record_checkout)
 from deps import local_path, require_approved
 from flight_form import FlightInput, can_edit, form_choices, members, read_form
@@ -110,13 +110,11 @@ def render_flugbuch(request: Request, db: Session, user: Pilot, day: date, form:
 
 
 def checkin_aircraft(db: Session, board) -> list[dict]:
-    """The aircraft the club PC can check pilots in on, with what they're
-    doing - the club's, then all private ones (shown only to their owners,
-    static/flugbuch.js)."""
+    """The aircraft the club PC can check pilots in on, with what they're doing."""
     by_id = {a.glider.id: a for a in board}
     gliders = db.scalars(select(Glider).where(Glider.active.is_(True)).order_by(Glider.kind, Glider.registration)).all()
     rows = [{"glider": g, "day": by_id.get(g.id)} for g in gliders]
-    return [r for r in rows if not r["glider"].is_private] + [r for r in rows if r["glider"].is_private]
+    return rows
 
 
 @router.get("/flugbuch")
@@ -187,6 +185,17 @@ def desk_check_in(request: Request, pilot_id: str = Form(""), glider_id: str = F
         return render_flugbuch(request, db, user, today_local(), checkin=form, status_code=409)
     db.commit()
     return RedirectResponse(f"/flugbuch?eingecheckt={done.claim.id}", status_code=303)
+
+
+@router.post("/flugbuch/abschliessen")
+def close_day(day: date = Form(...), db: Session = Depends(get_db), user: Pilot = Depends(require_approved)):
+    """Tag abschliessen (FDL and admins): the day's landed flights are locked.
+    Only an admin can open a day again (Verwaltung)."""
+    if not user.edits_all_flights:
+        raise HTTPException(status_code=403, detail="Einen Tag abschliessen kann der Flugdienstleiter oder ein Admin.")
+    finalize_day(db, day)
+    db.commit()
+    return RedirectResponse(f"/flugbuch?datum={day}", status_code=303)
 
 
 def _checkout_target(db: Session, user: Pilot, pilot_id: int) -> Pilot:

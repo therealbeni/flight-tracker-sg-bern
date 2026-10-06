@@ -136,8 +136,8 @@ the log - needs an SMTP account), Vereinsflieger sync (needs an API key).
 3. **Calendar** in the Flugbuch: days with flights are green.
 4. **Startart Winde** when no tow plane took off with a glider (see How it works).
 5. **Private aircraft.** An aircraft with owners (`aircraft_owners`) is a member's own:
-   tracked and logged like the club's, owners check in on it, but it's never offered to
-   other pilots, never shown as "frei", and never counted as a tow plane. Admins set owners
+   tracked and logged like the club's and listed for check-in marked "privat" (often
+   shared by several members), but never shown as "frei". Admins set owners
    under Verwaltung > Flugzeuge (aircraft are editable there now).
 6. **Konto** (`/konto`): change name, e-mail (needs the password), password (other sessions
    end); owners find their aircraft's QR code there.

@@ -7,9 +7,8 @@
 //  - The Flugdienst side panel ([data-panel-toggle]): docked next to the
 //    flights on a wide screen, a drawer over them on a smaller one. Whether
 //    it's open is remembered per browser.
-//  - Einchecken: private aircraft are only offered once one of their owners
-//    is chosen as pilot; "für den ganzen Tag" is preselected for aircraft
-//    usually flown all day (tow plane, motor glider).
+//  - Einchecken: "für den ganzen Tag" is preselected for aircraft usually
+//    flown all day (tow plane, motor glider).
 (function () {
     const page = document.querySelector("[data-flugbuch]");
     if (!page) return;
@@ -104,23 +103,9 @@
     const aircraft = document.querySelector("[data-checkin-aircraft]");
     if (aircraft) {
         const form = aircraft.form;
-        const pilot = form.elements["pilot_id"];
         const modes = Array.from(form.querySelectorAll("input[name=mode]"));
         let modeChosen = modes.some((m) => m.checked);
         modes.forEach((m) => m.addEventListener("change", () => { modeChosen = true; }));
-
-        function filterPrivate() {
-            const group = aircraft.querySelector("optgroup");
-            if (!group) return;
-            let any = false;
-            Array.from(group.children).forEach((option) => {
-                const mine = (option.dataset.owners || "").split(",").includes(pilot.value);
-                option.hidden = option.disabled = !mine;
-                any = any || mine;
-                if (!mine && option.selected) aircraft.value = "";
-            });
-            group.hidden = !any;
-        }
 
         function suggestMode() {
             if (modeChosen) return;
@@ -129,9 +114,7 @@
             modes.forEach((m) => { m.checked = m.value === (allDay ? "day" : "next"); });
         }
 
-        pilot.addEventListener("change", filterPrivate);
         aircraft.addEventListener("change", suggestMode);
-        filterPrivate();
         suggestMode();
     }
 })();

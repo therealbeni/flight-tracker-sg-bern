@@ -1,6 +1,5 @@
 {# Einchecken at the club PC, for pilots without their phone: who, which
-   aircraft, for how long. Private aircraft are only offered once one of
-   their owners is chosen as pilot (static/flugbuch.js). #}
+   aircraft, for how long. #}
 {% set ci = checkin or {"pilot_id": "", "glider_id": "", "mode": "", "error": "", "conflicts": []} %}
 <dialog id="checkin-dialog" class="sheet sheet-small" aria-labelledby="checkin-dialog-title" {{ "open data-open-on-load" if checkin }}>
     <form method="post" action="/flugbuch/einchecken">
@@ -26,21 +25,14 @@
         <label>Flugzeug
             <select name="glider_id" required data-checkin-aircraft>
                 <option value="">-- Flugzeug wählen --</option>
-                {% for row in checkin_aircraft if not row.glider.is_private %}
+                {% for row in checkin_aircraft %}
                 {% set a = row.day %}
                 <option value="{{ row.glider.id }}" data-all-day="{{ '1' if row.glider.kind.flies_all_day }}" {{ "selected" if ci.glider_id == row.glider.id|string }}>
-                    {{- row.glider.registration }}{% if row.glider.model %} ({{ row.glider.model }}){% endif %} -
-                    {%- if a and a.airborne %} in der Luft{% elif a and a.claims %} eingecheckt: {{ a.claims | map(attribute="pilot.full_name") | join(", ") }}{% else %} frei{% endif -%}
+                    {{- row.glider.registration }}{% if row.glider.model %} ({{ row.glider.model }}){% endif %}{% if row.glider.is_private %}, privat{% endif %}
+                    {%- if a and (a.airborne or a.claims) or not row.glider.is_private %} -{% endif %}
+                    {%- if a and a.airborne %} in der Luft{% elif a and a.claims %} eingecheckt: {{ a.claims | map(attribute="pilot.full_name") | join(", ") }}{% elif not row.glider.is_private %} frei{% endif -%}
                 </option>
                 {% endfor %}
-                {% set private = checkin_aircraft | selectattr("glider.is_private") | list %}
-                {% if private %}
-                <optgroup label="Privatflugzeuge">
-                    {% for row in private %}
-                    <option value="{{ row.glider.id }}" data-owners="{{ row.glider.owners | map(attribute='id') | join(',') }}" data-all-day="{{ '1' if row.glider.kind.flies_all_day }}" {{ "selected" if ci.glider_id == row.glider.id|string }}>{{ row.glider.registration }}{% if row.glider.model %} ({{ row.glider.model }}){% endif %}</option>
-                    {% endfor %}
-                </optgroup>
-                {% endif %}
             </select>
         </label>
         <fieldset class="choice">

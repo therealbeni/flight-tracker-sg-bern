@@ -14,7 +14,7 @@
 
     <fieldset class="choice">
         <legend>Besitzer</legend>
-        <p class="hint">Ohne Besitzer gehört das Flugzeug dem Verein. Ein Privatflugzeug wird erfasst wie die Vereinsflugzeuge, aber nur seinen Besitzern zum Einchecken angeboten, nie als «frei» angezeigt und nie als Schleppflugzeug gezählt.</p>
+        <p class="hint">Ohne Besitzer gehört das Flugzeug dem Verein. Ein Privatflugzeug wird erfasst wie die Vereinsflugzeuge und steht mit «privat» in der Liste zum Einchecken - es wird aber nie als «frei» angezeigt.</p>
         {% for p in glider.owners %}
         <label class="radio"><input type="checkbox" name="owner_ids" value="{{ p.id }}" checked> {{ p.full_name }}</label>
         {% endfor %}

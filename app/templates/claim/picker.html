@@ -13,7 +13,7 @@
     <a class="glider-pick" href="/claim/{{ row.glider.claim_token }}">
         <span>
             <span class="reg">{{ row.glider.registration }}</span>
-            <span class="model">{{ row.glider.model or row.glider.kind.label }}</span>
+            <span class="model">{{ row.glider.model or row.glider.kind.label }}{% if row.glider.is_private %}, privat{% endif %}</span>
         </span>
         {% if row.claims %}
         <span class="claimed-by">

@@ -275,17 +275,17 @@ def private(db_session, fleet):
 
 
 @pytest.mark.parametrize("motor_detected_first", [True, False])
-def test_private_motor_glider_never_counts_as_tow_plane(db_session, fleet, private, motor_detected_first):
+def test_private_motor_glider_can_tow(db_session, fleet, private, motor_detected_first):
     sink = DbSink(SessionLocal)
     if motor_detected_first:
-        motor = fly(sink, private["motor"], T + timedelta(seconds=5), minutes=60)
-        glider = fly(sink, fleet["glider"], T, minutes=5)
+        motor = fly(sink, private["motor"], T + timedelta(seconds=5), minutes=12)
+        glider = fly(sink, fleet["glider"], T, minutes=45)
     else:
-        glider = fly(sink, fleet["glider"], T, minutes=5)
-        motor = fly(sink, private["motor"], T + timedelta(seconds=5), minutes=60)
-    assert row(db_session, glider).launch_method is LaunchMethod.WINCH
-    assert row(db_session, glider).tow_flight_id is None
-    assert (row(db_session, motor).flight_type, row(db_session, motor).launch_method) == ("N", LaunchMethod.SELF)
+        glider = fly(sink, fleet["glider"], T, minutes=45)
+        motor = fly(sink, private["motor"], T + timedelta(seconds=5), minutes=12)
+    g = row(db_session, glider)
+    assert g.launch_method is LaunchMethod.AEROTOW and g.tow_flight.record_id == motor
+    assert row(db_session, motor).flight_type == "F"
 
 
 def test_private_glider_is_tracked_and_towed_by_the_club_tow_plane(db_session, fleet, private):

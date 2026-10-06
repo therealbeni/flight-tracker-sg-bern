@@ -93,8 +93,8 @@ Restore a backup: `docker compose exec -T db pg_restore -U flighttracker -d flig
 Everyone changes their own name, e-mail address and password under Konto (`/konto`).
 
 Members' own aircraft: add them on Verwaltung > Flugzeuge with the owner(s) set. They are
-tracked like the club's aircraft, but only offered to their owners for check-in, never
-shown as free and never counted as a tow plane.
+tracked like the club's aircraft and listed for check-in (marked "privat"), but never
+shown as free. A private motor glider can be the tow plane, like the club's.
 
 Aircraft kinds (Verwaltung > Flugzeuge) matter: tow planes and motor gliders default to
 "check in for the whole day", and tows are linked to the glider they towed.

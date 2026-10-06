@@ -254,20 +254,6 @@ def finalize_overview(request: Request, monat: Optional[str] = Query(None), db: 
     })
 
 
-@router.post("/finalize/{day}")
-def finalize_day(day: date, db: Session = Depends(get_db)):
-    start, end = local_day_bounds(day)
-    flights = db.scalars(
-        select(Flight)
-        .where(Flight.takeoff_time >= start, Flight.takeoff_time < end, Flight.landing_time.isnot(None))
-    ).all()
-    now = datetime.now(timezone.utc)
-    for f in flights:
-        f.finalized_at = now
-    db.commit()
-    return RedirectResponse(f"/flugbuch?datum={day}", status_code=303)
-
-
 @router.post("/finalize/{day}/unlock")
 def unlock_day(day: date, db: Session = Depends(get_db)):
     start, end = local_day_bounds(day)

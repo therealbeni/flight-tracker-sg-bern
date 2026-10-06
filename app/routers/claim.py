@@ -15,8 +15,9 @@ Rules when checking in:
 Pilots check in on their phone (QR code or list), or at the club PC through
 the Flugdienstleiter (FDL) account - same rules (check_in below).
 
-Private aircraft (see Glider) are only listed for their owners. Their QR
-code works for anyone holding it, so an owner can lend the aircraft.
+Members' private aircraft (see Glider) are listed with the club's, marked
+"privat": several members often share one, and in a small club everyone
+picks the right one.
 """
 
 from dataclasses import dataclass, field
@@ -106,12 +107,6 @@ def check_in(db: Session, glider: Glider, pilot: Pilot, whole_day: bool, takeove
     return CheckIn(claim=claim, ended_elsewhere=ended_elsewhere)
 
 
-def visible_aircraft(db: Session, pilot: Pilot) -> list[Glider]:
-    """Active aircraft `pilot` may pick from a list: the club's, and their own."""
-    gliders = db.scalars(select(Glider).where(Glider.active.is_(True)).order_by(Glider.kind, Glider.registration)).all()
-    return [g for g in gliders if not g.is_private or g.owned_by(pilot)]
-
-
 def render_claim_form(request: Request, db: Session, glider: Glider, token: str, pilot: Pilot,
                       mode: str = "", status_code: int = 200):
     claims = active_claims(db, glider_id=glider.id)
@@ -129,8 +124,7 @@ def render_claim_form(request: Request, db: Session, glider: Glider, token: str,
 @router.get("/claim")
 def claim_picker(request: Request, db: Session = Depends(get_db), pilot: Pilot = Depends(require_flying_member)):
     claims = active_claims(db)
-    # Own private aircraft first: their owners fly them most.
-    gliders = sorted(visible_aircraft(db, pilot), key=lambda g: not g.is_private)
+    gliders = db.scalars(select(Glider).where(Glider.active.is_(True)).order_by(Glider.kind, Glider.registration)).all()
     rows = [{"glider": g, "claims": [c for c in claims if c.glider_id == g.id]} for g in gliders]
     return templates.TemplateResponse(request, "claim/picker.html", {
         "rows": rows, "pilot": pilot, "my_claims": active_claims(db, pilot_id=pilot.id)})
