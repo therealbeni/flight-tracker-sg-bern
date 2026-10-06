@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Konto{% endblock %}
+{% block content %}
+<h1>Konto</h1>
+<p class="subline">Angemeldet als {{ pilot.full_name }} ({{ pilot.email }})</p>
+{% if saved %}<p class="notice" role="status">{{ saved }}</p>{% endif %}
+
+<form method="post" action="/konto/profil" class="card account-card">
+    <h2>Name und E-Mail</h2>
+    {% if profile_error %}<p class="error" role="alert">{{ profile_error }}</p>{% endif %}
+    <label>Vor- und Nachname
+        <input type="text" name="full_name" value="{{ form.full_name }}" maxlength="100" required autocomplete="name">
+    </label>
+    <label>E-Mail-Adresse (zum Anmelden)
+        <input type="email" name="email" value="{{ form.email }}" maxlength="254" required autocomplete="email">
+    </label>
+    <label>Aktuelles Passwort <span class="hint">(nur nötig, wenn du die E-Mail-Adresse änderst)</span>
+        <input type="password" name="current_password" autocomplete="current-password">
+    </label>
+    <button type="submit">Speichern</button>
+</form>
+
+<form method="post" action="/konto/passwort" class="card account-card">
+    <h2>Passwort ändern</h2>
+    {% if password_error %}<p class="error" role="alert">{{ password_error }}</p>{% endif %}
+    <label>Aktuelles Passwort
+        <input type="password" name="current_password" required autocomplete="current-password">
+    </label>
+    <label>Neues Passwort (mindestens 8 Zeichen)
+        <input type="password" name="new_password" required minlength="8" autocomplete="new-password">
+    </label>
+    <label>Neues Passwort nochmals
+        <input type="password" name="new_password_again" required minlength="8" autocomplete="new-password">
+    </label>
+    <button type="submit">Passwort ändern</button>
+    <p class="hint">Auf allen anderen Geräten wirst du danach abgemeldet.</p>
+</form>
+
+{% if aircraft %}
+<section class="card account-card">
+    <h2>Meine Flugzeuge</h2>
+    <p class="hint">Deine Privatflugzeuge werden vom Tracker erfasst wie die Vereinsflugzeuge. Einchecken kannst du mit dem QR-Code oder unter «Einchecken» - die anderen Piloten sehen sie dort nicht. Änderungen (Kennzeichen, FLARM-ID, Mitbesitzer) macht ein Admin.</p>
+    <ul class="own-aircraft">
+    {% for g in aircraft %}
+        <li>
+            <img src="/konto/flugzeuge/{{ g.id }}/qr.png" alt="QR-Code zum Einchecken auf {{ g.registration }}" width="120" height="120" class="qr">
+            <div>
+                <strong>{{ g.registration }}</strong>{% if g.model %} {{ g.model }}{% endif %}<br>
+                <span class="hint">{{ g.kind.label }}{% if g.ogn_device_id %}, FLARM {{ g.ogn_device_id }}{% else %}, keine FLARM-ID - wird nicht erfasst{% endif %}{% if not g.active %}, deaktiviert{% endif %}</span><br>
+                {% if g.owners|length > 1 %}<span class="hint">Mit {{ g.owners | rejectattr("id", "equalto", pilot.id) | map(attribute="full_name") | join(", ") }}</span><br>{% endif %}
+                <a href="/konto/flugzeuge/{{ g.id }}/qr.png" download="QR-{{ g.registration }}.png">QR-Code herunterladen</a>
+            </div>
+        </li>
+    {% endfor %}
+    </ul>
+</section>
+{% endif %}
+
+<form action="/logout" method="post" class="account-logout">
+    <button type="submit" class="secondary">Abmelden</button>
+</form>
+{% endblock %}

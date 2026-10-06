@@ -11,7 +11,7 @@ from config import settings
 from deps import get_current_pilot
 from models import Pilot
 from paths import STATIC_DIR
-from routers import admin, auth, claim, dashboard, flights, flugbuch, logbook
+from routers import account, admin, auth, claim, dashboard, flights, flugbuch, logbook
 from templating import templates
 
 # No automatic API docs (/docs, /openapi.json): they'd list every endpoint and
@@ -78,6 +78,7 @@ app.mount("/static", CachedStaticFiles(directory=str(STATIC_DIR)), name="static"
 
 
 
+app.include_router(account.router)
 app.include_router(auth.router)
 app.include_router(admin.router)
 app.include_router(claim.router)
