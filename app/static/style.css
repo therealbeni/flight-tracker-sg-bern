@@ -473,6 +473,8 @@ a.glider-pick { text-decoration: none; color: inherit; }
         margin-left: 0.5rem;
     }
     .topbar .account-link { display: none; }
+    .topbar nav a.nav-icon { display: inline-flex; align-items: center; gap: 0.35rem; }
+    .topbar nav a.nav-icon svg { width: 17px; height: 17px; }
     .topbar form.logout-form button {
         width: auto;
         min-height: 36px;

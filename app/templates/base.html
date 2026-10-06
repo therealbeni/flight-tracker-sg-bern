@@ -40,9 +40,9 @@
             <a href="/admin/pilots" class="{{ 'active' if path.startswith('/admin') }}">Verwaltung</a>
             {% endif %}
             <a href="/hilfe" class="{{ 'active' if path == '/hilfe' }}">Hilfe</a>
-            <a href="/konto" class="{{ 'active' if path.startswith('/konto') }}">Konto</a>
+            <a href="/konto" class="nav-icon {{ 'active' if path.startswith('/konto') }}">{{ icons.icon("gear") }} Konto</a>
         </nav>
-        <a href="/konto" class="account-link {{ 'active' if path.startswith('/konto') }}" aria-label="Konto und Einstellungen">{{ icons.icon("user") }}</a>
+        <a href="/konto" class="account-link {{ 'active' if path.startswith('/konto') }}" aria-label="Konto und Einstellungen">{{ icons.icon("gear") }}</a>
         <form action="/logout" method="post" class="logout-form">
             <button type="submit" class="secondary compact">{{ icons.icon("logout") }} Abmelden</button>
         </form>
