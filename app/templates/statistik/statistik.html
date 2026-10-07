@@ -119,25 +119,6 @@
 {{ aircraft_table(s.aircraft, top_minutes, launch_labels) }}
 <p class="hint">Starts: W = Winde, F = F-Schlepp, E = Eigenstart. Flugzeit nur von gelandeten Flügen.</p>
 
-{% if view == "verein" %}
-<h2>Piloten</h2>
-<div class="table-scroll">
-<table class="data-table stats-table">
-    <thead><tr><th>Name</th><th class="num">Flüge als Pilot</th><th class="num">Flugzeit</th><th class="num">als Begleiter</th><th class="num">Flugzeit</th></tr></thead>
-    <tbody>
-    {% for p in s.pilots %}
-        <tr class="{{ 'mine' if p.pilot.id == pilot.id }}">
-            <td>{{ p.pilot.full_name }}</td>
-            <td class="num">{{ p.as_pilot.flights }}</td><td class="num">{{ p.as_pilot.minutes|flugzeit }}</td>
-            <td class="num">{{ p.as_companion.flights or "" }}</td><td class="num">{{ p.as_companion.minutes|flugzeit if p.as_companion.flights else "" }}</td>
-        </tr>
-    {% else %}
-        <tr><td colspan="5" class="record-empty">Keine Flüge in diesem Zeitraum.</td></tr>
-    {% endfor %}
-    </tbody>
-</table>
-</div>
-{% endif %}
 {% endblock %}
 
 {% block scripts %}<script src="/static/stats.js?v={{ asset_version }}" defer></script>{% endblock %}

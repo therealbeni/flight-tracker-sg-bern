@@ -146,8 +146,8 @@ the log - needs an SMTP account), Vereinsflieger sync (needs an API key).
 
 `/statistik` for every member: *Meine* (own flights as pilot and Begleiter, per aircraft,
 per month, launches, longest flight, and launches in the last 90 days - the passenger
-recency of SFCL.160) and *Verein* (all aircraft incl. private ones, tows, flying days, per
-pilot), per year or all years. Rules in `app/flight_stats.py`.
+recency of SFCL.160) and *Verein* (all aircraft incl. private ones, tows, flying days; no numbers per
+pilot, the club doesn't rank its members), per year or all years. Rules in `app/flight_stats.py`.
 
 ## Karte: live map and flight replay (branch feature/flight-tracks)
 

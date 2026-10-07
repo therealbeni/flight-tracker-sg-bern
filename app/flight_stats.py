@@ -61,13 +61,6 @@ class AircraftRow:
 
 
 @dataclass
-class PersonRow:
-    pilot: Pilot
-    as_pilot: Tally = field(default_factory=Tally)
-    as_companion: Tally = field(default_factory=Tally)
-
-
-@dataclass
 class Stats:
     total: Tally = field(default_factory=Tally)
     months: list[Tally] = field(default_factory=lambda: [Tally() for _ in range(12)])
@@ -78,7 +71,7 @@ class Stats:
 
 @dataclass
 class ClubStats(Stats):
-    pilots: list[PersonRow] = field(default_factory=list)
+    # No numbers per pilot on purpose: the club doesn't rank its members.
     flying_days: int = 0
 
 
@@ -152,16 +145,9 @@ def club_stats(flights: list[Flight]) -> ClubStats:
     club = flights
     tows = _tow_ids(club)
     rows: dict[int, AircraftRow] = {}
-    people: dict[int, PersonRow] = {}
     for flight in club:
         _count(stats, flight, tows, rows)
-        if flight.pilot is not None:
-            people.setdefault(flight.pilot.id, PersonRow(flight.pilot)).as_pilot.add(flight)
-        if flight.companion is not None:
-            people.setdefault(flight.companion.id, PersonRow(flight.companion)).as_companion.add(flight)
     stats.aircraft = _by_hours(rows.values())
-    stats.pilots = sorted(people.values(), key=lambda p: (-p.as_pilot.minutes - p.as_companion.minutes,
-                                                          p.pilot.full_name))
     stats.flying_days = len({to_local(f.takeoff_time).date() for f in club})
     return stats
 

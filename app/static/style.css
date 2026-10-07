@@ -974,7 +974,6 @@ figure.chart svg { display: block; width: 100%; height: auto; overflow: visible;
 .chart-table table { margin-top: 0.5rem; }
 .stats-table { white-space: nowrap; }
 .stats-table td.num, .stats-table th.num, .chart-table .num { text-align: right; font-variant-numeric: tabular-nums; }
-.stats-table tr.mine td { background: var(--brand-100); }
 .bar-cell { min-width: 9rem; }
 .bar-cell .inline-bar { display: inline-block; vertical-align: middle; width: 5rem; height: 10px; margin-right: 0.5rem; }
 .bar-cell .inline-bar rect { fill: var(--brand-600); }

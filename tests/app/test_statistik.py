@@ -24,10 +24,6 @@ def test_club_counts_flights_hours_launches_and_tows(db_session, world):
     glider, tug = stats.aircraft  # most hours first
     assert glider.glider.registration == "HB-1811" and (glider.total.flights, glider.total.minutes) == (3, 65)
     assert tug.tows == 1
-    pia = next(p for p in stats.pilots if p.pilot.id == world["pia"].id)
-    bob = next(p for p in stats.pilots if p.pilot.id == world["bob"].id)
-    assert (pia.as_pilot.flights, pia.as_pilot.minutes) == (2, 65)
-    assert (bob.as_pilot.flights, bob.as_companion.flights) == (2, 1)
     assert stats.months[today_local().month - 1].flights == 4
 
 
@@ -39,6 +35,8 @@ def test_private_aircraft_count_and_are_marked(client, db_session, world):
     login(client, "pia")
     page = client.get("/statistik?ansicht=verein").text
     assert "HB-3407" in page and "LS 8, privat" in page
+    # No ranking of members: no names in the club's statistics.
+    assert "Piloten" not in page and "Bob Brunner" not in page
 
 
 def test_personal_statistics_and_recency(db_session, world):
@@ -59,7 +57,7 @@ def test_statistik_page(client, db_session, world):
     assert "Meine Flugstunden pro Monat" in page and "1 Start als Pilot in den letzten 90 Tagen" in page
     assert "Für Passagierflüge braucht es mindestens 3" in page
     club = client.get(f"/statistik?ansicht=verein&jahr={today_local().year}").text
-    assert "Piloten" in club and "Pia Pilot" in club
+    assert "HB-1811" in club and "Piloten" not in club
     assert client.get("/statistik?jahr=alle").status_code == 200
     assert client.get("/statistik?jahr=1800").status_code == 200  # nothing flown: an empty page
     login(client, "desk")
