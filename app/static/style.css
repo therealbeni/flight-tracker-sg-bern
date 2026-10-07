@@ -828,7 +828,11 @@ img.qr { display: block; }
     transition: transform 160ms ease, visibility 0s 160ms;
 }
 .flugbuch.panel-js.panel-open .fb-panel { transform: none; visibility: visible; transition: transform 160ms ease; }
-@media (min-width: 1500px) {
+/* Docked from 1800px: the flights table needs about 1350px next to the panel.
+   Keep in step with static/flugbuch-panel.js. No sliding here: the flights make
+   room at once, a panel gliding in over them looked like a flash. */
+@media (min-width: 1800px) {
+    .flugbuch.panel-js .fb-panel, .flugbuch.panel-js.panel-open .fb-panel { transition: none; }
     .content.wide:has(.panel-open) { max-width: 1840px; }
     .flugbuch.panel-js.panel-open { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 1.75rem; align-items: start; }
     .flugbuch.panel-js.panel-open .fb-panel {

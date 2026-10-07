@@ -61,7 +61,7 @@
 
     const panel = document.getElementById("flugdienst");
     if (panel) {
-        const wide = window.matchMedia("(min-width: 1500px)");
+        const wide = window.matchMedia("(min-width: 1800px)")  // as in flugbuch-panel.js;
         function remembered() {
             try { return localStorage.getItem("flugdienst-panel"); } catch (e) { return null; }  // private window
         }
@@ -75,7 +75,8 @@
             }
         }
         // Docked by default where there's room (unless closed there before);
-        // a drawer stays closed until asked for.
+        // a drawer stays closed until asked for. flugbuch-panel.js did this
+        // already before the first paint; here for aria-expanded.
         show(wide.matches && remembered() !== "closed", false);
         document.querySelectorAll("[data-panel-toggle]").forEach((button) => {
             button.addEventListener("click", () => show(!page.classList.contains("panel-open"), true));
