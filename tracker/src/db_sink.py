@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from airports import Airport
 from detection import EventKind, FlightEvent, FlightRecord
 from flight_tracker import is_too_short
+from shared import tracks
 from shared.models import AircraftKind, Airfield, Flight, FlightSource, Glider, GliderClaim, LaunchMethod
 
 # A glider and its tow plane start their takeoff roll together; detected
@@ -158,6 +159,7 @@ class DbSink:
             for towed in db.scalars(select(Flight).where(Flight.tow_flight_id == flight.id)).all():
                 towed.tow_flight_id = towed.tow_glider_id = None
                 towed.launch_method = LaunchMethod.WINCH if self._launch_seen(towed) else None
+            tracks.drop(db, flight.id)
             # Write the cleared links first: the ORM doesn't know they point at
             # this row and might delete it before (Postgres refuses that).
             db.flush()

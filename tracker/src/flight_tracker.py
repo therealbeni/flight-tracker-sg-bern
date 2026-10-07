@@ -53,8 +53,13 @@ class Sink(Protocol):
     def handle(self, event: FlightEvent) -> None: ...
 
 
+class Observer(Protocol):
+    def observe(self, beacon: Beacon) -> None: ...
+
+
 class Tracker:
     """Feeds beacons to the detector and hands every takeoff/landing to all sinks.
+    Observers (the track recorder) see every beacon of a followed aircraft.
 
     Only aircraft for which `track(address)` is true are followed (the club's).
     Beacons of all other aircraft still keep the stream clock going: they show
@@ -63,15 +68,23 @@ class Tracker:
     """
 
     def __init__(self, detector: FlightDetector, sinks: Iterable[Sink], sweep_every_s: float = 30.0,
-                 track: Callable[[str], bool] = lambda address: True):
+                 track: Callable[[str], bool] = lambda address: True, observers: Iterable[Observer] = ()):
         self.detector = detector
         self.sinks = list(sinks)
+        self.observers = list(observers)
         self._track = track
         self._sweep_every = timedelta(seconds=sweep_every_s)
         self._next_sweep: Optional[datetime] = None
 
     def process(self, beacon: Beacon) -> None:
-        events = self.detector.process(beacon) if self._track(beacon.address) else []
+        followed = self._track(beacon.address)
+        events = self.detector.process(beacon) if followed else []
+        if followed:
+            for observer in self.observers:
+                try:
+                    observer.observe(beacon)
+                except Exception as exc:  # noqa: BLE001 - like a broken sink
+                    print(f"{type(observer).__name__} failed on a beacon of {beacon.address}: {exc}", file=sys.stderr)
         # The sweep runs on the stream clock (receive time), see FlightDetector.sweep.
         now = beacon.received_at
         if self._next_sweep is None or now >= self._next_sweep:

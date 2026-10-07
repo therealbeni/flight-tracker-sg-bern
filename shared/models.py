@@ -3,7 +3,9 @@ import uuid
 from datetime import date, datetime, timezone
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
+    LargeBinary,
     Date,
     DateTime,
     Enum,
@@ -378,3 +380,36 @@ class FlightAuditEntry(Base):
     changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, nullable=False)
 
     changed_by: Mapped["Pilot"] = relationship()
+
+
+class TrackPoint(Base):
+    """One position of a flight while it's in the air (live map). At the
+    landing they are packed into one FlightTrack row and deleted here."""
+
+    __tablename__ = "track_points"
+
+    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    flight_id: Mapped[int] = mapped_column(ForeignKey("flights.id", ondelete="CASCADE"), nullable=False)
+    time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    latitude: Mapped[float] = mapped_column(Float, nullable=False)
+    longitude: Mapped[float] = mapped_column(Float, nullable=False)
+    altitude_m: Mapped[float] = mapped_column(Float, nullable=False)  # GPS, above sea level
+    ground_m: Mapped[float | None] = mapped_column(Float, nullable=True)  # terrain below (SRTM)
+    speed_kmh: Mapped[float] = mapped_column(Float, nullable=False)
+    climb_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+
+class FlightTrack(Base):
+    """The whole track of a landed flight, packed (shared/tracks.py): about
+    30 kB for a three-hour flight instead of thousands of rows."""
+
+    __tablename__ = "flight_tracks"
+
+    flight_id: Mapped[int] = mapped_column(ForeignKey("flights.id", ondelete="CASCADE"), primary_key=True)
+    data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    point_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    # Where it was last seen - for a flight whose landing we didn't see, where contact was lost.
+    last_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_latitude: Mapped[float] = mapped_column(Float, nullable=False)
+    last_longitude: Mapped[float] = mapped_column(Float, nullable=False)
+    last_altitude_m: Mapped[float] = mapped_column(Float, nullable=False)

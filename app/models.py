@@ -11,6 +11,7 @@ from shared.models import (  # noqa: F401
     Flight,
     FlightAuditEntry,
     FlightSource,
+    FlightTrack,
     Glider,
     GliderClaim,
     LaunchMethod,
@@ -19,4 +20,5 @@ from shared.models import (  # noqa: F401
     aircraft_owners,
     PilotRole,
     PilotStatus,
+    TrackPoint,
 )

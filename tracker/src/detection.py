@@ -330,6 +330,11 @@ class FlightDetector:
     def active_flights(self) -> list[FlightRecord]:
         return [t.flight for t in self._tracks.values() if t.state is _State.AIRBORNE and t.flight]
 
+    def open_flight(self, address: str) -> Optional[FlightRecord]:
+        """The flight `address` is on right now, if it's in the air."""
+        track = self._tracks.get(address)
+        return track.flight if track is not None and track.state is _State.AIRBORNE else None
+
     # ------------------------------------------------------ classification
 
     def _is_plausible(self, b: Beacon) -> bool:

@@ -3,6 +3,7 @@ landings of the club's aircraft.
 
 Outputs:
   - the `flights` table of the web app's database
+  - `track_points` / `flight_tracks`: the positions of each flight (track_recorder.py)
   - DATA_DIR/raw/{date}.aprs   raw beacons of club aircraft, for replay.py
 
 Only aircraft in the `gliders` table are tracked. See docs/how-it-works.md.
@@ -24,6 +25,7 @@ from detection import FlightDetector
 from flight_tracker import RawRecorder, Tracker, beacon_from_ogn
 from shared.database import SessionLocal
 from terrain import Terrain
+from track_recorder import TrackRecorder, pack_landed
 
 # Beacons within this many km of the point are received (APRS range filter):
 # club aircraft on cross-country flights anywhere in Switzerland.
@@ -55,7 +57,9 @@ def aircraft_info(address: str) -> tuple[str, str]:
 
 
 detector = FlightDetector(terrain=terrain.elevation, nearest_airport=airports.nearest, aircraft_info=aircraft_info)
-tracker = Tracker(detector, sinks=[db_sink], track=is_club_aircraft)
+# The recorder after the database sink: a flight's row exists before its track is saved.
+recorder = TrackRecorder(SessionLocal, detector.open_flight, terrain.elevation)
+tracker = Tracker(detector, sinks=[db_sink, recorder], track=is_club_aircraft, observers=[recorder])
 raw = RawRecorder(os.path.join(DATA_DIR, "raw"), db_sink.fleet)
 
 # Flights that were in the air when the tracker last stopped.
@@ -66,6 +70,11 @@ try:
         log(f"Restored open flight of {flight.registration} (took off {flight.takeoff_time:%H:%M} UTC).")
 except Exception as exc:  # noqa: BLE001 - start tracking anyway
     log(f"Could not restore open flights: {exc}")
+try:
+    if packed := pack_landed(SessionLocal):
+        log(f"Packed the tracks of {packed} flights that landed while the tracker was down.")
+except Exception as exc:  # noqa: BLE001
+    log(f"Could not pack leftover tracks: {exc}")
 
 stats = {"beacons": 0, "parse_errors": 0}
 next_stats = time.monotonic() + STATS_EVERY_S
