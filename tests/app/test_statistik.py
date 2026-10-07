@@ -61,7 +61,8 @@ def test_statistik_page(client, db_session, world):
     assert client.get("/statistik?jahr=alle").status_code == 200
     assert client.get("/statistik?jahr=1800").status_code == 200  # nothing flown: an empty page
     login(client, "desk")
-    assert "Piloten" in client.get("/statistik").text  # the FDL: the club's numbers only
+    fdl = client.get("/statistik").text  # the FDL: the club's numbers only
+    assert "HB-1811" in fdl and "Meine Flugstunden" not in fdl
 
 
 def test_flights_count_in_their_local_year(db_session, world):
