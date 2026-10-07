@@ -978,3 +978,58 @@ figure.chart svg { display: block; width: 100%; height: auto; overflow: visible;
 .bar-cell { min-width: 9rem; }
 .bar-cell .inline-bar { display: inline-block; vertical-align: middle; width: 5rem; height: 10px; margin-right: 0.5rem; }
 .bar-cell .inline-bar rect { fill: var(--brand-600); }
+
+/* ---------- Karte: live map and a flight's track (static/karte.js) ---------- */
+/* Own stacking context: Leaflet's panes (z-index 400+) stay under the top and tab bars. */
+.map { position: relative; z-index: 0; isolation: isolate; border-radius: var(--radius-md); background: #e8edf2; }
+.map-live { height: max(360px, calc(100dvh - 300px)); }
+.map-track { height: 340px; }
+.karte-head { display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+.karte-head h1 { margin: 0; }
+.karte-head .subline { margin: 0; min-height: 1.5em; }
+.karte-layout { display: grid; gap: 1rem; }
+@media (min-width: 900px) {
+    .karte-layout { grid-template-columns: minmax(0, 1fr) 320px; align-items: start; }
+}
+.karte-list ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+.karte-item {
+    display: flex; gap: 0.6rem; align-items: flex-start; width: 100%; text-align: left; padding: 0.6rem 0.75rem;
+    background: var(--surface); color: var(--ink); border: 1px solid var(--border); border-radius: var(--radius-md);
+    font-weight: 400; min-height: 0;
+}
+.karte-item:hover { border-color: var(--brand-700); background: var(--surface); }
+.karte-item strong { font-size: 1.05rem; }
+.karte-pilot { color: var(--ink-muted); }
+.karte-facts { display: block; font-size: 0.85rem; color: var(--ink-muted); margin-top: 0.2rem; font-variant-numeric: tabular-nums; }
+.ac-swatch { flex: none; width: 12px; height: 12px; margin-top: 0.35rem; border-radius: 50%; background: var(--ac, var(--brand-700)); }
+
+.ac-marker { overflow: visible; }
+.ac-dot {
+    display: block; width: 14px; height: 14px; border-radius: 50%; background: var(--ac, #d9480f);
+    border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+.ac-label {
+    position: absolute; left: 18px; top: -3px; white-space: nowrap; padding: 1px 5px; border-radius: 4px;
+    background: rgba(255, 255, 255, 0.92); color: var(--ink); font: 600 12px/1.4 system-ui, sans-serif;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+/* The background switch: plain radio buttons, not the app's big form fields. */
+.leaflet-control-layers label { display: block; margin: 0.15rem 0; font-size: 0.9rem; font-weight: 500; }
+.leaflet-control-layers input[type=radio] { width: auto; min-height: 0; margin: 0 0.4rem 0 0; vertical-align: -2px; }
+
+.track-card { padding: 0.75rem; }
+.replay { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.75rem; }
+.replay input[type=range] { flex: 1; min-width: 0; accent-color: var(--brand-700); }
+.replay button { width: auto; flex: none; }
+.replay-play svg { width: 18px; height: 18px; display: block; }
+.replay-play .when-playing, .replay-play.is-playing .when-paused { display: none; }
+.replay-play.is-playing .when-playing { display: inline; }
+.replay-speed { min-width: 4rem; font-variant-numeric: tabular-nums; }
+.replay-readout { margin: 0.5rem 0 0.25rem; font-size: 0.9rem; font-variant-numeric: tabular-nums; min-height: 1.4em; }
+.barogram { display: block; width: 100%; height: 150px; touch-action: none; cursor: crosshair; }
+.baro-grid { stroke: var(--border); stroke-width: 1; }
+.baro-label { font-size: 11px; fill: var(--ink-muted); }
+.baro-ground { fill: #d8cbb5; }
+.baro-altitude { fill: none; stroke: #1d1d1f; stroke-width: 1.6; stroke-linejoin: round; }
+.baro-cursor { stroke: var(--ink); stroke-width: 1; }

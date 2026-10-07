@@ -7,7 +7,7 @@ RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -r re
 
 COPY shared/ shared/
 COPY tracker/src/ src/
-COPY tracker/run.py tracker/replay.py ./
+COPY tracker/run.py tracker/replay.py tracker/backfill_tracks.py ./
 
 ENV PYTHONPATH=/app/src:/app
 

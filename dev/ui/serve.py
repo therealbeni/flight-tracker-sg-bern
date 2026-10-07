@@ -5,7 +5,9 @@ Also writes the fake camera video for the QR scanner test: a Y4M file showing
 the QR code of HB-1811, which Chromium plays as its "camera".
 """
 
+import math
 import os
+import random
 import sys
 from datetime import datetime, timedelta, timezone
 
@@ -21,10 +23,37 @@ from database import Base, SessionLocal, engine  # noqa: E402
 from models import (AircraftKind, Airfield, Flight, FlightSource, Glider, GliderClaim, LaunchMethod,  # noqa: E402
                     Pilot, PilotRole, PilotStatus)
 from security import hash_password  # noqa: E402
+from shared import tracks  # noqa: E402
 
 PASSWORD = "testtest"
 HB1811_TOKEN = "11111111-2222-3333-4444-555555555555"
 BASE_URL = os.environ["BASE_URL"]
+
+
+def synthetic_track(start: datetime, minutes: int, seed: int) -> list[tracks.Point]:
+    """Towed up from LSZB, thermals (circling) and glides, then home."""
+    rnd = random.Random(seed)
+    lat, lon, alt, heading = 46.9144, 7.499, 510.0, 140.0
+    points, n = [], minutes * 15  # every 4 s
+    for i in range(n):
+        frac = i / n
+        if frac < 0.12:
+            climb, speed, turn = 4.0, 120, 0.0
+        elif frac < 0.8:
+            circling = (i // 70) % 2 == 0
+            climb, speed, turn = (2.2, 85, 22.0) if circling else (-1.3, 110, rnd.uniform(-4, 4))
+        else:
+            home = math.degrees(math.atan2((7.499 - lon) * math.cos(math.radians(lat)), 46.9144 - lat)) % 360
+            climb, speed, turn = (-1.8 if alt > 560 else 0.0), (100 if alt > 560 else 60), (home - heading + 540) % 360 - 180
+            turn = max(-10.0, min(10.0, turn))
+        heading = (heading + turn) % 360
+        d = speed / 3.6 * 4
+        lat += d * math.cos(math.radians(heading)) / 111320
+        lon += d * math.sin(math.radians(heading)) / (111320 * math.cos(math.radians(lat)))
+        alt = max(510.0, alt + climb * 4)
+        points.append(tracks.Point(start + timedelta(seconds=4 * i), lat, lon, alt, 510.0 + 300 * max(0, lat - 46.9),
+                                   speed, climb))
+    return points
 
 
 def seed() -> None:
@@ -80,6 +109,14 @@ def seed() -> None:
                duration_min=40, takeoff_airfield_icao="LSZB", landing_latitude=46.95, landing_longitude=7.7,
                landing_estimated=True, launch_method=LaunchMethod.SELF, source=FlightSource.AUTO),
     ])
+    db.flush()
+    # Tracks: HB-1811 landed (replay on its page), HB-3131 in the air (live map).
+    for record_id, start, minutes, seed_ in [("g1", t, 47, 1), ("g2", now - timedelta(minutes=35), 35, 2)]:
+        flight = db.query(Flight).filter_by(record_id=record_id).one()
+        tracks.store(db, flight.id, synthetic_track(start, minutes, seed_))
+        db.flush()
+        if flight.landing_time is not None:
+            tracks.pack_flight(db, flight.id)
     # Earlier flying days, for the calendar.
     for days_ago, hour in [(3, 11), (3, 13), (9, 12), (16, 14)]:
         start = now.replace(hour=hour, minute=5) - timedelta(days=days_ago)

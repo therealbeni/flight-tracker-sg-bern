@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Karte{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css?v={{ asset_version }}">{% endblock %}
+{% block page_class %}wide{% endblock %}
+{% block content %}
+{# The club's aircraft in the air, live (static/karte.js asks every 5 s).
+   Positions come from OGN through the tracker, a few seconds late. #}
+<div class="karte-live" data-karte-live="/karte/live.json">
+    <div class="karte-head">
+        <h1>Karte</h1>
+        <p class="subline" data-karte-status>Lädt …</p>
+    </div>
+    <div class="karte-layout">
+        <div class="map map-live" data-map></div>
+        <aside class="karte-list" aria-label="In der Luft">
+            <ul data-karte-list></ul>
+            <p class="hint" data-karte-empty hidden>Gerade ist kein Vereinsflugzeug in der Luft.
+                Hier erscheint jedes, sobald es startet.</p>
+        </aside>
+    </div>
+    <p class="hint">Positionen von OGN (FLARM), einige Sekunden verzögert. Höhe über Meer, in Klammern über Grund.
+        Segelflugkarte © BAZL / swisstopo; oben rechts umschaltbar auf die Landeskarte.</p>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/vendor/leaflet/leaflet.js?v={{ asset_version }}" defer></script>
+<script src="/static/karte.js?v={{ asset_version }}" defer></script>
+{% endblock %}

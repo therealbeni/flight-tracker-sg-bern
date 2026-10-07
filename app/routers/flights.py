@@ -11,6 +11,7 @@ from deps import back_url, local_path, require_approved
 from flight_form import CHANGED_MEANWHILE, FlightInput, can_edit, changed_meanwhile, form_choices, read_form
 from models import Flight, FlightAuditEntry, Pilot
 from routers.flugbuch import render_flugbuch
+from routers.karte import has_track
 from templating import templates
 from timeutil import to_local, today_local
 
@@ -34,6 +35,7 @@ def render_detail(request: Request, db: Session, flight: Flight, user: Pilot, fo
     return templates.TemplateResponse(request, "flights/detail.html", {
         "flight": flight, "pilot": user, "form": form or FlightInput.from_flight(db, flight, user), "history": history,
         "labels": flight_form.FIELD_LABELS, "can_edit": can_edit(flight, user), "choices": form_choices(db),
+        "has_track": has_track(db, flight.id),
     }, status_code=status_code)
 
 

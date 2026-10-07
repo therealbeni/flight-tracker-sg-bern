@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 {% from "flights/_fields.html" import flight_fields, status_badge %}
+{% import "_icons.html" as icons %}
 {% block title %}Flug {{ flight.glider.registration if flight.glider else "" }}{% endblock %}
+{% block head %}{% if has_track %}<link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css?v={{ asset_version }}">{% endif %}{% endblock %}
 {% block content %}
 <div class="flight-head">
     <h1>{{ flight.glider.registration if flight.glider else "Unbekanntes Flugzeug" }}</h1>
@@ -30,6 +32,22 @@
     {% if flight.notes %}<tr><th>Bemerkung</th><td>{{ flight.notes }}</td></tr>{% endif %}
     <tr><th>Erfasst</th><td>{{ "automatisch (OGN)" if flight.source.value == "auto" else "von Hand" }}</td></tr>
 </table>
+
+{% if has_track %}
+{# The flight on the map with its barogram; play it back (static/karte.js). #}
+<section class="card track-card" data-track="/flights/{{ flight.id }}/track.json">
+    <div class="map map-track" data-map></div>
+    <div class="replay">
+        <button type="button" class="secondary compact replay-play" data-replay-play aria-label="Abspielen">
+            <span class="when-paused">{{ icons.icon("play") }}</span><span class="when-playing">{{ icons.icon("pause") }}</span>
+        </button>
+        <input type="range" min="0" max="0" value="0" step="1" data-replay-slider aria-label="Zeitpunkt im Flug">
+        <button type="button" class="secondary compact replay-speed" data-replay-speed title="Geschwindigkeit">60×</button>
+    </div>
+    <p class="replay-readout" data-replay-readout aria-live="off">&nbsp;</p>
+    <svg class="barogram" data-barogram role="img" aria-label="Höhe über die Zeit"></svg>
+</section>
+{% endif %}
 
 {% if can_edit %}
     {% if not flight.verified_by_pilot and not form.errors %}
@@ -76,5 +94,11 @@
     {% endfor %}
     </tbody>
 </table>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+{% if has_track %}
+<script src="/static/vendor/leaflet/leaflet.js?v={{ asset_version }}" defer></script>
+<script src="/static/karte.js?v={{ asset_version }}" defer></script>
 {% endif %}
 {% endblock %}

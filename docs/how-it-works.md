@@ -68,6 +68,13 @@ Estimated times are flagged (`takeoff_estimated` / `landing_estimated`) so pilot
 check and correct them. Flights under 1 minute with seen takeoff and landing are dropped
 as ground movements.
 
+**Tracks.** Every beacon of a club aircraft also goes to the track recorder
+(`track_recorder.py`). It keeps the last few minutes per aircraft, so when a takeoff is
+reported (only once the aircraft has climbed away) the track starts with the ground
+roll. While in the air, positions are saved every 5 s to `track_points` (the live map
+reads them); at the landing they're packed into `flight_tracks` and deleted. A flight
+dropped as too short takes its track with it.
+
 ## Testing and replay
 
 `tests/tracker/test_detection.py` simulates one real-world situation per test (see
@@ -79,4 +86,11 @@ see what the detector makes of a recorded day - e.g. after changing a threshold:
 
 ```bash
 docker compose run --rm flight-tracker python replay.py /data/raw/2026-09-29.aprs
+```
+
+Flights from before tracks were recorded can get theirs from the same files (only
+landed flights without a track; running it twice changes nothing):
+
+```bash
+docker compose exec flight-tracker python backfill_tracks.py /data/raw/*.aprs
 ```

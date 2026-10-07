@@ -149,6 +149,17 @@ per month, launches, longest flight, and launches in the last 90 days - the pass
 recency of SFCL.160) and *Verein* (all aircraft incl. private ones, tows, flying days, per
 pilot), per year or all years. Rules in `app/flight_stats.py`.
 
+## Karte: live map and flight replay (branch feature/flight-tracks)
+
+The tracker records each flight's positions (`tracker/src/track_recorder.py`): every few
+seconds into `track_points` while it's in the air, packed into one `flight_tracks` row at
+the landing (`shared/tracks.py`, about 10 bytes a point). `/karte` shows the club's aircraft
+in the air on the glider chart (BAZL Segelflugkarte via swisstopo, switchable to the
+national map), updated every 5 s; a flight's page shows its track
+and barogram with playback (`app/routers/karte.py`, `app/static/karte.js`, Leaflet).
+Flights from before can get their track from the raw recordings:
+`docker compose exec flight-tracker python backfill_tracks.py /data/raw/*.aprs`.
+
 ## Phase 3 — Vereinsflieger sync
 
 - Requires: club board obtains a Vereinsflieger API AppKey (blocking, external to us).

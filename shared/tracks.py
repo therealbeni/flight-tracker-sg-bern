@@ -88,6 +88,12 @@ def live_points(db: Session, flight_id: int, since: Optional[datetime] = None) -
     return [_from_row(r) for r in db.scalars(query.order_by(TrackPoint.time)).all()]
 
 
+def last_live_time(db: Session, flight_id: int) -> Optional[datetime]:
+    last = db.scalar(select(TrackPoint.time).where(TrackPoint.flight_id == flight_id)
+                     .order_by(TrackPoint.time.desc()).limit(1))
+    return _aware(last) if last is not None else None
+
+
 def points_of(db: Session, flight_id: int) -> list[Point]:
     """The flight's whole track so far: packed, or still in the air."""
     packed = db.get(FlightTrack, flight_id)

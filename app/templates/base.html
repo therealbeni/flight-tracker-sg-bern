@@ -15,6 +15,7 @@
     <meta name="apple-mobile-web-app-title" content="SG Bern">
 
     <link rel="stylesheet" href="/static/style.css?v={{ asset_version }}">
+    {% block head %}{% endblock %}
 </head>
 {# The account is looked up by the page (deps.get_current_pilot); pages that
    don't (e.g. a 404) still show the plain pilot navigation when logged in. #}
@@ -39,6 +40,7 @@
             {% if is_admin %}
             <a href="/admin/pilots" class="{{ 'active' if path.startswith('/admin') }}">Verwaltung</a>
             {% endif %}
+            <a href="/karte" class="{{ 'active' if path == '/karte' }}">Karte</a>
             <a href="/statistik" class="{{ 'active' if path == '/statistik' }}">Statistik</a>
             <a href="/hilfe" class="{{ 'active' if path == '/hilfe' }}">Hilfe</a>
             <a href="/konto" class="nav-icon {{ 'active' if path.startswith('/konto') }}">{{ icons.icon("gear") }} Konto</a>
@@ -82,6 +84,9 @@
             {{ icons.icon("book") }}<span class="label">Meine Flüge</span>
         </a>
         {% endif %}
+        <a href="/karte" class="{{ 'active' if path == '/karte' }}">
+            {{ icons.icon("map") }}<span class="label">Karte</span>
+        </a>
         {% if is_admin %}
         <a href="/admin/pilots" class="{{ 'active' if path.startswith('/admin') }}">
             {{ icons.icon("shield") }}<span class="label">Verwaltung</span>

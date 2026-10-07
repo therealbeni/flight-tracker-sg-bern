@@ -11,7 +11,7 @@ from config import settings
 from deps import get_current_pilot
 from models import Pilot
 from paths import STATIC_DIR
-from routers import account, admin, auth, claim, dashboard, flights, flugbuch, logbook, statistik
+from routers import account, admin, auth, claim, dashboard, flights, flugbuch, karte, logbook, statistik
 from templating import templates
 
 # No automatic API docs (/docs, /openapi.json): they'd list every endpoint and
@@ -20,10 +20,12 @@ app = FastAPI(title="Flight Tracker SG Bern", docs_url=None, redoc_url=None, ope
 
 # Only our own scripts and styles run on our pages: an injected <script> or
 # onclick="" is ignored by the browser. 'inline-speculation-rules' allows the
-# prefetch hints in base.html, which are data, not code.
+# prefetch hints in base.html, which are data, not code. Map tiles (Karte)
+# come from swisstopo.
 CONTENT_SECURITY_POLICY = "; ".join([
     "default-src 'self'", "script-src 'self' 'inline-speculation-rules'", "style-src 'self'",
-    "img-src 'self' data:", "media-src 'self' blob:", "connect-src 'self'", "object-src 'none'",
+    "img-src 'self' data: https://wmts.geo.admin.ch", "media-src 'self' blob:", "connect-src 'self'",
+    "object-src 'none'",
     "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'",
 ])
 
@@ -86,6 +88,7 @@ app.include_router(dashboard.router)
 app.include_router(flights.router)
 app.include_router(flugbuch.router)
 app.include_router(logbook.router)
+app.include_router(karte.router)
 app.include_router(statistik.router)
 
 

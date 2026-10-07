@@ -33,6 +33,16 @@ MAX_SKEW = timedelta(minutes=5)
 MAX_PENDING = 20000
 
 
+def point_of(beacon: Beacon, terrain: Callable[[float, float], Optional[float]]) -> Point:
+    try:
+        ground = terrain(beacon.latitude, beacon.longitude)
+    except Exception:  # noqa: BLE001 - no terrain data here: the point still counts
+        ground = None
+    return Point(time=beacon.timestamp, latitude=beacon.latitude, longitude=beacon.longitude,
+                 altitude_m=beacon.altitude_m, ground_m=ground, speed_kmh=beacon.ground_speed_kmh,
+                 climb_ms=beacon.climb_rate_ms)
+
+
 class TrackRecorder:
     def __init__(self, session_factory: sessionmaker, open_flight: Callable[[str], Optional[FlightRecord]],
                  terrain: Callable[[float, float], Optional[float]], flush_every_s: float = 5.0):
@@ -51,9 +61,7 @@ class TrackRecorder:
         recent = self._recent.setdefault(beacon.address, deque())
         if recent and beacon.timestamp <= recent[-1].time:
             return  # duplicate or out of order
-        point = Point(time=beacon.timestamp, latitude=beacon.latitude, longitude=beacon.longitude,
-                      altitude_m=beacon.altitude_m, ground_m=self._ground(beacon), speed_kmh=beacon.ground_speed_kmh,
-                      climb_ms=beacon.climb_rate_ms)
+        point = point_of(beacon, self._terrain)
         recent.append(point)
         while recent and recent[0].time < point.time - RECENT:
             recent.popleft()
@@ -69,12 +77,6 @@ class TrackRecorder:
                 del pending[:-MAX_PENDING]
         if time.monotonic() >= self._next_flush:
             self.flush()
-
-    def _ground(self, beacon: Beacon) -> Optional[float]:
-        try:
-            return self._terrain(beacon.latitude, beacon.longitude)
-        except Exception:  # noqa: BLE001 - no terrain data here: the point still counts
-            return None
 
     def flush(self) -> None:
         """Saves the waiting positions of flights the database knows already."""
