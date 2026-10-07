@@ -47,7 +47,7 @@ def read(paths: list[str], terrain) -> dict[str, list[tracks.Point]]:
 
 def main(paths: list[str]) -> None:
     terrain = Terrain(background=False)
-    positions = read(paths, terrain)
+    positions = read(paths, terrain.elevation)
     first = min(p[0].time for p in positions.values())
     last = max(p[-1].time for p in positions.values())
     with SessionLocal() as db:
