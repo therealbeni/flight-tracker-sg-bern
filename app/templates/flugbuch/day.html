@@ -9,6 +9,7 @@
    checking in open on top of them (<dialog>, static/flugbuch.js); on the club
    PC a side panel shows the aircraft and pilots of today. #}
 <div class="flugbuch {{ 'has-panel' if desk }}" data-flugbuch>
+<script src="/static/flugbuch-panel.js?v={{ asset_version }}"></script>
 <div class="fb-main">
 
 <div class="fb-head">
@@ -188,6 +189,7 @@
 </dialog>
 {% endif %}
 
+<script src="/static/flugbuch-dialog.js?v={{ asset_version }}"></script>
 <script src="/static/flugbuch.js?v={{ asset_version }}" defer></script>
 <script src="/static/live.js?v={{ asset_version }}" defer></script>
 {% endblock %}

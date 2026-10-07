@@ -273,7 +273,8 @@ def stats_flow(page: Page) -> None:
     expect(page.locator(".chart-tip")).to_be_visible()
     check_page(page, "50-statistik-meine")
     page.click(".segmented >> text=Verein")
-    expect(page.locator("h2", has_text="Piloten")).to_be_visible()
+    expect(page.locator("h2", has_text="Flugzeuge")).to_be_visible()
+    expect(page.locator("h2", has_text="Piloten")).to_have_count(0)  # no ranking of members
     check_page(page, "51-statistik-verein")
 
 

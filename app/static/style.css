@@ -43,16 +43,15 @@
 
 * { box-sizing: border-box; }
 
-/* Going from page to page: a quick cross-fade instead of a white flash, with
-   the top bar and tab bar standing still (browsers without support simply
-   load the page as before). */
+/* Going from page to page: the old page stays until the new one is ready,
+   then it's swapped in one step - no white page in between, and no fade:
+   a cross-fade showed both pages through each other, which looked like a
+   flash (dev/ui/flashes.py finds those). The top bar and tab bar stand
+   still. Browsers without support simply load the page as before. */
 @view-transition { navigation: auto; }
 .topbar { view-transition-name: topbar; }
 .tabbar { view-transition-name: tabbar; }
-::view-transition-group(root) { animation-duration: 120ms; }
-@media (prefers-reduced-motion: reduce) {
-    @view-transition { navigation: none; }
-}
+::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none; }
 
 html, body { min-height: 100%; }  /* not height: that clips long pages under the tab bar */
 
@@ -825,14 +824,17 @@ img.qr { display: block; }
     position: fixed; top: 0; right: 0; bottom: 0; z-index: 40; width: min(400px, 92vw); margin: 0;
     padding: 1rem 1rem 1.5rem; overflow-y: auto; background: var(--bg); border-left: 1px solid var(--border);
     box-shadow: -8px 0 24px rgba(20, 30, 45, 0.12); transform: translateX(105%); visibility: hidden;
-    transition: transform 160ms ease, visibility 0s 160ms;
 }
-.flugbuch.panel-js.panel-open .fb-panel { transform: none; visibility: visible; transition: transform 160ms ease; }
+.flugbuch.panel-js.panel-open .fb-panel { transform: none; visibility: visible; }
+/* The drawer slides only when opened or closed by hand (panel-animate, set by
+   flugbuch.js on a click): loading the page, it's simply where it belongs. */
+.flugbuch.panel-animate .fb-panel { transition: transform 160ms ease, visibility 0s 160ms; }
+.flugbuch.panel-animate.panel-open .fb-panel { transition: transform 160ms ease; }
 /* Docked from 1800px: the flights table needs about 1350px next to the panel.
    Keep in step with static/flugbuch-panel.js. No sliding here: the flights make
    room at once, a panel gliding in over them looked like a flash. */
 @media (min-width: 1800px) {
-    .flugbuch.panel-js .fb-panel, .flugbuch.panel-js.panel-open .fb-panel { transition: none; }
+    .flugbuch.panel-animate .fb-panel, .flugbuch.panel-animate.panel-open .fb-panel { transition: none; }
     .content.wide:has(.panel-open) { max-width: 1840px; }
     .flugbuch.panel-js.panel-open { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 1.75rem; align-items: start; }
     .flugbuch.panel-js.panel-open .fb-panel {
@@ -841,7 +843,7 @@ img.qr { display: block; }
     }
 }
 @media (prefers-reduced-motion: reduce) {
-    .flugbuch.panel-js .fb-panel, .flugbuch.panel-js.panel-open .fb-panel { transition: none; }
+    .flugbuch.panel-animate .fb-panel, .flugbuch.panel-animate.panel-open .fb-panel { transition: none; }
 }
 
 .fb-panel .strip { grid-template-columns: minmax(0, 1fr) auto; gap: 0.15rem 0.75rem; padding: 0.5rem 0.6rem 0.5rem 0.8rem; }
