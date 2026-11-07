@@ -32,7 +32,7 @@ dashboard, personal logbooks, and Vereinsflieger sync. That's the scope of this 
 - Phase 2: done.
 - Club ops v2 (below): done 2026-09-29, running on staging (flight.clanker.ch).
 - Club ops v4 (below): done 2026-10-06, after the first real flying day (03.10.).
-- Phase 3: on hold - waiting on the club board to confirm/request a Vereinsflieger AppKey.
+- Phase 3: AppKey exists (2026-11-07); plan in [Vereinsflieger push](vereinsflieger.md), waiting on a VF login for the tracker.
 
 ## Phase 0 — Accounts & data foundation
 
@@ -161,6 +161,9 @@ Flights from before can get their track from the raw recordings:
 `docker compose exec flight-tracker python backfill_tracks.py /data/raw/*.aprs`.
 
 ## Phase 3 — Vereinsflieger sync
+
+Planned in detail in [Vereinsflieger push](vereinsflieger.md) (2026-11-07). Original notes:
+
 
 - Requires: club board obtains a Vereinsflieger API AppKey (blocking, external to us).
 - Build a `VereinsfliegerAdapter` that takes a finalized `Flight` and pushes it into

@@ -11,4 +11,5 @@ configuration
 output
 how-it-works
 api
+vereinsflieger
 ```
