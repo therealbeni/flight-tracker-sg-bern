@@ -1,8 +1,8 @@
 # Vereinsflieger push - plan
 
-Status 2026-11-07: stage 0 built (`app/vereinsflieger.py`, call log), stage 1 done
-(read-only, 10 calls) - findings below. Staging runs in mode `readonly`. **Nothing has
-been written to Vereinsflieger.**
+Status 2026-11-07: stages 0, 1 and 4 done - the client (`app/vereinsflieger.py`, call
+log), a read-only look at the club's data (findings below) and one supervised test
+flight, created and deleted again. Staging runs in mode `readonly`. Next: stages 2, 3, 5.
 The club has created an AppKey (Stammdaten > Einstellungen > REST Interface, 500 calls a
 day, status Aktiv). This is Phase 3 of the [roadmap](roadmap.md), the last big step.
 
@@ -52,7 +52,7 @@ may download it to check details).
   about 2-60 flights, so a push costs at most about 70 calls.
 - `flight/add` (callsign required) -> `flid`. Fields: `callsign`, `pilotname`/`uidpilot`,
   `attendantname`/`uidattendant`, `starttype` (E/W/F), `departuretime`/`arrivaltime`
-  **in UTC, `YYYY-mm-dd HH:ii`** (minutes only), `departurelocation`/`arrivallocation`
+  `YYYY-mm-dd HH:ii` (the PDF says UTC - **this club's VF takes local time**, see stage 4), `departurelocation`/`arrivallocation`
   (name, ICAO or `LAT,LON`), `landingcount`, `ftid` (Flugart **as a numeric id from
   the club's master data**, not our letter code), `chargemode` + `uidcharge`, `comment`,
   `towcallsign`, `towpilotname`/`towuidpilot`, `towtime`, `towheight`.
@@ -73,8 +73,8 @@ may download it to check details).
 | `pilot` / `pilot_name` | `uidpilot` + `pilotname` / `pilotname` only | uid from member mapping |
 | `companion` / `companion_name` | `uidattendant` / `attendantname` | |
 | `launch_method` F/W/E | `starttype` F/W/E | 1:1 |
-| `takeoff_time`, `landing_time` | `departuretime`, `arrivaltime` | UTC, minutes; we round like VF's own form (to verify) |
-| `takeoff/landing_airfield_icao` | `departurelocation`/`arrivallocation` | ICAO (LSZB); outlanding: `LAT,LON` |
+| `takeoff_time`, `landing_time` | `departuretime`, `arrivaltime` | **local time** (stage 4), minutes |
+| `takeoff/landing_airfield_icao` | `departurelocation`/`arrivallocation` | exact VF name ("Bern-Belp Gld LSZB"); outlanding: `LAT,LON` |
 | `flight_type` (letter) | `ftid` | **id table from the club's Stammdaten**, see step 1 |
 | `billing` | `chargemode` | none=1, pilot=2, companion=3, guest=4, pilot_companion=5, guest_pilot_pays=6, other_member=7 (+`uidcharge`) |
 | `notes` | `comment` | |
@@ -103,8 +103,8 @@ Read-only, 03.10.-07.11.2026 (104 flights in Vereinsflieger, 87 in the tracker):
   ways via `flidtow`, Flugart id 3, Abrechnung 8 "Über SF"). So we push **only the glider
   flight with the tow fields**, never the linked tow flight separately. Tow plane flights
   without a glider (transfers) are pushed as their own flights.
-- **Times:** the lists show local time (`HH:ii`); `flight/add` wants UTC. Check in
-  stage 4 that a pushed flight shows the right local time.
+- **Times:** the lists show local time (`HH:ii`). (`flight/add` takes local time too,
+  see stage 4.)
 - **Airfields:** gliders at Bern use "Bern-Belp Gld LSZB", not "Bern-Belp LSZB" (that's
   the airport - two entries exist). Sending "LSZB" may pick the wrong one: we send the
   exact name, from a small table ICAO -> Vereinsflieger name (LSZB, LSTB, LSTZ seen).
@@ -232,6 +232,18 @@ With Benja watching, on a day and time agreed with the club (question 2):
 3. For a towed flight: see whether VF created the tow flight (question 3).
 4. Delete it again (`flight/delete`) if it was a test, and check it's gone/marked deleted.
 Fix the mapping until a pushed flight is identical to a hand-entered one.
+
+**Done 2026-11-07** (`app/vf_write_test.py`, Benja's go, his account as pilot, Abrechnung
+"keine"): flight 17378355 created, read back, deleted - gone from the day list. Learned:
+
+- `flight/add` answers with the whole new flight, `flid` included (no extra lookup).
+- **Times are not converted:** we sent 09:00 (meant as UTC), Vereinsflieger stored and
+  shows 09:00 - and hand-entered flights show local time. So despite the PDF ("in
+  UTC"), this club's Vereinsflieger takes **local time**. We send local time; check
+  once more in the VF web UI at the first real push.
+- **Airfield by ICAO picks the airport:** "LSZB" became "Bern-Belp LSZB" (and the flight
+  Flugmodus "Abflug"). We send the exact names ("Bern-Belp Gld LSZB").
+- Startart W -> 5, Flugart 10 and Abrechnung 1 kept, created by the FDL account.
 
 ### Stage 5 - the real push
 

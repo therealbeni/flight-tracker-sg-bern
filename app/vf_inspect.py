@@ -41,8 +41,7 @@ def main(first: date, last: date) -> None:
         print(f"\n{len(ours)} Flüge im Tracker\n")
         for f in ours:
             print(f.id, to_local(f.takeoff_time).strftime("%Y-%m-%d %H:%M"),
-                  to_local(f.landing_time).strftime("%H:%M") if f.landing_time else "-", "UTC",
-                  vf.utc_minutes(f.takeoff_time), f.glider.registration if f.glider else "?",
+                  to_local(f.landing_time).strftime("%H:%M") if f.landing_time else "-", f.glider.registration if f.glider else "?",
                   f.pilot_display, f.launch_method.value if f.launch_method else "-", f.flight_type,
                   f.takeoff_airfield_icao, f.landing_airfield_icao, "tow_flight", f.tow_flight_id, sep="\t")
         print("\nAnfragen heute:", vf.calls_today(db), "von", vf.DAILY_BUDGET)

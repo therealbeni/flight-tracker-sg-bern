@@ -130,3 +130,20 @@ def test_the_tests_cannot_reach_the_real_one(db_session):
     with pytest.raises(AssertionError, match="real Vereinsflieger"):
         with vf.session(db_session, config()):
             pass
+
+
+def test_live_writes_and_logs_the_flight(db_session):
+    fake = FakeVereinsflieger()
+    with vf.session(db_session, config("live"), fake) as client:
+        client.add_flight({"callsign": "HB-1", "uidpilot": 7})
+        client.delete_flight(42)
+    sent = [(m, e) for m, e, _ in fake.requests]
+    assert ("POST", "flight/add") in sent and ("DELETE", "flight/delete/42") in sent
+    logged = [c.endpoint for c in db_session.query(VereinsfliegerCall).all()]
+    assert "flight/add" in logged and "flight/delete/42" in logged
+
+
+def test_times_are_sent_in_swiss_local_time():
+    from datetime import datetime, timezone
+    assert vf.vf_time(datetime(2026, 11, 6, 9, 0, tzinfo=timezone.utc)) == "2026-11-06 10:00"  # CET
+    assert vf.vf_time(datetime(2026, 7, 4, 9, 0, tzinfo=timezone.utc)) == "2026-07-04 11:00"   # CEST

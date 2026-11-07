@@ -21,14 +21,14 @@ import urllib.parse
 import urllib.request
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from typing import Callable, Optional
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from models import VereinsfliegerCall
-from timeutil import local_day_bounds, today_local
+from timeutil import local_day_bounds, to_local, today_local
 
 BASE_URL = "https://www.vereinsflieger.de/interface/rest/"
 MODES = ("off", "readonly", "live")
@@ -206,6 +206,18 @@ class Client:
         return self.expect_ok(self.call("POST", f"flight/get/{int(flid)}"), "Flug lesen")
 
 
+    # -- writing (mode "live" only, never retried) ---------------------------
+
+    def add_flight(self, fields: dict, flight_id: Optional[int] = None) -> dict:
+        """Creates a flight; returns Vereinsflieger's data of it (with `flid`)."""
+        return self.expect_ok(self.call("POST", "flight/add", fields, write=True, flight_id=flight_id),
+                              "Flug übertragen")
+
+    def delete_flight(self, flid: int, flight_id: Optional[int] = None) -> None:
+        self.expect_ok(self.call("DELETE", f"flight/delete/{int(flid)}", write=True, flight_id=flight_id),
+                       "Flug löschen")
+
+
 def flight_list(data: dict) -> list[dict]:
     """A list answer is an object with the flights under "0", "1", ... next to
     "httpstatuscode"."""
@@ -225,6 +237,8 @@ def session(db: Session, config: Optional[Config] = None, transport: Optional[Tr
         client.sign_out()
 
 
-def utc_minutes(dt: datetime) -> str:
-    """A time as Vereinsflieger wants it: UTC, 'YYYY-mm-dd HH:ii'."""
-    return dt.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M")
+def vf_time(dt: datetime) -> str:
+    """A time as the club's Vereinsflieger takes it: 'YYYY-mm-dd HH:ii' in
+    Swiss local time. (The PDF says UTC, but VF stores what it gets, and shows
+    and bills in local time - tested 2026-11-07, docs/vereinsflieger.md.)"""
+    return to_local(dt).strftime("%Y-%m-%d %H:%M")
