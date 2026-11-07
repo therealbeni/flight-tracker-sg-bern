@@ -1,6 +1,8 @@
 # Vereinsflieger push - plan
 
-Status 2026-11-07: **plan only, nothing built, no call made to Vereinsflieger yet.**
+Status 2026-11-07: stage 0 built (`app/vereinsflieger.py`, call log), stage 1 done
+(read-only, 10 calls) - findings below. Staging runs in mode `readonly`. **Nothing has
+been written to Vereinsflieger.**
 The club has created an AppKey (Stammdaten > Einstellungen > REST Interface, 500 calls a
 day, status Aktiv). This is Phase 3 of the [roadmap](roadmap.md), the last big step.
 
@@ -79,9 +81,50 @@ may download it to check details).
 | tow plane / tow pilot / tow flight duration | `towcallsign`, `towuidpilot`/`towpilotname`, `towtime` | `towheight` from the track later (nice to have) |
 | `landings` | `landingcount` | default 1 |
 
+## Findings from the club's real data (stage 1, 2026-11-07)
+
+Read-only, 03.10.-07.11.2026 (104 flights in Vereinsflieger, 87 in the tracker):
+
+- **Login:** the tracker uses the club's shared FDL account (role "FDL", no 2FA). It's
+  the account the club PC already enters flights with - in the evening, the FDL types the
+  day in (`createtime` ~18:30). Pushed flights look exactly like those. It can't read the
+  member list (`user/list` needs "Mitgliederdaten bearbeiten") - good: that list holds
+  IBANs and birthdays, which we don't want.
+- **The tracker is accurate:** 85 flights matched; takeoff within 1 min for 81, landing
+  within 1 min for 81. Flights per day identical on every day at Bern (26/26, 7/7, ...).
+  Missing in the tracker: only aircraft not in our fleet (HB-1123, HB-664 and the
+  Bellechasse tow plane HB-ORW).
+- **Startart wrong when someone else's tow plane tows:** at Bellechasse (03.10.) six
+  glider flights were towed by HB-ORW, which we don't track - the tracker said Winde.
+  Winch vs tow is billed differently. Fix (tracker): Winde only at an airfield with a
+  winch (LSZB); elsewhere leave Startart empty, so the FDL must fill it in.
+- **Tows:** a glider flight with `starttype` F-Schlepp and `towcallsign` makes
+  Vereinsflieger create the tow plane's flight itself (same `createtime`, linked both
+  ways via `flidtow`, Flugart id 3, Abrechnung 8 "Über SF"). So we push **only the glider
+  flight with the tow fields**, never the linked tow flight separately. Tow plane flights
+  without a glider (transfers) are pushed as their own flights.
+- **Times:** the lists show local time (`HH:ii`); `flight/add` wants UTC. Check in
+  stage 4 that a pushed flight shows the right local time.
+- **Airfields:** gliders at Bern use "Bern-Belp Gld LSZB", not "Bern-Belp LSZB" (that's
+  the airport - two entries exist). Sending "LSZB" may pick the wrong one: we send the
+  exact name, from a small table ICAO -> Vereinsflieger name (LSZB, LSTB, LSTZ seen).
+- **Flugart ids in use:** 3 (F-Schlepp), 8 (Schulflug), 10 (standard / Privatflug),
+  12, 16, 17 - **labels of 12, 16, 17 unknown** (Stammdaten > Flugarten in VF).
+- **Members:** pilots and companions come with their VF `uid` in the flights (a few are
+  typed as free text, uid 0). Enough to suggest the mapping in stage 2.
+- **Duplicates already exist in Vereinsflieger:** some days were entered again by hand
+  weeks later (e.g. 03.10. on 19.10. and 22.10.), with flights twice and times "00:00".
+  Our push must not add to that: and once the tracker pushes, the club must stop entering
+  those days by hand.
+- **Matching:** callsign + takeoff within 5 min would miss one real pair (10 min apart
+  - the pilot's time vs. ours). Better: same callsign and the flight times overlap (one
+  aircraft can't fly twice at once), else takeoff within 15 min.
+- **Invoiced flights** (`invoiced` = 1) exist: never edit or delete those.
+
 ## Open questions - need Benja or the club before building
 
-1. **Which Vereinsflieger user does the tracker log in as?** Recommended: a dedicated
+1. ~~**Which Vereinsflieger user does the tracker log in as?**~~ Answered: the club's FDL
+   account (see findings). Original question: Recommended: a dedicated
    member account "Flugtracker" with only the rights it needs (Flugdatenerfassung; plus
    "Mitgliederdaten bearbeiten" only if we want `user/list`). Then every flight in VF shows
    it was created by the tracker (`uidcreate`), and it can be locked out on its own.
@@ -91,8 +134,8 @@ may download it to check details).
    reads it back and deletes it again. Tell the treasurer / VF admin beforehand, and do
    it when no billing run is due. Alternative: the first write is a real flight of a real
    flying day, done together with the FDL.
-3. **Does a glider flight with `towcallsign` make VF create the tow plane's flight
-   itself?** Decides whether we push tow flights separately (+ `jointowflights`) or only
+3. ~~**Does a glider flight with `towcallsign` make VF create the tow plane's flight
+   itself?**~~ Yes (findings). Original question: Decides whether we push tow flights separately (+ `jointowflights`) or only
    as fields of the glider flight. We find out read-only first (stage 1: look at how
    tow flights in past days were created), and confirm in stage 4.
 4. **When is a day pushed?** Recommended: the button is "Tag abschliessen und übertragen" -
@@ -243,8 +286,8 @@ Fix the mapping until a pushed flight is identical to a hand-entered one.
 
 ## What Benja needs to provide
 
-- [ ] A VF login for the tracker (ideally a dedicated account, see question 1), and how
-      2FA is set up on it.
+- [x] A VF login for the tracker (the FDL account, in `.env` on staging, mode `readonly`).
+- [ ] The labels of Flugart ids 12, 16 and 17 (and the full list, if handy).
 - [ ] Answers to questions 2, 4, 5, 6, 7 (recommendations given above).
-- [ ] Optional: the official PDF (VereinsfliegerRestInterface.pdf) to check details.
+- [x] The official PDF (checked; matches the spec above).
 - Then Claude builds stages 0-3 on its own (read-only), and stops before stage 4.

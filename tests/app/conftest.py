@@ -65,3 +65,15 @@ def fake_email(monkeypatch):
     monkeypatch.setattr(email_sender, "sender", fake)
     monkeypatch.setattr("routers.auth.sender", fake)
     return fake
+
+
+@pytest.fixture(autouse=True)
+def _no_real_vereinsflieger(monkeypatch):
+    """No test may ever reach the club's real Vereinsflieger."""
+    import vereinsflieger
+
+    def refuse(method, url, fields):
+        raise AssertionError(f"test tried to call the real Vereinsflieger: {method} {url}")
+    monkeypatch.setattr(vereinsflieger, "http_transport", refuse)
+    for name in [k for k in os.environ if k.startswith("VEREINSFLIEGER_")]:
+        monkeypatch.delenv(name)

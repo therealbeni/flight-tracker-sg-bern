@@ -21,4 +21,5 @@ from shared.models import (  # noqa: F401
     PilotRole,
     PilotStatus,
     TrackPoint,
+    VereinsfliegerCall,
 )

@@ -47,6 +47,14 @@ services:
       # Header with the visitor's IP from the proxy in front (for the login
       # throttle). Behind Cloudflare: cf-connecting-ip. See .env.example.
       - CLIENT_IP_HEADER=${CLIENT_IP_HEADER:-}
+      # The club's Vereinsflieger (docs/vereinsflieger.md). off (default): no
+      # calls; readonly: only reading; live: also sends flights.
+      - VEREINSFLIEGER_MODE=${VEREINSFLIEGER_MODE:-off}
+      - VEREINSFLIEGER_APPKEY=${VEREINSFLIEGER_APPKEY:-}
+      - VEREINSFLIEGER_USER=${VEREINSFLIEGER_USER:-}
+      - VEREINSFLIEGER_PASSWORD=${VEREINSFLIEGER_PASSWORD:-}
+      - VEREINSFLIEGER_CID=${VEREINSFLIEGER_CID:-}
+      - VEREINSFLIEGER_AUTH_SECRET=${VEREINSFLIEGER_AUTH_SECRET:-}
 
   caddy:
     image: caddy:2

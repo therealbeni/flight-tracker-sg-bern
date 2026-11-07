@@ -413,3 +413,22 @@ class FlightTrack(Base):
     last_latitude: Mapped[float] = mapped_column(Float, nullable=False)
     last_longitude: Mapped[float] = mapped_column(Float, nullable=False)
     last_altitude_m: Mapped[float] = mapped_column(Float, nullable=False)
+
+
+class VereinsfliegerCall(Base):
+    """One call to the Vereinsflieger REST API (app/vereinsflieger.py), so we can
+    always tell what the tracker sent to the club's Vereinsflieger and what came
+    back - and count the calls against the AppKey's 500 a day. Secrets
+    (accesstoken, appkey, password) are never stored."""
+
+    __tablename__ = "vereinsflieger_calls"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    called_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, nullable=False, index=True)
+    method: Mapped[str] = mapped_column(String(8), nullable=False)
+    endpoint: Mapped[str] = mapped_column(String(128), nullable=False)
+    request: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON of the fields sent, secrets removed
+    status: Mapped[int | None] = mapped_column(Integer, nullable=True)  # HTTP status; empty: no answer (timeout)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    flight_id: Mapped[int | None] = mapped_column(ForeignKey("flights.id"), nullable=True)
+    by_pilot_id: Mapped[int | None] = mapped_column(ForeignKey("pilots.id"), nullable=True)
