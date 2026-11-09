@@ -1,6 +1,6 @@
 # Vereinsflieger push - plan
 
-Status 2026-11-09: built - Tag abschliessen sends the day to Vereinsflieger (mode `live`,
+Status 2026-11-09: built and tested - Tag abschliessen sends the day to Vereinsflieger (mode `live`,
 `app/vereinsflieger_push.py`, see "How the push works" below). Staging runs in mode
 `live` since 09.11. evening, at Benja's request, for a first real test. Stage 3 (a
 separate dry-run preview) was folded into the Flugbuch: the per-flight checks show as
@@ -317,6 +317,9 @@ Fix the mapping until a pushed flight is identical to a hand-entered one.
 - Re-opened day: a flight corrected since it was sent (audit entry newer than the send) is
   sent as `flight/edit`. **Not handled:** a flight deleted here after it was sent stays in
   VF - delete it there by hand.
+- **First real push 2026-11-09 21:35** (Benja, test flight HB-1766, Winde, Abrechnung
+  keine): 5 calls (login 2, day list, add, logout), VF flid 17382962; Benja checked it in
+  VF ("looks ok") and deleted it there. Cost of a push: 4 calls + 1 per flight.
 
 ### Stage 6 - go live on the club server
 
