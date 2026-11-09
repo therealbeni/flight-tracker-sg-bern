@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}Vereinsflieger{% endblock %}
+{% block content %}
+{% include "admin/_nav.html" %}
+<h1>Vereinsflieger</h1>
+<p class="hint">Damit der Tracker die Flüge später in den Vereinsflieger übertragen kann, muss er wissen, wer dort wer ist. Er liest dazu die Flüge des Vereins im Vereinsflieger (nur lesen, es wird nichts verändert).</p>
+
+{% if message %}<div class="notice" role="status"><p>{{ message }}</p></div>{% endif %}
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+
+<section class="card">
+    <h2>Verbindung</h2>
+    <p>
+        {% if config.mode == "live" and config.can_read %}<span class="badge badge-approved">Lesen und übertragen</span>
+        {% elif config.can_read %}<span class="badge badge-sky">Nur lesen</span>
+        {% else %}<span class="badge badge-rejected">Ausgeschaltet</span>{% endif %}
+        &nbsp;Anfragen heute: {{ calls_today }} von {{ budget }}
+    </p>
+    <p class="hint">
+        {% if loaded_at %}Zuletzt geladen: {{ loaded_at|datum_zeit }} (Flüge der letzten {{ reload_days }} Tage).
+        {% else %}Noch nie geladen.{% endif %}
+    </p>
+    {% if config.can_read %}
+    <form method="post" action="/admin/vereinsflieger/reload">
+        <button type="submit">Aus dem Vereinsflieger laden</button>
+    </form>
+    {% else %}
+    <p class="hint">Eingeschaltet wird die Verbindung auf dem Server (VEREINSFLIEGER_MODE und Zugangsdaten in der Datei .env, siehe docs/vereinsflieger.md).</p>
+    {% endif %}
+</section>
+
+<h2 id="piloten">Piloten</h2>
+<p class="hint">Jeder Pilot wird mit seinem Mitglied im Vereinsflieger verknüpft - sonst kann sein Flug dort niemandem verrechnet werden. Wo die Namen übereinstimmen, ist das Mitglied schon ausgewählt: bitte prüfen und «Verknüpfen» drücken.</p>
+<table class="data-table">
+    <thead><tr><th>Pilot</th><th>Mitglied im Vereinsflieger</th></tr></thead>
+    <tbody>
+    {% for p in pilots %}
+        {% set current = by_uid.get(p.vereinsflieger_member_id) if p.vereinsflieger_member_id else none %}
+        {% set suggested = suggestions.get(p.id) %}
+        <tr>
+            <td>{{ p.full_name }}</td>
+            <td>
+                {% if p.vereinsflieger_member_id %}
+                <form method="post" action="/admin/vereinsflieger/pilots/{{ p.id }}" class="inline-form">
+                    <span class="badge badge-approved">verknüpft</span>
+                    {{ current.name if current else "Mitglied " ~ p.vereinsflieger_member_id }}
+                    <input type="hidden" name="uid" value="">
+                    <button type="submit" class="secondary compact">Lösen</button>
+                </form>
+                {% elif vf_members %}
+                <form method="post" action="/admin/vereinsflieger/pilots/{{ p.id }}" class="inline-form">
+                    {% if suggested %}<span class="badge badge-pending">Vorschlag</span>{% endif %}
+                    <select name="uid" aria-label="Mitglied im Vereinsflieger für {{ p.full_name }}">
+                        <option value="">- nicht verknüpft -</option>
+                        {% for m in vf_members %}
+                        <option value="{{ m.key }}" {{ "selected" if suggested and suggested.key == m.key }}
+                                {{ "disabled" if m.key in linked }}>{{ m.name or "?" }}{{ " (schon verknüpft)" if m.key in linked }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="compact">Verknüpfen</button>
+                </form>
+                {% else %}<span class="hint">zuerst aus dem Vereinsflieger laden</span>{% endif %}
+            </td>
+        </tr>
+    {% else %}
+        <tr><td colspan="2">Noch keine Piloten.</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+<p class="hint">Im Vereinsflieger fehlt jemand? Die Liste kennt nur Mitglieder, die im letzten Jahr als Pilot oder Begleiter eines Vereinsflugs eingetragen sind.</p>
+
+<h2>Flugzeuge</h2>
+<table class="data-table">
+    <thead><tr><th>Kennzeichen</th><th>Im Vereinsflieger</th></tr></thead>
+    <tbody>
+    {% for g in gliders %}
+        {% set seen = vf_aircraft.get(g.registration) %}
+        <tr>
+            <td>{{ g.registration }}</td>
+            <td>{% if seen %}<span class="badge badge-approved">bekannt</span>
+                <br><span class="hint">{{ seen.flights }} Flüge, zuletzt {{ seen.last_flight|datum }}</span>
+                {% elif loaded_at %}<span class="badge badge-pending">kein Flug gefunden</span>
+                {% else %}-{% endif %}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+<h2>Flugplätze</h2>
+<table class="data-table">
+    <thead><tr><th>Flugplatz</th><th>Name im Vereinsflieger</th></tr></thead>
+    <tbody>
+    {% for a in airfields %}
+        <tr>
+            <td>{{ a.icao }}<br><span class="hint">{{ a.name }}</span></td>
+            <td>{% if place_names.get(a.icao) %}{{ place_names[a.icao] }}
+                {% elif loaded_at %}<span class="badge badge-pending">kein Flug gefunden</span><br><span class="hint">wird als «{{ a.icao }}» übertragen</span>
+                {% else %}-{% endif %}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+<h2>Flugarten und Startarten</h2>
+<p class="hint">Fest eingestellt, aus dem Flugformular des Vereins im Vereinsflieger.</p>
+<table class="data-table">
+    <thead><tr><th>Flugart</th><th>Nr. im Vereinsflieger</th></tr></thead>
+    <tbody>
+    {% for code, label, ftid in flight_types %}
+        <tr><td>{{ code }} - {{ label }}</td><td>{{ ftid if ftid else "fehlt" }}</td></tr>
+    {% endfor %}
+    {% for label, number in start_types %}
+        <tr><td>Startart {{ label }}</td><td>{{ number }}</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

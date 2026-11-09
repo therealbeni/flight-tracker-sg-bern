@@ -21,7 +21,7 @@ from PIL import Image  # noqa: E402
 
 from database import Base, SessionLocal, engine  # noqa: E402
 from models import (AircraftKind, Airfield, Flight, FlightSource, Glider, GliderClaim, LaunchMethod,  # noqa: E402
-                    Pilot, PilotRole, PilotStatus)
+                    Pilot, PilotRole, PilotStatus, VereinsfliegerEntry)
 from security import hash_password  # noqa: E402
 from shared import tracks  # noqa: E402
 
@@ -124,6 +124,14 @@ def seed() -> None:
                       takeoff_time=start, landing_time=start + timedelta(minutes=30), duration_min=30,
                       takeoff_airfield_icao="LSZB", landing_airfield_icao="LSZB", launch_method=LaunchMethod.WINCH,
                       source=FlightSource.AUTO))
+    # As if loaded from Vereinsflieger (Verwaltung > Vereinsflieger).
+    seen = (now - timedelta(days=3)).date()
+    db.add_all([VereinsfliegerEntry(kind="member", key=uid, name=name, flights=n, last_flight=seen, loaded_at=now)
+                for uid, name, n in [("501", "Pilot, Pia", 12), ("502", "Schlepp, Toni", 40), ("503", "Lehrer, Lukas", 7)]]
+               + [VereinsfliegerEntry(kind="aircraft", key=c, flights=30, last_flight=seen, loaded_at=now)
+                  for c in ("HB-1811", "D-EDUY")]
+               + [VereinsfliegerEntry(kind="place", key=k, flights=n, last_flight=seen, loaded_at=now)
+                  for k, n in [("Bern-Belp Gld LSZB", 300), ("Bern-Belp LSZB", 4)]])
     db.commit()
 
 

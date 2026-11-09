@@ -36,11 +36,23 @@ FLIGHT_TYPES = {  # in Vereinsflieger's order
     "E": "Einweisung", "ES": "Einweisung Startart", "EF": "Einfliegen", "PF": "Prüfungsflug",
     "SF": "Schnupperflug", "FS": "F-Schlepp-Schulung",
 }
+# The same Flugarten as Vereinsflieger's ids (`ftid`), from the club's flight
+# form in Vereinsflieger (2026-11-09; the club is cid 333).
+VEREINSFLIEGER_FTID = {
+    "C": 2, "F": 3, "P": 4, "L": 5, "V": 6, "S": 8, "N": 10, "B": 11, "Ü": 12,
+    "E": 13, "ES": 14, "EF": 15, "PF": 16, "SF": 17, "FS": 18,
+}
 
 # Abrechnungsart: who pays, as in Vereinsflieger.
 BILLING_TYPES = {
     "none": "Keine", "pilot": "Pilot", "companion": "Begleiter", "pilot_companion": "Pilot + Begleiter",
     "guest": "Gastflug", "guest_pilot_pays": "Gastflug (Pilot zahlt)", "other_member": "Anderes Mitglied",
+}
+# The same as Vereinsflieger's `chargemode` (8 "Über SF" is only on tow flights
+# Vereinsflieger creates itself; we never send it).
+VEREINSFLIEGER_CHARGEMODE = {
+    "none": 1, "pilot": 2, "companion": 3, "guest": 4, "pilot_companion": 5, "guest_pilot_pays": 6,
+    "other_member": 7,
 }
 
 
@@ -98,6 +110,11 @@ class LaunchMethod(str, enum.Enum):
         return {"F": "F-Schlepp", "W": "Winde", "E": "Eigenstart"}[self.value]
 
 
+# Startart as Vereinsflieger's `starttype` (its form, 2026-11-09; it also has
+# 7 Gummiseil and 9 Fahrzeug, and allows each aircraft only its own Startarten).
+VEREINSFLIEGER_STARTTYPE = {LaunchMethod.SELF: 1, LaunchMethod.AEROTOW: 3, LaunchMethod.WINCH: 5}
+
+
 class Pilot(Base):
     __tablename__ = "pilots"
 
@@ -107,7 +124,8 @@ class Pilot(Base):
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[PilotRole] = mapped_column(Enum(PilotRole), default=PilotRole.PILOT, nullable=False)
     status: Mapped[PilotStatus] = mapped_column(Enum(PilotStatus), default=PilotStatus.PENDING, nullable=False)
-    vereinsflieger_member_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Their member uid in Vereinsflieger (linked by an admin), for pushing flights.
+    vereinsflieger_member_id: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, nullable=False)
 
     reset_tokens: Mapped[list["PasswordResetToken"]] = relationship(back_populates="pilot")
@@ -432,3 +450,21 @@ class VereinsfliegerCall(Base):
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     flight_id: Mapped[int | None] = mapped_column(ForeignKey("flights.id"), nullable=True)
     by_pilot_id: Mapped[int | None] = mapped_column(ForeignKey("pilots.id"), nullable=True)
+
+
+class VereinsfliegerEntry(Base):
+    """Something seen in the club's Vereinsflieger flights: a member (key: their
+    VF uid, with the name VF shows), an aircraft (key: callsign) or a place
+    (key: VF's name for it, e.g. "Bern-Belp Gld LSZB"). Reloaded as a whole by
+    an admin (Verwaltung > Vereinsflieger), so pilots can be linked to their
+    VF member and we know how VF names our airfields - without needing the
+    rights to read VF's member list (which holds IBANs and birthdays)."""
+
+    __tablename__ = "vereinsflieger_entries"
+
+    kind: Mapped[str] = mapped_column(String(16), primary_key=True)  # "member", "aircraft", "place"
+    key: Mapped[str] = mapped_column(String(255), primary_key=True)
+    name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    flights: Mapped[int] = mapped_column(Integer, nullable=False)  # in the loaded time span
+    last_flight: Mapped[date] = mapped_column(Date, nullable=False)
+    loaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, nullable=False)

@@ -15,7 +15,10 @@ from database import get_db
 from day_board import month_calendar, parse_month
 from deps import require_admin, start_session
 from flight_form import members
-from models import AircraftKind, Airfield, Flight, Glider, Pilot, PilotRole, PilotStatus
+import vereinsflieger as vf
+import vereinsflieger_directory as vf_directory
+from models import (FLIGHT_TYPES, VEREINSFLIEGER_FTID, VEREINSFLIEGER_STARTTYPE, AircraftKind, Airfield, Flight, Glider,
+                    LaunchMethod, Pilot, PilotRole, PilotStatus, VereinsfliegerEntry)
 from routers.claim import active_claims, end_claims
 from timeutil import local_day_bounds, to_local, today_local
 
@@ -264,3 +267,62 @@ def unlock_day(day: date, db: Session = Depends(get_db)):
         f.finalized_at = None
     db.commit()
     return RedirectResponse(f"/flugbuch?datum={day}", status_code=303)
+
+
+def render_vereinsflieger(request: Request, db: Session, message: Optional[str] = None,
+                          error: Optional[str] = None):
+    """What the tracker knows of the club's Vereinsflieger, and how our pilots,
+    aircraft, airfields and Flugarten map to it (docs/vereinsflieger.md)."""
+    pilots = members(db)
+    vf_members = vf_directory.entries(db, vf_directory.MEMBER)
+    aircraft = {e.key: e for e in vf_directory.entries(db, vf_directory.AIRCRAFT)}
+    linked = {p.vereinsflieger_member_id: p for p in pilots if p.vereinsflieger_member_id}
+    return templates.TemplateResponse(request, "admin/vereinsflieger.html", {
+        "config": vf.Config.from_env(), "calls_today": vf.calls_today(db), "budget": vf.DAILY_BUDGET,
+        "loaded_at": vf_directory.loaded_at(db), "reload_days": vf_directory.RELOAD_DAYS,
+        "pilots": pilots, "vf_members": vf_members, "by_uid": {m.key: m for m in vf_members}, "linked": linked,
+        "suggestions": vf_directory.suggestions(pilots, vf_members),
+        "gliders": db.scalars(select(Glider).order_by(Glider.registration)).all(), "vf_aircraft": aircraft,
+        "airfields": db.scalars(select(Airfield).order_by(Airfield.icao)).all(),
+        "place_names": vf_directory.place_names(db),
+        "flight_types": [(code, label, VEREINSFLIEGER_FTID.get(code)) for code, label in FLIGHT_TYPES.items()],
+        "start_types": [(m.label, VEREINSFLIEGER_STARTTYPE[m]) for m in LaunchMethod],
+        "message": message, "error": error,
+    }, status_code=400 if error else 200)
+
+
+@router.get("/vereinsflieger")
+def vereinsflieger_overview(request: Request, geladen: Optional[int] = Query(None), db: Session = Depends(get_db)):
+    return render_vereinsflieger(request, db, message=None if geladen is None
+                                 else f"{geladen} Flüge aus dem Vereinsflieger gelesen.")
+
+
+@router.post("/vereinsflieger/reload")
+def reload_vereinsflieger(request: Request, db: Session = Depends(get_db), admin: Pilot = Depends(require_admin)):
+    """Reads the club's flights of the last year from Vereinsflieger (reading
+    only, about 4 calls) and keeps the members, aircraft and places in them."""
+    try:
+        with vf.session(db, by_pilot_id=admin.id) as client:
+            count = vf_directory.reload(db, client, today_local())
+    except vf.VereinsfliegerError as e:
+        return render_vereinsflieger(request, db, error=str(e))
+    return RedirectResponse(f"/admin/vereinsflieger?geladen={count}", status_code=303)
+
+
+@router.post("/vereinsflieger/pilots/{pilot_id}")
+def link_vereinsflieger_member(request: Request, pilot_id: int, uid: str = Form(""), db: Session = Depends(get_db)):
+    """Links a pilot to their Vereinsflieger member (empty: unlinks)."""
+    pilot = db.get(Pilot, pilot_id)
+    if pilot is None or pilot not in members(db):
+        raise HTTPException(status_code=404, detail="Diesen Piloten gibt es nicht.")
+    uid = uid.strip()
+    if uid:
+        member = db.get(VereinsfliegerEntry, (vf_directory.MEMBER, uid))
+        if member is None:
+            return render_vereinsflieger(request, db, error="Dieses Mitglied kennt der Tracker aus dem Vereinsflieger nicht.")
+        other = db.scalar(select(Pilot).where(Pilot.vereinsflieger_member_id == uid, Pilot.id != pilot.id))
+        if other is not None:
+            return render_vereinsflieger(request, db, error=f"{member.name} ist schon mit {other.full_name} verknüpft.")
+    pilot.vereinsflieger_member_id = uid or None
+    db.commit()
+    return RedirectResponse("/admin/vereinsflieger#piloten", status_code=303)

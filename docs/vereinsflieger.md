@@ -1,8 +1,9 @@
 # Vereinsflieger push - plan
 
-Status 2026-11-07: stages 0, 1 and 4 done - the client (`app/vereinsflieger.py`, call
-log), a read-only look at the club's data (findings below) and one supervised test
-flight, created and deleted again. Staging runs in mode `readonly`. Next: stages 2, 3, 5.
+Status 2026-11-09: stages 0, 1, 2 and 4 done - the client (`app/vereinsflieger.py`, call
+log), a read-only look at the club's data (findings below), one supervised test flight
+(created and deleted again) and the mapping (Verwaltung > Vereinsflieger). Staging runs
+in mode `readonly`. Next: stages 3, 5.
 The club has created an AppKey (Stammdaten > Einstellungen > REST Interface, 500 calls a
 day, status Aktiv). This is Phase 3 of the [roadmap](roadmap.md), the last big step.
 
@@ -108,8 +109,15 @@ Read-only, 03.10.-07.11.2026 (104 flights in Vereinsflieger, 87 in the tracker):
 - **Airfields:** gliders at Bern use "Bern-Belp Gld LSZB", not "Bern-Belp LSZB" (that's
   the airport - two entries exist). Sending "LSZB" may pick the wrong one: we send the
   exact name, from a small table ICAO -> Vereinsflieger name (LSZB, LSTB, LSTZ seen).
-- **Flugart ids in use:** 3 (F-Schlepp), 8 (Schulflug), 10 (standard / Privatflug),
-  12, 16, 17 - **labels of 12, 16, 17 unknown** (Stammdaten > Flugarten in VF).
+- **Flugart ids:** all 15 from the club's VF flight form (`frm_ftid`, 2026-11-09), now
+  `VEREINSFLIEGER_FTID` in `shared/models.py`: C 2, F 3, P 4, L 5, V 6, S 8, N 10, B 11,
+  Ü 12, E 13, ES 14, EF 15, PF 16, SF 17, FS 18 (E to FS are the club's own). The form
+  also marks each one as training (`data-education`: C, L, S, B, Ü, E, ES, PF, SF, FS)
+  and as tow (`data-tow`: F, FS).
+- **Startart:** `frm_starttype` 1 Eigenstart, 3 F-Schlepp, 5 Winde (7 Gummiseil,
+  9 Fahrzeug unused) - `VEREINSFLIEGER_STARTTYPE`. VF disables the Startarten an aircraft
+  can't use (in the form looked at, only F-Schlepp was offered), so a wrong Startart may be
+  refused - stage 3 shows it.
 - **Members:** pilots and companions come with their VF `uid` in the flights (a few are
   typed as free text, uid 0). Enough to suggest the mapping in stage 2.
 - **Duplicates already exist in Vereinsflieger:** some days were entered again by hand
@@ -193,15 +201,32 @@ It logs in and lists one day (`flight/list/date`), about 3 calls each run.
   data validation of the tracker the roadmap has been waiting for.
 - Write the results down in this file (no personal data in git: only ids/codes, no names).
 
-### Stage 2 - mapping (still read-only)
+### Stage 2 - mapping (still read-only) - done 2026-11-09
 
-- No new tables: the VF `uid` goes into the existing `pilots.vereinsflieger_member_id`;
-  aircraft need no id (VF matches by callsign); the `ftid` table is a dict next to
-  `FLIGHT_TYPES` in `shared/models.py`, filled from stage 1.
-- Verwaltung > Piloten: field "Vereinsflieger-Mitglied" per pilot, with suggestions:
-  members seen in the club's past flights (or from `user/list` if the tracker user may
-  read it), matched by name. An admin confirms each one - no automatic matching by name.
-- Verwaltung > Flugzeuge: shows whether the callsign exists in VF (seen in past flights).
+- Flugart, Startart and Abrechnungsart: dicts next to `FLIGHT_TYPES`, `LaunchMethod` and
+  `BILLING_TYPES` in `shared/models.py` (`VEREINSFLIEGER_FTID`, `_STARTTYPE`,
+  `_CHARGEMODE`).
+- Verwaltung > **Vereinsflieger** (`/admin/vereinsflieger`, admins only):
+  - "Aus dem Vereinsflieger laden" reads the club's flights of the last 365 days (one
+    `flight/list/daterange`, 4 calls with login/logout) and keeps the **members** (VF uid
+    + name, pilots and Begleiter; guests typed as free text have uid 0 and are left out),
+    **aircraft** and **places** seen in them - table `vereinsflieger_entries`
+    (`app/vereinsflieger_directory.py`), replaced as a whole on each load. We can't read
+    VF's member list (`user/list` needs rights the FDL account doesn't have - and it
+    holds IBANs), so a member who hasn't flown in a year isn't offered.
+  - **Piloten:** each pilot is linked to their VF member (`pilots.vereinsflieger_member_id`,
+    now unique). Where exactly one member has the same name (any order, commas, case and
+    accents ignored) it's preselected as "Vorschlag" - an admin still presses
+    "Verknüpfen". No automatic linking.
+  - **Flugzeuge:** whether VF has flights of each of our aircraft.
+  - **Flugplätze:** VF's name for each of our airfields: the name ending in its ICAO code
+    that the club's flights use most ("Bern-Belp Gld LSZB" 397 times vs. the airport
+    "Bern-Belp LSZB" 4 times). Unseen airfields would be sent as the bare ICAO code.
+  - **Flugarten/Startarten:** the fixed tables, for checking.
+- Open (for the club, not blocking): pilots without an app account. The FDL types them
+  as a name ("Unbekannt" -> name), and such flights can't be pushed (question 7). If
+  many members never register, the flight form could offer the VF members from this
+  list as pilots - decide after the first weeks of real use.
 
 ### Stage 3 - dry run: the button without sending (mode `readonly`)
 

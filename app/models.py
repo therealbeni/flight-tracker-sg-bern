@@ -5,6 +5,9 @@ tracker process needs the exact same schema to write flights and match claims.""
 from shared.models import (  # noqa: F401
     BILLING_TYPES,
     FLIGHT_TYPES,
+    VEREINSFLIEGER_CHARGEMODE,
+    VEREINSFLIEGER_FTID,
+    VEREINSFLIEGER_STARTTYPE,
     AircraftKind,
     Airfield,
     Checkout,
@@ -22,4 +25,5 @@ from shared.models import (  # noqa: F401
     PilotStatus,
     TrackPoint,
     VereinsfliegerCall,
+    VereinsfliegerEntry,
 )

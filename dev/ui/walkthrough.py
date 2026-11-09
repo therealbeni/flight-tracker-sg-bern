@@ -288,7 +288,7 @@ def admin_flow(page: Page) -> None:
     page.click("text=Zurück zu meinem Konto")
     expect(page).to_have_url(f"{BASE}/admin/pilots")
     for path, name in [("/admin/gliders", "22-flugzeuge"), ("/admin/airfields", "23-flugplaetze"),
-                       ("/admin/finalize", "24-abschliessen")]:
+                       ("/admin/finalize", "24-abschliessen"), ("/admin/vereinsflieger", "25-vereinsflieger")]:
         page.goto(BASE + path)
         check_page(page, name)
 
