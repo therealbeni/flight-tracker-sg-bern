@@ -299,6 +299,9 @@ Fix the mapping until a pushed flight is identical to a hand-entered one.
 
 - Only FDL and admins; only with mode `live`. With mode `off`/`readonly`, Tag abschliessen
   works as before.
+- **Confirmed** goes away when someone else changes a member's flight: the pilot checks it
+  again (Auschecken, or the FDL checks them out). The pilot's own correction, and the
+  FDL's on a guest's flight (no account), count as confirmation.
 - **Green** = landed, confirmed (Auschecken), nothing to check (time estimated, place
   missing, duplicate) and Vereinsflieger has what it needs: aircraft known in VF, Startort,
   Startart, a known Flugart, pilot / Begleiter / paying member linked to their VF member,

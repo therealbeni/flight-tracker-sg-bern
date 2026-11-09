@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 import flight_form
@@ -60,14 +60,31 @@ async def flight_update(request: Request, flight_id: int, next: str = Form(""), 
         if next.startswith("/flugbuch"):
             return render_flugbuch(request, db, user, day, form=fresh, editing=flight, status_code=409)
         return render_detail(request, db, flight, user, fresh, status_code=409)
+    changes_before = audit_count(db, flight)
     if flight_form.save(db, user, form, flight) is None:
         db.rollback()
         if next.startswith("/flugbuch"):
             return render_flugbuch(request, db, user, day, form=form, editing=flight, status_code=400)
         return render_detail(request, db, flight, user, form, status_code=400)
-    flight.verified_by_pilot = True
+    flight.verified_by_pilot = confirmed_after_edit(user, flight, changed=audit_count(db, flight) > changes_before)
     db.commit()
     return RedirectResponse(local_path(next) or f"/flights/{flight.id}", status_code=303)
+
+
+def audit_count(db: Session, flight: Flight) -> int:
+    db.flush()  # the session doesn't autoflush: count the entries just added too
+    return db.scalar(select(func.count()).select_from(FlightAuditEntry)
+                     .where(FlightAuditEntry.flight_id == flight.id)) or 0
+
+
+def confirmed_after_edit(user: Pilot, flight: Flight, changed: bool) -> bool:
+    """Saving is the pilot's confirmation when it's their own flight, or when
+    the pilot has no account (guest - the FDL answers for it). Someone else
+    changing a member's flight takes the confirmation back: the pilot checks
+    it again (Auschecken), so a changed flight is never "green" unseen."""
+    if flight.pilot_id is None or flight.pilot_id == user.id:
+        return True
+    return flight.verified_by_pilot and not changed
 
 
 @router.post("/flights/{flight_id}/verify")

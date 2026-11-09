@@ -240,3 +240,41 @@ def test_without_vereinsflieger_closing_is_as_before(client, db_session, linked)
     close(client)
     db_session.expire_all()
     assert db_session.query(Flight).one().finalized_at is not None
+
+
+def test_a_change_by_someone_else_makes_a_green_flight_unconfirmed(client, db_session, linked, fake):
+    from test_flights import form_for
+    flight = green_flight(db_session, linked)
+    login(client, "desk")
+    resp = client.post(f"/flights/{flight.id}", data=form_for(flight, landing_time="12:10"), follow_redirects=False)
+    assert resp.status_code == 303, resp.text[-3000:]
+    db_session.expire_all()
+    assert db_session.get(Flight, flight.id).verified_by_pilot is False
+    assert close(client).status_code == 409
+    # The pilot looks at it again and confirms (Auschecken) - green again.
+    login(client, "pia")
+    client.post(f"/auschecken/{linked['pia'].id}", data={"day": str(today_local())})
+    login(client, "desk")
+    assert "1 Flug an den Vereinsflieger übertragen" in close(client).text
+
+
+def test_saving_without_a_change_keeps_it_confirmed(client, db_session, linked, fake):
+    from test_flights import form_for
+    flight = green_flight(db_session, linked)
+    login(client, "desk")
+    client.post(f"/flights/{flight.id}", data=form_for(flight))
+    db_session.expire_all()
+    assert db_session.get(Flight, flight.id).verified_by_pilot is True
+
+
+@pytest.mark.parametrize("who, pilot", [("pia", "pia"), ("desk", None)])
+def test_own_correction_or_a_guests_flight_stays_confirmed(client, db_session, linked, fake, who, pilot):
+    from test_flights import form_for
+    flight = green_flight(db_session, linked)
+    if pilot is None:
+        flight.pilot_id, flight.pilot_name = None, "Gast Hans"
+        db_session.commit()
+    login(client, who)
+    client.post(f"/flights/{flight.id}", data=form_for(flight, landing_time="12:10"))
+    db_session.expire_all()
+    assert db_session.get(Flight, flight.id).verified_by_pilot is True
