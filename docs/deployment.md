@@ -102,8 +102,21 @@ Aircraft kinds (Verwaltung > Flugzeuge) matter: tow planes and motor gliders def
 ## Before going live on the club server
 
 - `BASE_URL` must be the club's domain before printing QR codes - the codes contain it.
-- Password reset e-mails are only printed to the app log until an SMTP account is wired
-  up in `app/email_sender.py`.
+- **E-mail (todo):** password resets and account-approval notices are only printed to
+  the app log (`app/email_sender.py`, `ConsoleEmailSender`) - nobody receives them. Tested
+  on staging 2026-11-09: no mail arrives. To do when moving to the club server:
+  1. Get an account to send from: preferably the club's own mailbox with SMTP access
+     (server, port, user, password), so mails come from SG Bern. Alternatives: a mail
+     service (Brevo, Mailjet; needs a verified sender address on the club's domain).
+  2. Build an SMTP sender configured in `.env` (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`,
+     `SMTP_PASSWORD`, `MAIL_FROM`), the console sender stays the fallback when nothing is
+     set. Password only in `.env` (chmod 600), never in git.
+  3. Test a password reset and an approval mail end to end, also that they don't land in
+     spam (SPF/DKIM of the sending domain).
+- **Vereinsflieger:** on the club server `VEREINSFLIEGER_MODE=live` with the club's
+  AppKey and FDL login; staging goes back to `readonly` or `off` at the same time, so the
+  two never write to the club's Vereinsflieger (see [Vereinsflieger push](vereinsflieger.md),
+  stage 6). Then Verwaltung > Vereinsflieger: load, and link every pilot to their member.
 - The staging server has test accounts (`testpilot@flight.clanker.ch`,
   `startstelle@flight.clanker.ch`, now the FDL account) - don't carry them over.
 - `SESSION_SECRET` and `POSTGRES_PASSWORD`: real random values in `.env`.

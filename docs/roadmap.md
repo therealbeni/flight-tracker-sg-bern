@@ -32,7 +32,7 @@ dashboard, personal logbooks, and Vereinsflieger sync. That's the scope of this 
 - Phase 2: done.
 - Club ops v2 (below): done 2026-09-29, running on staging (flight.clanker.ch).
 - Club ops v4 (below): done 2026-10-06, after the first real flying day (03.10.).
-- Phase 3: AppKey exists (2026-11-07); plan in [Vereinsflieger push](vereinsflieger.md), waiting on a VF login for the tracker.
+- Phase 3: built 2026-11-09 - Tag abschliessen sends the day to Vereinsflieger, first real push tested ([Vereinsflieger push](vereinsflieger.md)). Left for the club server: see [deployment](deployment.md#before-going-live-on-the-club-server) (e-mail, Vereinsflieger mode).
 
 ## Phase 0 — Accounts & data foundation
 
