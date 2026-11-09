@@ -40,7 +40,13 @@ SECRET_FIELDS = {"accesstoken", "appkey", "password", "auth_secret"}
 
 
 class VereinsfliegerError(Exception):
-    """A call failed or wasn't allowed. The message is German, for the UI."""
+    """A call failed or wasn't allowed. The message is German, for the UI.
+    `refused`: Vereinsflieger answered with an error - a write did not happen
+    (otherwise, e.g. no answer, it may have)."""
+
+    def __init__(self, message: str, refused: bool = False):
+        super().__init__(message)
+        self.refused = refused
 
 
 @dataclass
@@ -157,7 +163,7 @@ class Client:
     def expect_ok(self, answer: Response, what: str) -> dict:
         if answer.status != 200:
             detail = answer.data.get("error") or f"HTTP {answer.status}"
-            raise VereinsfliegerError(f"{what} fehlgeschlagen: {detail}")
+            raise VereinsfliegerError(f"{what} fehlgeschlagen: {detail}", refused=answer.status is not None)
         return answer.data
 
     # -- login -------------------------------------------------------------
@@ -212,6 +218,10 @@ class Client:
         """Creates a flight; returns Vereinsflieger's data of it (with `flid`)."""
         return self.expect_ok(self.call("POST", "flight/add", fields, write=True, flight_id=flight_id),
                               "Flug übertragen")
+
+    def edit_flight(self, flid: int, fields: dict, flight_id: Optional[int] = None) -> dict:
+        return self.expect_ok(self.call("PUT", f"flight/edit/{int(flid)}", fields, write=True, flight_id=flight_id),
+                              "Flug korrigieren")
 
     def delete_flight(self, flid: int, flight_id: Optional[int] = None) -> None:
         self.expect_ok(self.call("DELETE", f"flight/delete/{int(flid)}", write=True, flight_id=flight_id),

@@ -47,6 +47,20 @@
     {% if day_finalized %}
     <p><strong>Tag abgeschlossen.</strong> Gelandete Flüge sind gesperrt.{% if not pilot.is_admin %} Wieder öffnen kann ein Admin.{% endif %}</p>
     {% if pilot.is_admin %}<form method="post" action="/admin/finalize/{{ day }}/unlock"><button type="submit" class="secondary compact">Wieder öffnen</button></form>{% endif %}
+    {% if vf and vf.retry %}
+    <form method="post" action="/flugbuch/uebertragen" data-confirm="Die noch fehlenden Flüge an den Vereinsflieger übertragen? Flüge, die schon dort sind, werden nicht nochmals übertragen.">
+        <input type="hidden" name="day" value="{{ day }}">
+        <button type="submit" class="compact">Übertragen wiederholen</button>
+    </form>
+    {% endif %}
+    {% elif vf %}
+    <p>{{ confirmed }} von {{ flights|length }} Flügen bestätigt.
+        {% if vf.ready %}Alle Flüge sind bereit für den Vereinsflieger.
+        {% else %}Übertragen an den Vereinsflieger geht, wenn alle Flüge grün sind - {{ vf.not_ready }} {{ "braucht" if vf.not_ready == 1 else "brauchen" }} noch etwas (siehe Status).{% endif %}</p>
+    <form method="post" action="/flugbuch/abschliessen" data-confirm="Tag abschliessen und an den Vereinsflieger übertragen? {{ vf.to_send }} {{ 'Flug wird' if vf.to_send == 1 else 'Flüge werden' }} dort eingetragen und den Mitgliedern verrechnet. Die Flüge können danach hier nicht mehr geändert werden - wieder öffnen kann nur ein Admin.">
+        <input type="hidden" name="day" value="{{ day }}">
+        <button type="submit" class="compact" {{ "disabled" if not vf.ready }}>Tag abschliessen und übertragen</button>
+    </form>
     {% else %}
     <p>{{ confirmed }} von {{ flights|length }} Flügen bestätigt{% if airborne_count %}, {{ airborne_count }} ohne Landung (bleib{{ "en" if airborne_count != 1 else "t" }} offen){% endif %}.</p>
     <form method="post" action="/flugbuch/abschliessen" data-confirm="Tag abschliessen? Die gelandeten Flüge können danach nicht mehr geändert werden - wieder öffnen kann nur ein Admin.">
@@ -69,7 +83,7 @@
    screens the table below, with every column like Vereinsflieger. #}
 <div class="record-list flugbuch-cards">
     {% for f in flights %}
-    <a class="record {{ 'needs-attention' if f.needs_attention or f.id in duplicates }} {{ 'is-airborne' if not f.landing_time }}" href="/flights/{{ f.id }}">
+    <a class="record {{ 'needs-attention' if f.needs_attention or f.id in duplicates or (vf and vf.problems.get(f.id)) }} {{ 'is-airborne' if not f.landing_time }}" href="/flights/{{ f.id }}">
         <div class="record-top">
             <span class="record-title">{{ f.glider.registration if f.glider else "?" }}</span>
             <span>{{ status_badge(f) }}{% if f.id in duplicates %} <span class="missing">doppelt?</span>{% endif %}</span>
@@ -101,7 +115,8 @@
     </thead>
     <tbody>
     {% for f in flights %}
-        <tr class="{{ 'is-editing' if editing and editing.id == f.id }} {{ 'needs-attention' if f.needs_attention or f.id in duplicates }} {{ 'is-airborne' if not f.landing_time }}">
+        {% set vf_missing = (vf.problems.get(f.id, []) | reject("in", f.needs_attention + ["doppelt?", "nicht bestätigt"]) | list) if vf else [] %}
+        <tr class="{{ 'is-editing' if editing and editing.id == f.id }} {{ 'needs-attention' if f.needs_attention or f.id in duplicates or vf_missing }} {{ 'is-airborne' if not f.landing_time }}">
             <td>{{ loop.index }}</td>
             <td><strong>{{ f.glider.registration if f.glider else "?" }}</strong></td>
             <td>{{ f.pilot_display or "" }}{% if not f.pilot_display %}<span class="missing">fehlt</span>{% endif %}</td>
@@ -116,7 +131,10 @@
             <td title="{{ f.billing_label }}">{{ f.billing_label }}</td>
             <td>{% if f.tow_aircraft %}{{ f.tow_aircraft.registration }}, {{ f.tow_pilot_display or "?" }}{% if f.tow_flight and f.tow_flight.duration_min %}, {{ f.tow_flight.duration_min|round|int }} Min.{% endif %}{% endif %}</td>
             <td class="notes">{{ f.notes or "" }}</td>
-            <td>{{ status_badge(f) }}{% if f.id in duplicates %} <span class="missing" title="Gleiches Flugzeug, gleiche Zeit wie ein anderer Flug - einer davon ist wohl zu löschen">doppelt?</span>{% endif %}</td>
+            <td>{{ status_badge(f) }}{% if f.id in duplicates %} <span class="missing" title="Gleiches Flugzeug, gleiche Zeit wie ein anderer Flug - einer davon ist wohl zu löschen">doppelt?</span>{% endif %}
+                {% for p in vf_missing %} <span class="missing">{{ p }}</span>{% endfor %}
+                {% if vf and f.vereinsflieger_external_id and f.vereinsflieger_external_id != vf.pending %} <span class="badge badge-approved" title="Vereinsflieger Nr. {{ f.vereinsflieger_external_id }}">im Vereinsflieger</span>
+                {% elif vf and f.id in vf.tows and day_finalized %} <span class="hint">mit dem Segelflug übertragen</span>{% endif %}</td>
             <td class="actions">
                 {% if can_edit[f.id] %}<a class="btn compact secondary" href="/flugbuch?datum={{ day }}&bearbeiten={{ f.id }}">Bearbeiten</a>
                 {% else %}<a class="btn compact secondary" href="/flights/{{ f.id }}">Ansehen</a>{% endif %}

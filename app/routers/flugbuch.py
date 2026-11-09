@@ -22,12 +22,13 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 import flight_form
+import vereinsflieger_push as vf_push
 from database import get_db
 from day_board import (aircraft_of_day, finalize_day, flights_of_day, month_calendar, parse_month, pilots_of_day,
                        possible_duplicates, record_checkout)
 from deps import local_path, require_approved
 from flight_form import FlightInput, can_edit, form_choices, members, read_form
-from models import Flight, Glider, GliderClaim, Pilot, PilotStatus
+from models import Flight, Glider, GliderClaim, Pilot, PilotStatus, VereinsfliegerCall
 from routers.claim import CheckIn, active_claims, check_in
 from templating import templates
 from timeutil import as_utc, local_day_bounds, to_local, today_local
@@ -91,6 +92,7 @@ def render_flugbuch(request: Request, db: Session, user: Pilot, day: date, form:
         "calendar_month": month or day.replace(day=1), "calendar_open": month is not None,
         "calendar": month_calendar(db, month or day.replace(day=1)),
         "notice": notice, "desk": is_desk, "checkin": checkin,
+        "vf": vereinsflieger_state(db, day, flights) if is_desk and vf_push.enabled() else None,
     }
     if is_desk:
         # The side panel and the club PC's Einchecken (both about today).
@@ -107,6 +109,24 @@ def render_flugbuch(request: Request, db: Session, user: Pilot, day: date, form:
             "members": members(db),
         })
     return templates.TemplateResponse(request, "flugbuch/day.html", context, status_code=status_code)
+
+
+def vereinsflieger_state(db: Session, day: date, flights: list[Flight]) -> dict:
+    """For Tag abschliessen with Vereinsflieger: what's missing per flight, and
+    whether a closed day still has flights to send (a push that was cut off)."""
+    the_plan = vf_push.plan(db, day, flights)
+    # A push of this day was started: it read the day from Vereinsflieger, or sent one of its flights.
+    started = bool(flights) and db.scalar(select(VereinsfliegerCall.id).where(
+        VereinsfliegerCall.flight_id.in_([f.id for f in flights])
+        | ((VereinsfliegerCall.endpoint == "flight/list/date")
+           & VereinsfliegerCall.request.contains(f'"dateparam": "{day.isoformat()}"'))).limit(1)) is not None
+    unsent = [r for r in the_plan.to_send if r.flight.vereinsflieger_external_id in (None, vf_push.PENDING)]
+    return {
+        "ready": the_plan.ready, "problems": {r.flight.id: r.problems for r in the_plan.rows},
+        "tows": {r.flight.id for r in the_plan.rows if r.is_tow}, "to_send": len(the_plan.to_send),
+        "not_ready": sum(1 for r in the_plan.rows if not r.green), "retry": started and bool(unsent),
+        "pending": vf_push.PENDING,
+    }
 
 
 def checkin_aircraft(db: Session, board) -> list[dict]:
@@ -128,7 +148,7 @@ def flugbuch(request: Request, datum: Optional[date] = Query(None), bearbeiten: 
         editing = db.get(Flight, bearbeiten)
         if editing is None or editing.deleted_at is not None or not can_edit(editing, user):
             editing = None
-    notice = ""
+    notice = request.session.pop("flugbuch_notice", "")
     if eingecheckt is not None and user.edits_all_flights:
         claim = db.get(GliderClaim, eingecheckt)
         if claim is not None:
@@ -188,13 +208,36 @@ def desk_check_in(request: Request, pilot_id: str = Form(""), glider_id: str = F
 
 
 @router.post("/flugbuch/abschliessen")
-def close_day(day: date = Form(...), db: Session = Depends(get_db), user: Pilot = Depends(require_approved)):
+def close_day(request: Request, day: date = Form(...), db: Session = Depends(get_db),
+              user: Pilot = Depends(require_approved)):
     """Tag abschliessen (FDL and admins): the day's landed flights are locked.
-    Only an admin can open a day again (Verwaltung)."""
+    Only an admin can open a day again (Verwaltung). With Vereinsflieger on,
+    only when every flight is ready ("green"), and then the day is sent there."""
     if not user.edits_all_flights:
         raise HTTPException(status_code=403, detail="Einen Tag abschliessen kann der Flugdienstleiter oder ein Admin.")
-    finalize_day(db, day)
-    db.commit()
+    if vf_push.enabled():
+        if not vf_push.plan(db, day).ready:
+            return render_flugbuch(request, db, user, day, status_code=409, notice=(
+                "Noch nicht abgeschlossen: erst wenn alle Flüge grün sind, kann der Tag an den Vereinsflieger "
+                "übertragen werden."))
+        finalize_day(db, day)
+        db.commit()
+        request.session["flugbuch_notice"] = "Tag abgeschlossen. " + vf_push.push_day(db, day, user).message
+    else:
+        finalize_day(db, day)
+        db.commit()
+    return RedirectResponse(f"/flugbuch?datum={day}", status_code=303)
+
+
+@router.post("/flugbuch/uebertragen")
+def push_again(request: Request, day: date = Form(...), db: Session = Depends(get_db),
+               user: Pilot = Depends(require_approved)):
+    """Sends a closed day again, after a push was cut off (no answer, or
+    Vereinsflieger refused a flight). Flights already there aren't sent twice."""
+    if not user.edits_all_flights:
+        raise HTTPException(status_code=403, detail="Übertragen kann der Flugdienstleiter oder ein Admin.")
+    if vf_push.enabled():
+        request.session["flugbuch_notice"] = vf_push.push_day(db, day, user).message
     return RedirectResponse(f"/flugbuch?datum={day}", status_code=303)
 
 

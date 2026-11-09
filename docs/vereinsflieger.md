@@ -1,9 +1,10 @@
 # Vereinsflieger push - plan
 
-Status 2026-11-09: stages 0, 1, 2 and 4 done - the client (`app/vereinsflieger.py`, call
-log), a read-only look at the club's data (findings below), one supervised test flight
-(created and deleted again) and the mapping (Verwaltung > Vereinsflieger). Staging runs
-in mode `readonly`. Next: stages 3, 5.
+Status 2026-11-09: built - Tag abschliessen sends the day to Vereinsflieger (mode `live`,
+`app/vereinsflieger_push.py`, see "How the push works" below). Staging runs in mode
+`live` since 09.11. evening, at Benja's request, for a first real test. Stage 3 (a
+separate dry-run preview) was folded into the Flugbuch: the per-flight checks show as
+the flight's status, and the button stays disabled until every flight is green.
 The club has created an AppKey (Stammdaten > Einstellungen > REST Interface, 500 calls a
 day, status Aktiv). This is Phase 3 of the [roadmap](roadmap.md), the last big step.
 
@@ -293,6 +294,29 @@ Fix the mapping until a pushed flight is identical to a hand-entered one.
   in VF automatically. The preview lists it ("Im Vereinsflieger löschen?") and an admin
   confirms it one by one.
 - Calendar: a day that is closed and fully pushed gets a mark.
+
+### How the push works (built 2026-11-09)
+
+- Only FDL and admins; only with mode `live`. With mode `off`/`readonly`, Tag abschliessen
+  works as before.
+- **Green** = landed, confirmed (Auschecken), nothing to check (time estimated, place
+  missing, duplicate) and Vereinsflieger has what it needs: aircraft known in VF, Startort,
+  Startart, a known Flugart, pilot / Begleiter / paying member linked to their VF member,
+  whoever pays is a member, aerotow with Schleppflugzeug and a linked Schlepppilot. What's
+  missing shows in the flight's status. "Tag abschliessen und übertragen" is disabled
+  until all flights are green, and asks "are you sure" (how many flights, billed).
+- Tows (Flugart F, or the tow plane's flight the tracker linked to a glider flight) aren't
+  sent: the glider flight carries `towcallsign`, `towuidpilot`/`towpilotname`, `towtime`,
+  and VF creates the tow flight (findings). A tow plane flight that towed nobody isn't green.
+- Each flight: claimed first (`vereinsflieger_external_id` = "pending", one atomic UPDATE -
+  pressing twice or two people at once can't send it twice); then looked up in VF's day
+  (same callsign, times overlap) - if there, only linked (typed in by hand); else
+  `flight/add`, and the `flid` stored. Refused by VF -> unclaimed, "Übertragen
+  wiederholen" sends it again. No answer -> stays pending; a retry after 2 minutes looks it
+  up in VF before sending.
+- Re-opened day: a flight corrected since it was sent (audit entry newer than the send) is
+  sent as `flight/edit`. **Not handled:** a flight deleted here after it was sent stays in
+  VF - delete it there by hand.
 
 ### Stage 6 - go live on the club server
 
